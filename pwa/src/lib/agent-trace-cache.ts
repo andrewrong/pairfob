@@ -1,5 +1,16 @@
 import type { AgentTraceDetail, AgentTraceItem } from "./operations";
 
+export type AgentTraceViewport = {
+  /** Stable rendered-message key, never a DOM node. */
+  anchor: string;
+  /** Anchor top relative to the scrollport top. */
+  offset: number;
+  /** Fallback for old markup or an anchor no longer present. */
+  scrollTop: number;
+  follow: boolean;
+  unread: boolean;
+};
+
 export type AgentTraceCacheEntry = {
   items: AgentTraceItem[];
   nextCursor: string | null;
@@ -7,6 +18,9 @@ export type AgentTraceCacheEntry = {
   truncated: boolean;
   signature: string;
   tail: number;
+  /** Full daemon/session/pane/occupant identity. Missing only on legacy callers. */
+  ownerKey?: string;
+  viewport?: AgentTraceViewport;
 };
 
 const MAX_CACHED_PANES = 6;
@@ -22,14 +36,23 @@ export type AgentTraceDetailState = {
 };
 
 function copy(entry: AgentTraceCacheEntry): AgentTraceCacheEntry {
-  return { ...entry, items: entry.items.map((item) => ({ ...item })) };
+  return {
+    ...entry,
+    items: entry.items.map((item) => ({ ...item })),
+    ...(entry.viewport ? { viewport: { ...entry.viewport } } : {}),
+  };
 }
 
 /** Short-lived screen cache only; daemon changes clear it before another computer can reuse a pane id. */
 export function cacheAgentTrace(paneId: string, entry: AgentTraceCacheEntry): void {
   if (!paneId) return;
+  const previous = entries.get(paneId);
+  const sameOwner = previous && entry.ownerKey === previous.ownerKey;
+  const next = entry.viewport || !sameOwner || !previous?.viewport
+    ? entry
+    : { ...entry, viewport: previous.viewport };
   entries.delete(paneId);
-  entries.set(paneId, copy(entry));
+  entries.set(paneId, copy(next));
   while (entries.size > MAX_CACHED_PANES) {
     const oldest = entries.keys().next().value;
     if (typeof oldest !== "string") break;
@@ -38,12 +61,19 @@ export function cacheAgentTrace(paneId: string, entry: AgentTraceCacheEntry): vo
   }
 }
 
-export function cachedAgentTrace(paneId: string): AgentTraceCacheEntry | null {
+export function cachedAgentTrace(paneId: string, ownerKey?: string): AgentTraceCacheEntry | null {
   const entry = entries.get(paneId);
-  if (!entry) return null;
+  if (!entry || (ownerKey && entry.ownerKey && entry.ownerKey !== ownerKey)) return null;
   entries.delete(paneId);
   entries.set(paneId, entry);
   return copy(entry);
+}
+
+export function cacheAgentTraceViewport(paneId: string, ownerKey: string, viewport: AgentTraceViewport): void {
+  const entry = entries.get(paneId);
+  if (!entry || (entry.ownerKey && entry.ownerKey !== ownerKey)) return;
+  entries.delete(paneId);
+  entries.set(paneId, copy({ ...entry, ownerKey, viewport }));
 }
 
 export function forgetAgentTrace(paneId: string): void {

@@ -1,5 +1,5 @@
 import { openPaneId } from "../session-store";
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { followTrace, setTraceFollow } from "./trace-store";
 import { computersStore } from "../../computers/catalog-store";
 import { useChat, useSession } from "../hooks";
@@ -8,8 +8,9 @@ import { agentStatusLabel, chromeName } from "../../../lib/dashboard";
 import { t } from "../../../lib/i18n";
 import { canInterruptAgent } from "../../connection/runtime-status";
 import { loadToolDetail, toolDetailView } from "./agent-chat-detail";
-import { chatDockNotice, copyAgentReply, emptySpec, jumpToLatest, leaveAgentChat, patchAgentChat, refreshAgentTrace,
-  streamSig, visibleItems } from "./agent-chat-controller";
+import { chatDockNotice, copyAgentReply, currentAgentTraceOwnerKey, emptySpec, jumpToLatest, leaveAgentChat,
+  patchAgentChat, refreshAgentTrace, rememberAgentViewport, restoreAgentViewport, streamSig, visibleItems,
+} from "./agent-chat-controller";
 import { agentChatUIRevision, publishAgentChatUI, subscribeAgentChatUI } from "./agent-chat-ui";
 import type { SessionHandlers } from "../guided/view";
 import { commitView } from "../../../app/host";
@@ -62,6 +63,14 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
     if (!paneId) return;
     loadToolDetail(paneId, detailRef, () => { if (!patchAgentChat()) commitView(); });
   }, [paneId]);
+  useLayoutEffect(() => {
+    const element = stream.current;
+    const ownerKey = currentAgentTraceOwnerKey();
+    if (element) restoreAgentViewport(element, paneId, ownerKey);
+    return () => {
+      if (element) rememberAgentViewport(element, paneId, ownerKey);
+    };
+  }, [paneId]);
   useEffect(() => {
     let retired = false;
     const session = computersStore.get().live;
@@ -70,7 +79,7 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
         && !chat.agentTraceBusy && chat.agentTraceLoadState === "cold") void refreshAgentTrace();
     });
     return () => { retired = true; };
-  }, [paneId]);
+  }, [paneId, chat.agentTraceLoadState]);
   return <div className="pane-root agent-chat-root" data-react-agent-chat="" data-back={includeBack ? "1" : "0"}>
     <AgentChatChrome includeBack={includeBack} handlers={handlers} />
     {notice && <Feedback value={notice} appNotice />}
@@ -81,10 +90,11 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
         onTerminal={() => { if (openPaneId() === paneId) leaveAgentChat(); }}
         onRetry={() => { if (!chat.agentTraceBusy) void refreshAgentTrace(); }}
         onNeedOlder={() => { if (chat.agentTraceNext && !chat.agentTraceBusy) void refreshAgentTrace(true); }}
-        onFollow={follow => {
+        onFollow={(follow, element) => {
           if (follow) followTrace();
           else setTraceFollow(false);
           publishAgentChatUI();
+          rememberAgentViewport(element, paneId);
         }}
         onCopyReply={copyAgentReply} toolDetail={item => paneId && item.detailRef ? toolDetailView(paneId, item.detailRef) : { status: "ready" }}
         onNeedToolDetail={needDetail} older={<Button className="btn btn-small agent-older" hidden={!chat.agentTraceNext}

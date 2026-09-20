@@ -6,6 +6,7 @@ import {
   clearPendingTurn,
   currentTraceOwnerVersion,
   followTrace,
+  retireAgentTraceReads,
   setPendingTurn,
   setTraceBusy,
   setTraceLoadState,
@@ -16,7 +17,7 @@ import {
   COMPOSE_MAX_PX, COMPOSE_MIN_PX, composeDraft, composeFocused, composeIME, setComposeDraft,
 } from "../compose-store";
 import { clearNoticeForScope, showError, showStatus, visibleNotice, type Notice } from "../../../app/notices-store";
-import { liveSession } from "../../computers/catalog-store";
+import { currentDaemonId, liveSession } from "../../computers/catalog-store";
 import { phase } from "../../connection/connection-store";
 import { batch } from "../../../app/domain-publication";
 import { isAgentChat, isFullTerminal, openPaneId, setAgentChat, setFullTerminal } from "../session-store";
@@ -28,7 +29,13 @@ import { haptic } from "../../../lib/dom";
 import { canPromptAgent } from "../../../lib/dashboard";
 import { t } from "../../../lib/i18n";
 import { firstTurnNeedsUser, mergeAgentTraceSegments } from "../../../lib/agent-trace-view";
-import { agentTraceDetailRevision, cacheAgentTrace, cachedAgentTrace } from "../../../lib/agent-trace-cache";
+import {
+  agentTraceDetailRevision,
+  cacheAgentTrace,
+  cachedAgentTrace,
+  cacheAgentTraceViewport,
+  type AgentTraceViewport,
+} from "../../../lib/agent-trace-cache";
 import type { AgentTraceItem, AgentTracePage } from "../../../lib/operations";
 import { ProtocolError } from "../../../lib/protocol/errors";
 import { messageOf } from "../../../lib/notices";
@@ -47,6 +54,7 @@ import {
 import { leaveFullTerminal } from "../full-terminal/full-terminal";
 import { agentEmptySpec, agentStreamSignature, type AgentEmptySpec } from "./model";
 import { publishAgentChatUI } from "./agent-chat-ui";
+import { captureTraceViewport, restoreTraceViewport } from "./viewport";
 
 function fingerprint(items: AgentTraceItem[]): string {
   return JSON.stringify(items);
@@ -68,6 +76,21 @@ function atBottom(el: HTMLElement): boolean {
 const TRACE_PAGE = 200;
 const OLDER_FILL_MAX = 4;
 let traceRequest = 0;
+
+/** Cache/read owner: daemon + runtime session + pane + terminal agent occupant. */
+export function currentAgentTraceOwnerKey(): string {
+  const session = liveSession();
+  const paneId = openPaneId();
+  if (!session || !paneId) return "";
+  const agent = liveAgents().find((item) => item.paneId === paneId);
+  return JSON.stringify([
+    currentDaemonId(),
+    agent?.runtimeSession || "",
+    paneId,
+    agent?.terminalId || "",
+    agent?.agentInstanceId || "",
+  ]);
+}
 
 export function streamSig(items: AgentTraceItem[], working: boolean): string {
   return agentStreamSignature(
@@ -118,7 +141,7 @@ function applyTracePage(page: AgentTracePage, older: boolean): boolean {
   return true;
 }
 
-function rememberTrace(paneId: string): void {
+function rememberTrace(paneId: string, ownerKey = currentAgentTraceOwnerKey(), viewport?: AgentTraceViewport): void {
   cacheAgentTrace(paneId, {
     items: [...chatSnapshot().agentTraceItems],
     nextCursor: chatSnapshot().agentTraceNext,
@@ -126,13 +149,37 @@ function rememberTrace(paneId: string): void {
     truncated: chatSnapshot().agentTraceTruncated,
     signature: chatSnapshot().agentTraceSig,
     tail: chatSnapshot().agentTraceTail,
+    ownerKey,
+    viewport,
   });
 }
 
+export function rememberAgentViewport(stream: HTMLElement, paneId = openPaneId(), ownerKey = currentAgentTraceOwnerKey()): void {
+  if (!paneId || !ownerKey) return;
+  const snapshot = chatSnapshot();
+  cacheAgentTraceViewport(
+    paneId,
+    ownerKey,
+    captureTraceViewport(stream, snapshot.agentTraceFollow, snapshot.agentTraceUnread),
+  );
+}
+
+export function restoreAgentViewport(stream: HTMLElement, paneId = openPaneId(), ownerKey = currentAgentTraceOwnerKey()): boolean {
+  if (!paneId || !ownerKey) return false;
+  const viewport = cachedAgentTrace(paneId, ownerKey)?.viewport;
+  return viewport ? restoreTraceViewport(stream, viewport) : false;
+}
+
 export function restoreAgentTrace(paneId: string): boolean {
-  const entry = cachedAgentTrace(paneId);
+  const entry = cachedAgentTrace(paneId, currentAgentTraceOwnerKey());
   if (!entry) return false;
   adoptTracePage(entry);
+  if (entry.viewport) {
+    applyTrace({
+      agentTraceFollow: entry.viewport.follow,
+      agentTraceUnread: entry.viewport.unread,
+    });
+  }
   return true;
 }
 
@@ -246,7 +293,75 @@ function retiredTrace(
   return request !== traceRequest || ownerVersion !== currentTraceOwnerVersion() || !ownerIsCurrent(session, paneId);
 }
 
+type TraceRefreshLane = {
+  session: NonNullable<ReturnType<typeof liveSession>>;
+  paneId: string;
+  ownerKey: string;
+  ownerVersion: number;
+  trailing: boolean;
+  promise: Promise<boolean>;
+};
+
+let traceLane: TraceRefreshLane | null = null;
+
+function laneIsCurrent(lane: TraceRefreshLane): boolean {
+  return lane.session === liveSession() && lane.paneId === openPaneId() && lane.ownerKey === currentAgentTraceOwnerKey()
+    && lane.ownerVersion === currentTraceOwnerVersion() && isAgentChat();
+}
+
+/** Preserve cached content but prevent a hidden/disconnected read from publishing after recovery. */
+export function retireAgentTraceRefreshes(): void {
+  traceRequest += 1;
+  retireAgentTraceReads();
+  if (traceLane) traceLane.trailing = false;
+}
+
+/**
+ * Tail invalidations share one owner lane. Bursts during a read collapse to one
+ * trailing read; a replacement owner gets a fresh lane and never inherits it.
+ * Older-page requests remain explicit and are never replayed automatically.
+ */
 export async function refreshAgentTrace(older = false): Promise<boolean> {
+  const session = liveSession();
+  const paneId = openPaneId();
+  const ownerKey = currentAgentTraceOwnerKey();
+  if (!session || !paneId || !ownerKey || !isAgentChat() || !session.isConnected()) return Promise.resolve(false);
+  const current = traceLane;
+  if (current && current.session === session && current.paneId === paneId && current.ownerKey === ownerKey) {
+    if (!older) current.trailing = true;
+    return older ? Promise.resolve(false) : current.promise;
+  }
+  const lane: TraceRefreshLane = {
+    session,
+    paneId,
+    ownerKey,
+    ownerVersion: currentTraceOwnerVersion(),
+    trailing: false,
+    promise: Promise.resolve(false),
+  };
+  let resolve!: (changed: boolean) => void;
+  lane.promise = new Promise<boolean>((done) => { resolve = done; });
+  traceLane = lane;
+  void (async () => {
+    let changed = false;
+    try {
+      changed = await performAgentTraceRefresh(older);
+      if (lane.trailing && laneIsCurrent(lane)) {
+        lane.trailing = false;
+        changed = (await performAgentTraceRefresh(false)) || changed;
+      }
+    } catch {
+      // Expected RPC failures are handled by the reader; a UI callback must not
+      // strand every coalesced caller if an unexpected publication throws.
+    } finally {
+      resolve(changed);
+      if (traceLane === lane) traceLane = null;
+    }
+  })();
+  return lane.promise;
+}
+
+async function performAgentTraceRefresh(older = false): Promise<boolean> {
   const session = liveSession();
   const paneId = openPaneId();
   if (!session || !paneId || !isAgentChat() || !session.isConnected()) return false;
@@ -257,10 +372,6 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
   const measureColdLoad = !older && chatSnapshot().agentTraceLoadState === "cold" && !chatSnapshot().agentTraceItems.length;
   const startedAt = Date.now();
   let measured = false;
-  const stream = streamEl();
-  const follow = !older && (!stream || atBottom(stream));
-  const top = stream?.scrollTop ?? 0;
-  const height = stream?.scrollHeight ?? 0;
   batch(() => {
     setTraceBusy(true);
     if (!older && !chatSnapshot().agentTraceItems.length && !chatSnapshot().agentTracePending) setTraceLoadState("loading");
@@ -284,6 +395,14 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
         });
         measured = true;
       }
+      const beforeStream = streamEl();
+      const beforeSnapshot = chatSnapshot();
+      // Read the posture at publication time: the reader may have scrolled up
+      // while this RPC was in flight.
+      const pageFollow = !older && (!beforeStream || atBottom(beforeStream));
+      const viewport = beforeStream
+        ? captureTraceViewport(beforeStream, pageFollow, beforeSnapshot.agentTraceUnread)
+        : undefined;
       let applied = false;
       batch(() => {
         applied = applyTracePage(page, cursor !== null);
@@ -298,9 +417,13 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
       rememberTrace(paneId);
       if (applied || pulls === 1) {
         const current = streamEl();
-        const pageTop = cursor === null ? top : current?.scrollTop ?? top;
-        const pageHeight = cursor === null ? height : current?.scrollHeight ?? height;
-        if (!patchAgentChat({ follow, older: cursor !== null, top: pageTop, height: pageHeight })) commitView();
+        if (!patchAgentChat({
+          follow: pageFollow,
+          older: cursor !== null,
+          top: current?.scrollTop ?? 0,
+          height: current?.scrollHeight ?? 0,
+          viewport,
+        })) commitView();
         if (retiredTrace(request, ownerVersion, session, paneId)) return false;
       }
       if (cursor !== null && !applied) break;
@@ -336,7 +459,9 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
     }
     applyTrace({ agentTraceLoadState: "error", agentTraceNote: messageOf(error, "read") });
     if (retiredTrace(request, ownerVersion, session, paneId)) return false;
-    if (!patchAgentChat({ follow })) commitView();
+    const currentStream = streamEl();
+    const errorFollow = !older && (!currentStream || atBottom(currentStream));
+    if (!patchAgentChat({ follow: errorFollow })) commitView();
     return false;
   } finally {
     if (!retiredTrace(request, ownerVersion, session, paneId)) {
@@ -376,7 +501,7 @@ export function leaveAgentChat(opts?: { rememberGuided?: boolean; paint?: boolea
   if (!isAgentChat()) return;
   switchComposeView(() => {
     if (opts?.rememberGuided !== false) setPaneTermMode(openPaneId(), "guided");
-    traceRequest++;
+    retireAgentTraceRefreshes();
     batch(() => {
       setAgentChat(false);
       setTraceBusy(false);
@@ -409,7 +534,13 @@ export function chatDockNotice(): Notice | null {
 
 function syncChatDock(): void { publishAgentChatUI(); }
 
-export function patchAgentChat(opts?: { follow?: boolean; older?: boolean; top?: number; height?: number }): boolean {
+export function patchAgentChat(opts?: {
+  follow?: boolean;
+  older?: boolean;
+  top?: number;
+  height?: number;
+  viewport?: AgentTraceViewport;
+}): boolean {
   const root = appRoot().querySelector("[data-react-agent-chat]");
   const stream = streamEl();
   const session = liveSession();
@@ -422,6 +553,11 @@ export function patchAgentChat(opts?: { follow?: boolean; older?: boolean; top?:
   const follow = opts?.follow ?? (chatSnapshot().agentTraceFollow && atBottom(stream));
   const previousTop = opts?.top ?? stream.scrollTop;
   const previousHeight = opts?.height ?? stream.scrollHeight;
+  const viewport = opts?.viewport ?? captureTraceViewport(
+    stream,
+    follow,
+    chatSnapshot().agentTraceUnread,
+  );
   batch(() => {
     if (follow) followTrace();
     else if (!opts?.older && !unchanged) setTraceUnread(true);
@@ -431,9 +567,13 @@ export function patchAgentChat(opts?: { follow?: boolean; older?: boolean; top?:
   if (!ownerIsCurrent(session, paneId) || currentViewIncarnation() !== incarnation) return true;
   const painted = streamEl();
   if (!painted || painted !== stream) return true;
-  if (opts?.older) painted.scrollTop = painted.scrollHeight - previousHeight + previousTop;
-  else if (follow) painted.scrollTop = painted.scrollHeight;
-  else if (!unchanged) painted.scrollTop = previousTop;
+  if (follow) painted.scrollTop = painted.scrollHeight;
+  else if (!unchanged || opts?.older) {
+    const restored = restoreTraceViewport(painted, viewport);
+    if (!restored && opts?.older) painted.scrollTop = painted.scrollHeight - previousHeight + previousTop;
+    else if (!restored) painted.scrollTop = viewport.scrollTop;
+  }
+  rememberAgentViewport(painted, paneId, currentAgentTraceOwnerKey());
   return true;
 }
 

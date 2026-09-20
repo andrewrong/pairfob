@@ -15,8 +15,9 @@ import { revealCaretRow, stickBottom } from "../features/session/guided/term";
 import { resumeComputer } from "../features/computers/actions";
 import {
   reconnectLiveSessions,
-  refreshRuntimeState,
+  recoverVisibleSession,
   reloadComputers,
+  retireAgentTraceRefreshes,
   setLiveNetworkAvailable,
   startPolling,
   stopPolling,
@@ -202,7 +203,7 @@ function applyNetworkAvailability(available: boolean): void {
   if (!changed) reconnectLiveSessions("probe");
   if (liveSession()?.isConnected()) {
     startPolling();
-    void refreshRuntimeState();
+    void recoverVisibleSession();
   }
   commitBootView();
 }
@@ -210,8 +211,10 @@ function applyNetworkAvailability(available: boolean): void {
 function bindNetworkLifecycle(signal: AbortSignal): void {
   document.addEventListener("visibilitychange", () => {
     handleFullTerminalVisibility(document.visibilityState === "hidden");
-    if (document.visibilityState === "hidden") stopPolling();
-    else applyNetworkAvailability(navigator.onLine !== false);
+    if (document.visibilityState === "hidden") {
+      retireAgentTraceRefreshes();
+      stopPolling();
+    } else applyNetworkAvailability(navigator.onLine !== false);
   }, { signal });
 
   window.addEventListener("online", () => applyNetworkAvailability(true), { signal });

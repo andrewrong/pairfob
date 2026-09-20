@@ -37,6 +37,12 @@ export function currentTraceOwnerVersion(): number {
   return traceOwnerVersion;
 }
 
+/** Retire asynchronous reads without discarding the currently visible transcript. */
+export function retireAgentTraceReads(): void {
+  traceOwnerVersion += 1;
+  setTraceBusy(false);
+}
+
 /** Retire cached reads for a replaced pane and active reads for the open pane. */
 export function invalidateAgentTraceOwner(paneId: string, active = true): void {
   forgetAgentTrace(paneId);

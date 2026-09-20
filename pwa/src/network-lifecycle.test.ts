@@ -19,7 +19,7 @@ describe("mobile network lifecycle wiring", () => {
     expect(main).toContain('reconnectLiveSessions("probe")');
     expect(main).toContain('reconnectLiveSessions("path")');
     expect(main).toContain("bootBlockedByNetwork");
-    expect(main).toContain("void refreshRuntimeState()");
+    expect(main).toContain("void recoverVisibleSession()");
   });
 
   test("the reconnect state machine aborts offline dials without retrying mutations", () => {

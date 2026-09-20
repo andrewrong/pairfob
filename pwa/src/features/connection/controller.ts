@@ -73,12 +73,20 @@ import { composeField, preserveCompose } from "../../features/session/guided/com
 import { dropQueuedKeys } from "../../features/session/guided/keys";
 import { paneReadLines } from "../../features/session/guided/pane-model";
 import { patchChromeTitle, patchSessionScreen } from "../../features/session/guided/view";
-import { canEnterAgentChat, patchAgentChat, refreshAgentTrace, restoreAgentTrace } from "../../features/session/chat/agent-chat-controller";
+import {
+  canEnterAgentChat,
+  patchAgentChat,
+  refreshAgentTrace,
+  restoreAgentTrace,
+  retireAgentTraceRefreshes,
+} from "../../features/session/chat/agent-chat-controller";
 import { disposeFullTerminal, handleFullTerminalEvent, leaveFullTerminal, leaveFullTerminalWithTransition, syncFullTerminalChrome } from "../session/full-terminal/full-terminal";
 import { preloadFullTerminalXterm } from "../session/full-terminal/full-terminal-loader";
 import { resolvedPaneTermMode } from "../session/term-mode";
 import { guidedScrollController } from "../session/guided/guided-scroll";
 import { nextTransition, queuedKind, transitionFor } from "../../app/transition";
+
+export { retireAgentTraceRefreshes };
 
 const livePolling = createLivePolling({
   canRun: () => networkOnline() && document.visibilityState === "visible" && connectionStore.get().phase === "live" && liveSession()?.isConnected() === true,
@@ -144,7 +152,7 @@ const lifecyclePorts: LifecyclePorts = {
   deleteCredential,
   startPolling: () => livePolling.start(),
   stopPolling: () => livePolling.stop(),
-  refreshRuntime: () => refreshRuntimeState(),
+  refreshRuntime: () => recoverVisibleSession(),
   resetPaneReads: resetPaneReadRequests,
   setRefreshIdle: () => setRefreshBusy(false),
   track,
@@ -206,7 +214,8 @@ const sessionEventPorts = {
   showStatus,
   startPolling: () => startPolling(),
   stopPolling: () => stopPolling(),
-  refreshRuntime: () => refreshRuntimeState(),
+  retireAgentTraceReads: retireAgentTraceRefreshes,
+  refreshRuntime: () => recoverVisibleSession(),
   refreshSnapshot: () => refreshSnapshot(),
   wakePane: () => livePolling.wakePane(),
   preloadFullTerminal: preloadFullTerminalXterm,
@@ -243,6 +252,12 @@ const runtimePorts = {
 
 export async function refreshRuntimeState(): Promise<void> {
   await observeRuntimeState(runtimePorts);
+}
+
+/** Foreground/reconnect reconciliation: retire old reads, then config → snapshot → tail. */
+export async function recoverVisibleSession(): Promise<void> {
+  retireAgentTraceRefreshes();
+  await refreshRuntimeState();
 }
 
 async function handleTerminal(event: SessionEvent): Promise<void> {
@@ -420,14 +435,11 @@ export async function refreshPaneRead(request: PaneRefreshRequest = {}): Promise
 }
 
 export async function refreshFromSession(): Promise<void> {
-  await Promise.all([
-    refreshSnapshot(),
-    currentScreen() === "board"
-      ? refreshBoardPreviews()
-      : currentScreen() === "pane" && openPaneId() && !isFullTerminal()
-        ? refreshPaneRead()
-        : Promise.resolve(),
-  ]);
+  // Snapshot is authoritative for pane and occupant identity. Never race a
+  // foreground/reconnect tail read against the identity it must belong to.
+  await refreshSnapshot();
+  if (currentScreen() === "board") await refreshBoardPreviews();
+  else if (currentScreen() === "pane" && openPaneId() && !isFullTerminal()) await refreshPaneRead();
 }
 
 export function wakeLiveReads(): void {

@@ -31,6 +31,16 @@ describe("refresh contract constants", () => {
     expect(liveSrc).toContain("refreshBoardPreviews");
   });
 
+  test("foreground recovery waits for the authoritative snapshot before reading the pane tail", () => {
+    const refresh = liveSrc.slice(
+      liveSrc.indexOf("export async function refreshFromSession"),
+      liveSrc.indexOf("export function wakeLiveReads"),
+    );
+    expect(refresh).not.toContain("Promise.all");
+    expect(refresh.indexOf("await refreshSnapshot()"))
+      .toBeLessThan(refresh.indexOf("await refreshPaneRead()"));
+  });
+
   test("the production connector forwards finished P2P attempts into the pool channel", () => {
     const connector = liveSrc.slice(
       liveSrc.indexOf("const connectComputerSession:"),

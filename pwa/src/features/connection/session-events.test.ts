@@ -4,7 +4,7 @@ import type { LiveSession, PairResult } from "../../lib/protocol/client";
 import { attachLiveSession, liveSession, setCredential } from "../computers/catalog-store";
 import { connectionStore, noteRelayRtt, sessionTransport, setSessionTransport } from "./connection-store";
 import { setScreen } from "../../app/navigation-store";
-import { resetObservationLifecycle, selectPane } from "../session/session-store";
+import { resetObservationLifecycle, selectPane, setAgentChat } from "../session/session-store";
 import { batch } from "../../shared/model/domain-store";
 import { ComputerSessions } from "../computers/session-pool";
 import { observeSessionEvent, type SessionEventPorts } from "./session-events";
@@ -23,6 +23,7 @@ const eventPorts: SessionEventPorts = {
   showStatus: () => calls.push("status"),
   startPolling: () => calls.push("start"),
   stopPolling: () => calls.push("stop"),
+  retireAgentTraceReads: () => undefined,
   refreshRuntime: async () => {
     calls.push("runtime");
   },
@@ -47,6 +48,7 @@ beforeEach(async () => {
   calls = [];
   resetObservationLifecycle();
   selectPane("");
+  setAgentChat(false);
   setScreen("home");
   session = {
     isConnected: () => true,
@@ -138,6 +140,27 @@ describe("session event observation", () => {
     // Already on p2p: no second preload.
     observeSessionEvent(pool, "A", session, { type: "latency", rttMs: 9, transport: "p2p" }, eventPorts);
     expect(calls).toEqual([]);
+  });
+
+  test("an agent-status poke orders the pane tail wake after its snapshot", async () => {
+    setScreen("pane");
+    selectPane("p1");
+    setAgentChat(true);
+    let finishSnapshot!: () => void;
+    const ports: SessionEventPorts = {
+      ...eventPorts,
+      refreshSnapshot: async () => {
+        calls.push("snapshot:start");
+        await new Promise<void>((resolve) => { finishSnapshot = resolve; });
+        calls.push("snapshot:done");
+      },
+    };
+    observeSessionEvent(pool, "A", session, { type: "poke", paneId: "p1", reason: "agent_status" }, ports);
+    expect(calls).toEqual(["snapshot:start"]);
+    finishSnapshot();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toEqual(["snapshot:start", "snapshot:done", "pane"]);
   });
 
   test("poke routing and inactive-terminal ownership stay per-session", () => {

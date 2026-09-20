@@ -209,6 +209,50 @@ test("held trace request shows busy then clears both core snapshot and actual ol
   expect(after).toEqual({ snapshot: false, disabled: false });
 });
 
+test("overlapping tail invalidations coalesce into one trailing owner read", async () => {
+  let reads = 0;
+  let releaseFirst!: (value: ReturnType<typeof page>) => void;
+  withLive({
+    agentTrace: async () => {
+      reads += 1;
+      if (reads === 1) return await new Promise((resolve) => { releaseFirst = resolve; });
+      return page(`tail ${reads}`);
+    },
+  });
+  await act(async () => mount());
+  let first!: Promise<boolean>;
+  let second!: Promise<boolean>;
+  let third!: Promise<boolean>;
+  await act(async () => {
+    first = refreshAgentTrace();
+    second = refreshAgentTrace();
+    third = refreshAgentTrace();
+  });
+  expect(reads).toBe(1);
+  await act(async () => {
+    releaseFirst(page("first tail"));
+    await Promise.all([first, second, third]);
+  });
+  expect(reads).toBe(2);
+  expect(chatSnapshot().agentTraceItems.at(-1)?.text).toBe("tail 2");
+});
+
+test("scrolling up during a tail request preserves the latest reading position", async () => {
+  let finish!: (value: ReturnType<typeof page>) => void;
+  withLive({ agentTrace: async () => await new Promise((resolve) => { finish = resolve; }) });
+  await act(async () => mount());
+  const stream = appRoot().querySelector<HTMLElement>(".agent-stream")!;
+  setStreamSize(stream, 1000, 900);
+  let pending!: Promise<boolean>;
+  await act(async () => { pending = refreshAgentTrace(); });
+  stream.scrollTop = 100;
+  await act(async () => stream.dispatchEvent(new window.Event("scroll", { bubbles: true })));
+  await act(async () => { finish(page("late tail")); await pending; });
+  expect(stream.scrollTop).toBe(100);
+  expect(chatSnapshot().agentTraceFollow).toBeFalse();
+  expect(chatSnapshot().agentTraceUnread).toBeTrue();
+});
+
 test("jump-to-latest clears published unread and hides mounted jump button without global paint", async () => {
   applyTrace({ agentTraceFollow: false, agentTraceUnread: true });
   // Observe the no-global-paint contract through the real installed App host:

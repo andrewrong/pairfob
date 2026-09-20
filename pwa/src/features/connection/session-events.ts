@@ -25,6 +25,7 @@ export type SessionEventPorts = {
   showStatus(text: string, persist?: boolean): void;
   startPolling(): void;
   stopPolling(): void;
+  retireAgentTraceReads(): void;
   refreshRuntime(): Promise<void>;
   refreshSnapshot(): Promise<void>;
   wakePane(): void;
@@ -79,10 +80,13 @@ export function observeSessionEvent(
     const action = pokeRefreshAction(currentScreen(), openPaneId(), event.paneId, event.reason);
     if (action === "runtime") void ports.refreshRuntime();
     else if (action === "snapshot") {
-      void ports.refreshSnapshot();
-      if (currentScreen() === "board" || (currentScreen() === "pane" && !isFullTerminal() && event.paneId === openPaneId())) {
-        ports.wakePane();
-      }
+      const wakeAfterSnapshot = currentScreen() === "board" ||
+        (currentScreen() === "pane" && !isFullTerminal() && event.paneId === openPaneId());
+      void ports.refreshSnapshot().then(() => {
+        // Snapshot owns pane/occupant identity. Only its still-current owner may
+        // wake the tail lane that consumes that identity.
+        if (wakeAfterSnapshot && stillActive() && ports.documentVisible()) ports.wakePane();
+      }, () => undefined);
     } else if (action === "paneread") {
       ports.wakePane();
       if (isAgentChat() && shouldPullStatus(true, Date.now(), lastSnapshotAt())) void ports.refreshSnapshot();
@@ -90,6 +94,7 @@ export function observeSessionEvent(
     return;
   }
   if (event.type === "checking" || ((event.type === "connected" || event.type === "disconnected" || event.type === "reconnecting") && session.isChecking?.())) {
+    ports.retireAgentTraceReads();
     ports.stopPolling();
     if (!stillActive()) return;
     ports.clearNotice();
@@ -106,6 +111,7 @@ export function observeSessionEvent(
     return;
   }
   if (event.type === "disconnected" || event.type === "reconnecting") {
+    ports.retireAgentTraceReads();
     noteRelayRtt(null);
     if (!stillActive()) return;
     setSessionTransport("relay");
