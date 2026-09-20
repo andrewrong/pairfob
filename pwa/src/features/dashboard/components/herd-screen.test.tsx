@@ -188,8 +188,8 @@ describe("herd screen presentation", () => {
 
   test("filters remain accessible, reversible, and keep card actions", () => {
     paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("run", "alpha", "working"), agent("done", "alpha", "done")] }));
-    const controls = [...app().querySelectorAll<HTMLButtonElement>('[role="radio"]')];
-    expect(app().querySelector('[role="radiogroup"]')?.getAttribute("aria-label")).toBe(t("filter.aria"));
+    const controls = [...app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')];
+    expect(app().querySelector('.attention-filters[role="radiogroup"]')?.getAttribute("aria-label")).toBe(t("filter.aria"));
     expect(controls.map((node) => node.textContent)).toEqual(["全部3", "等你处理1", "刚完成1", "执行中1", "待检查0"]);
     act(() => controls[1]!.click());
     expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent)).toEqual(["wait"]);
@@ -203,7 +203,7 @@ describe("herd screen presentation", () => {
 
   test("filter radios use roving focus and standard keyboard selection", () => {
     paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("run", "alpha", "working")] }));
-    const controls = () => [...app().querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    const controls = () => [...app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')];
     controls()[0]!.focus();
     act(() => controls()[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
     expect(controls()[1]!.getAttribute("aria-checked")).toBe("true");

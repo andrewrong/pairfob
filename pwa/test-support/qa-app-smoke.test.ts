@@ -18,9 +18,9 @@ import { act } from "react";
  * (no WebGL/PTY): the open/frame/close lifecycle is production code. The two
  * `shellOnly` scenes deliberately render the standalone FullTerminalScreen
  * shell fixture without an engine. Coverage is reported honestly:
- * 54 scenes render through the stable App (including the 2 mock-engine
- * terminals), 2 shellOnly scenes render the QA shell fixture — all 56 catalog
- * scenes are exercised here; the 224-shot browser matrix remains the full
+ * 58 scenes render through the stable App (including the 2 mock-engine
+ * terminals), 2 shellOnly scenes render the QA shell fixture — all 60 catalog
+ * scenes are exercised here; the 240-shot browser matrix remains the full
  * visual contract.
  */
 
@@ -187,7 +187,7 @@ test("every QA scene id + untitled built", () => {
   }
 });
 
-test("every scene renders: 54 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
+test("every scene renders: 58 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
   expect(domReady).toBeTrue();
   const failures: string[] = [];
   const appRendered: string[] = [];
@@ -262,7 +262,10 @@ test("attention QA scenes drive rich labels, ordering, and runtime replacement t
   }
   const updated = await prepareScene("attention-rich-updated");
   try {
-    expect(document.querySelector("#app")?.textContent).toContain("ready");
+    const all = [...document.querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')]
+      .find((button) => button.textContent?.includes(t("filter.all")))!;
+    await act(async () => { all.click(); await Promise.resolve(); });
+    expect(document.querySelector("#app")?.textContent).toContain(t("status.ready"));
     expect(document.querySelectorAll(".card")).toHaveLength(8);
   } finally {
     await teardownScene(updated, false);
