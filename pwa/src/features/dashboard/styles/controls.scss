@@ -2,6 +2,23 @@
 // completion count control. The generic status line, dots/pulse, segmented
 // control, section/group headings and empty state live in shared/ui/styles.
 @mixin herd-list-context {
+  .herd-topbar {
+    flex-wrap: wrap;
+  }
+
+  .herd-topbar-actions {
+    min-width: 0;
+    flex: 1 1 220px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .herd-topbar-actions .text-link,
+  .herd-topbar-actions .topbar-create {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
   .herd-list .section-title:first-child,
   .herd-list .herd-group:first-child .group-title {
     margin-top: 10px;

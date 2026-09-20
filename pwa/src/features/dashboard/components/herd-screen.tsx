@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Brand, Button, StatusDot } from "../../../shared/ui/primitives";
 import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
+import { preferencesStore, setListGroupCollapsed } from "../../settings/preferences-store";
 // AppNotice is the connected App notice (chrome barrel seam); HerdBanners is the
 // connection feature's own pure banner component.
 import { AppNotice } from "../../../app/notice";
@@ -13,7 +14,7 @@ import type { AttentionFilter } from "../attention-filter";
 
 function HerdTopActions({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
   return (
-    <div className="topbar-actions">
+    <div className="topbar-actions herd-topbar-actions">
       {view.create && (
         <Button
           className="topbar-create"
@@ -54,18 +55,24 @@ export function HerdScreen({
   const revealFinished = useRef(false);
   useLayoutEffect(() => {
     if (!revealFinished.current || filter !== "finished") return;
-    revealFinished.current = false;
     const target = root.current?.querySelector<HTMLElement>(".card.status-done .card-main");
-    target?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
-    target?.focus({ preventScroll: true });
+    if (!target) return;
+    revealFinished.current = false;
+    target.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    target.focus({ preventScroll: true });
   }, [filter, view]);
   const showFinished = () => {
+    const collapsed = { ...preferencesStore.get().listGroupCollapsed };
+    for (const group of view.groups) {
+      if (group.cards.some((card) => card.agent.status === "done")) collapsed[group.id] = false;
+    }
+    setListGroupCollapsed(collapsed);
     revealFinished.current = true;
     setFilter("finished");
   };
   const chrome = (
     <>
-      <div className="topbar">
+      <div className="topbar herd-topbar">
         <Brand tone={view.status.tone} heading />
         <HerdTopActions view={view} actions={actions} />
       </div>

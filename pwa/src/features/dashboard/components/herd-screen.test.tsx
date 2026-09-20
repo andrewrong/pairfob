@@ -118,7 +118,7 @@ describe("herd screen presentation", () => {
     expect(noticeAt).toBeGreaterThan(-1);
     expect(listAt).toBeGreaterThan(noticeAt);
     expect(children[noticeAt].textContent).toBe("notice above cards");
-    expect(children.map((node) => node.className).slice(0, 2)).toEqual(["topbar", "statusline"]);
+    expect(children.map((node) => node.className).slice(0, 2)).toEqual(["topbar herd-topbar", "statusline"]);
     paint(model(), "rail");
     expect(app().firstElementChild?.className).toBe("rail");
     expect(app().querySelector(".rail [data-react-notice]")).toBeNull();
@@ -221,12 +221,12 @@ describe("herd screen presentation", () => {
     expect(document.activeElement).toBe(controls()[4]);
   });
 
-  test("completion count leaves checking, expands results, and focuses a completed card", () => {
+  test("completion count leaves checking, reveals results, and focuses a completed card", () => {
     const checking = { ...agent("check", "alpha", "idle"), interactiveReady: false };
     paint(model({
       listGroup: "space",
       agents: [checking, agent("done", "beta", "done")],
-      groupCollapsed: { alpha: true, beta: true },
+      groupCollapsed: {},
     }));
     const filters = [...app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')];
     act(() => filters[4]!.click());
@@ -234,8 +234,24 @@ describe("herd screen presentation", () => {
     act(() => app().querySelector<HTMLButtonElement>(".done-count")!.click());
     expect(filters[2]!.getAttribute("aria-checked")).toBe("true");
     expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent)).toEqual(["done"]);
-    expect(app().querySelector(".herd-group")?.classList.contains("collapsed")).toBe(false);
     expect(document.activeElement).toBe(app().querySelector(".card.status-done .card-main"));
+  });
+
+  test("filtered grouped results still honor collapse and expand actions", () => {
+    const checking = { ...agent("check", "alpha", "idle"), interactiveReady: false };
+    const input = { listGroup: "space" as const, agents: [checking], groupCollapsed: {} };
+    paint(model(input));
+    const checkingFilter = app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')[4]!;
+    act(() => checkingFilter.click());
+    const heading = app().querySelector<HTMLButtonElement>(".group-title")!;
+    expect(heading.getAttribute("aria-expanded")).toBe("true");
+    act(() => heading.click());
+    expect(calls).toEqual(["toggle:alpha:alpha"]);
+    calls = [];
+    paint(model({ ...input, groupCollapsed: { alpha: true } }));
+    expect(app().querySelector<HTMLButtonElement>(".group-title")?.getAttribute("aria-expanded")).toBe("false");
+    act(() => app().querySelector<HTMLButtonElement>(".group-title")!.click());
+    expect(calls).toEqual(["toggle:alpha:alpha"]);
   });
 
   test("the status line keeps its tone, text and completion count", () => {

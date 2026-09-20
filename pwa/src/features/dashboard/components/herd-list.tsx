@@ -46,7 +46,7 @@ export function HerdList({ view, actions, filter, onFilter }: {
       const order = new Map(ordered.map((agent, index) => [agent.paneId, index]));
       cards = [...cards].sort((left, right) => order.get(left.paneId)! - order.get(right.paneId)!);
     }
-    return { ...group, collapsed: filter === "all" ? group.collapsed : false, count: cards.length, cards };
+    return { ...group, count: cards.length, cards };
   }).filter((group) => group.cards.length), [filter, view.groups]);
   const empty = emptySpec(view, actions);
   const filteredEmpty = !empty && filter !== "all" && groups.length === 0;
