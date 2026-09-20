@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func piLine(value any) []byte { data, _ := json.Marshal(value); return append(data, '\n') }
@@ -146,6 +147,136 @@ func TestPiRejectsEscapesMalformedTreesAndStaleDetails(t *testing.T) {
 	}
 }
 
+func TestPiPaginationProgressesAcrossNonMessagesAndOneEntryBlocks(t *testing.T) {
+	blocks := []any{
+		map[string]any{"type": "text", "text": "a"}, map[string]any{"type": "thinking", "thinking": "b"},
+		map[string]any{"type": "toolCall", "id": "call:colon", "name": "Read", "arguments": map[string]any{"path": "x"}},
+		map[string]any{"type": "text", "text": "c"},
+	}
+	reader, ref, _ := piFixture(t,
+		msg("user0001", nil, "user", "first"),
+		map[string]any{"type": "model_change", "id": "config01", "parentId": "user0001", "provider": "x", "modelId": "y"},
+		msg("asst0001", "config01", "assistant", blocks),
+		map[string]any{"type": "message", "id": "tool0001", "parentId": "asst0001", "message": map[string]any{"role": "toolResult", "toolCallId": "call:colon", "toolName": "Read", "content": []any{map[string]any{"type": "text", "text": "result"}}, "isError": false}},
+		msg("user0002", "tool0001", "user", "last"),
+	)
+	var got []string
+	var cursor *string
+	for pages := 0; pages < 10; pages++ {
+		page, err := reader.ReadTrace(ref, cursor, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, item := range page.Items {
+			got = append(got, item.Type+":"+item.Text+item.Name)
+		}
+		cursor = page.NextCursor
+		if cursor == nil {
+			break
+		}
+	}
+	want := []string{"user:last", "assistant:a", "thinking:b", "tool:Read", "assistant:c", "user:first"}
+	if len(got) != len(want) {
+		t.Fatalf("pagination got=%v", got)
+	}
+	seen := map[string]bool{}
+	for _, item := range got {
+		if seen[item] {
+			t.Fatalf("duplicate page item %q", item)
+		}
+		seen[item] = true
+	}
+}
+
+func TestPiDetailOutputRevisionChangesWithoutInvalidatingOldLocator(t *testing.T) {
+	reader, ref, path := piFixture(t, msg("user0001", nil, "user", "q"), msg("asst0001", "user0001", "assistant", []any{map[string]any{"type": "toolCall", "id": "call-one", "name": "Read", "arguments": map[string]any{"path": "a"}}}))
+	before, err := reader.ReadTrace(ref, nil, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldRef := before.Items[1].DetailRef
+	result := map[string]any{"type": "message", "id": "tool0001", "parentId": "asst0001", "message": map[string]any{"role": "toolResult", "toolCallId": "call-one", "toolName": "Read", "content": []any{map[string]any{"type": "text", "text": "landed"}}, "isError": false}}
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = file.Write(piLine(result))
+	_ = file.Close()
+	detail, err := reader.ReadTraceDetail(ref, oldRef)
+	if err != nil || detail.Output != "landed" {
+		t.Fatalf("old locator after result=%#v err=%v", detail, err)
+	}
+	after, err := reader.ReadTrace(ref, nil, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Items[1].DetailRef == oldRef {
+		t.Fatal("output revision did not change detail ref")
+	}
+}
+
+func TestPiDetailSurvivesAppendButNotReplacementOrBranchRemoval(t *testing.T) {
+	toolCall := msg("asst0001", "user0001", "assistant", []any{map[string]any{"type": "toolCall", "id": "call:1", "name": "Read", "arguments": map[string]any{"path": "a"}}})
+	result := map[string]any{"type": "message", "id": "tool0001", "parentId": "asst0001", "message": map[string]any{"role": "toolResult", "toolCallId": "call:1", "toolName": "Read", "content": []any{map[string]any{"type": "text", "text": "ok"}}, "isError": false}}
+	reader, ref, path := piFixture(t, msg("user0001", nil, "user", "q"), toolCall, result)
+	page, err := reader.ReadTrace(ref, nil, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail := page.Items[1].DetailRef
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = file.Write(piLine(msg("asst0002", "tool0001", "assistant", []any{map[string]any{"type": "text", "text": "later"}})))
+	_ = file.Close()
+	if got, err := reader.ReadTraceDetail(ref, detail); err != nil || got.Output != "ok" {
+		t.Fatalf("detail after append=%#v err=%v", got, err)
+	}
+	file, err = os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = file.Write(piLine(msg("branch01", "user0001", "assistant", []any{map[string]any{"type": "text", "text": "new branch"}})))
+	_ = file.Close()
+	if _, err := reader.ReadTraceDetail(ref, detail); !errors.Is(err, ErrCursorConflict) {
+		t.Fatalf("abandoned detail err=%v", err)
+	}
+	data, _ := os.ReadFile(path)
+	changed := strings.Replace(string(data), `"path":"a"`, `"path":"b"`, 1)
+	if err := os.WriteFile(path, []byte(changed), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reader.ReadTraceDetail(ref, detail); !errors.Is(err, ErrCursorConflict) {
+		t.Fatalf("replacement detail err=%v", err)
+	}
+}
+
+func TestPiRejectsIntermediateSymlink(t *testing.T) {
+	root := t.TempDir()
+	realDir := filepath.Join(root, "real")
+	if err := os.MkdirAll(realDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(realDir, "s.jsonl")
+	if err := os.WriteFile(path, piLine(map[string]any{"type": "session", "version": 3, "id": "session01"}), 0600); err != nil {
+		t.Fatal(err)
+	}
+	sessions := filepath.Join(root, "agent", "sessions")
+	if err := os.MkdirAll(sessions, 0700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(sessions, "linked")
+	if err := os.Symlink(realDir, link); err != nil {
+		t.Fatal(err)
+	}
+	reader := &Reader{PiRoot: filepath.Join(root, "agent")}
+	ref := Ref{Source: "herdr:pi", Agent: "pi", Kind: "path", Value: filepath.Join(link, "s.jsonl")}
+	if reader.Available(ref) {
+		t.Fatal("accepted intermediate symlink")
+	}
+}
+
 func TestPiIDLookupRejectsAmbiguityAndUntrustedProvider(t *testing.T) {
 	reader, _, path := piFixture(t, msg("user0001", nil, "user", "ok"))
 	ref := Ref{Source: "herdr:pi", Agent: "pi", Kind: "id", Value: "session01"}
@@ -157,6 +288,7 @@ func TestPiIDLookupRejectsAmbiguityAndUntrustedProvider(t *testing.T) {
 	if err := os.WriteFile(copyPath, data, 0600); err != nil {
 		t.Fatal(err)
 	}
+	reader.now = func() time.Time { return time.Now().Add(codexIndexTTL + time.Second) }
 	if _, err := reader.Read(ref, nil, 20); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("ambiguous id err=%v", err)
 	}

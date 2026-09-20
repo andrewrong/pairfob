@@ -3,39 +3,45 @@ package journal
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const maxPiCacheBytes = 32 << 20
 
 type piFileIndex struct {
-	root    string
-	matches map[string][]string
+	root      string
+	matches   map[string][]string
+	scannedAt time.Time
 }
 
 type piCacheEntry struct {
-	path    string
-	info    fs.FileInfo
-	digest  [32]byte
-	bytes   int
-	tick    uint64
-	session *piSession
+	path        string
+	info        fs.FileInfo
+	digest      [32]byte
+	bytes       int
+	sourceBytes int
+	tick        uint64
+	session     *piSession
 }
 
 type piSession struct {
-	id        string
-	path      string
-	entries   map[string]piEntry
-	order     []string
-	branch    []piEntry
-	branchSet map[string]bool
+	id          string
+	incarnation string
+	path        string
+	entries     map[string]piEntry
+	order       []string
+	branch      []piEntry
+	branchSet   map[string]bool
 }
 
 type piEntry struct {
@@ -72,8 +78,13 @@ type piBlock struct {
 }
 
 func piPathSyntax(root, value string) bool {
-	if !filepath.IsAbs(value) || filepath.Ext(value) != ".jsonl" {
+	if !filepath.IsAbs(value) || filepath.Clean(value) != value || filepath.Ext(value) != ".jsonl" {
 		return false
+	}
+	for _, part := range strings.Split(filepath.ToSlash(value), "/") {
+		if part == ".." {
+			return false
+		}
 	}
 	absRoot, err := filepath.Abs(filepath.Join(root, "sessions"))
 	if err != nil {
@@ -117,6 +128,9 @@ func (r *Reader) findPiTranscript(ref Ref, refresh bool) (string, error) {
 		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			return "", ErrUnavailable
 		}
+		if !piComponentsRegular(root, path) {
+			return "", ErrUnavailable
+		}
 		info, err := os.Stat(path)
 		if err != nil || !info.Mode().IsRegular() {
 			return "", ErrUnavailable
@@ -128,7 +142,11 @@ func (r *Reader) findPiTranscript(ref Ref, refresh bool) (string, error) {
 	}
 	r.indexMu.Lock()
 	defer r.indexMu.Unlock()
-	if refresh || r.piIndex.root != root || r.piIndex.matches == nil {
+	now := time.Now()
+	if r.now != nil {
+		now = r.now()
+	}
+	if r.piIndex.root != root || r.piIndex.matches == nil || now.Sub(r.piIndex.scannedAt) >= codexIndexTTL || (refresh && len(r.piIndex.matches[ref.Value]) != 1) {
 		matches := map[string][]string{}
 		count := 0
 		err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -148,6 +166,10 @@ func (r *Reader) findPiTranscript(ref Ref, refresh bool) (string, error) {
 			if entry.IsDir() || filepath.Ext(path) != ".jsonl" {
 				return nil
 			}
+			info, infoErr := entry.Info()
+			if infoErr != nil || !info.Mode().IsRegular() {
+				return nil
+			}
 			header, e := readPiHeader(path)
 			if e == nil {
 				matches[header.ID] = append(matches[header.ID], path)
@@ -157,13 +179,30 @@ func (r *Reader) findPiTranscript(ref Ref, refresh bool) (string, error) {
 		if err != nil {
 			return "", ErrUnavailable
 		}
-		r.piIndex = piFileIndex{root: root, matches: matches}
+		r.piIndex = piFileIndex{root: root, matches: matches, scannedAt: now}
 	}
 	paths := r.piIndex.matches[ref.Value]
 	if len(paths) != 1 {
 		return "", ErrUnavailable
 	}
 	return paths[0], nil
+}
+
+func piComponentsRegular(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	current := root
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+	}
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode().IsRegular()
 }
 
 func readPiHeader(path string) (piHeader, error) {
@@ -189,15 +228,24 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Stat(path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Size() > maxScanBytes {
 		return nil, ErrUnavailable
 	}
-	data, err := os.ReadFile(path)
+	data, err := io.ReadAll(io.LimitReader(file, maxScanBytes+1))
 	if err != nil {
 		return nil, err
 	}
 	if len(data) > maxScanBytes {
+		return nil, ErrUnavailable
+	}
+	after, err := file.Stat()
+	if err != nil || !os.SameFile(info, after) || info.Size() != after.Size() || info.ModTime() != after.ModTime() || int64(len(data)) != after.Size() {
 		return nil, ErrUnavailable
 	}
 	// A writer may be between bytes. Only newline-committed records participate.
@@ -210,7 +258,7 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 	r.piMu.Lock()
 	for i := range r.piCache {
 		entry := &r.piCache[i]
-		if entry.path == path && os.SameFile(entry.info, info) && entry.info.Size() == info.Size() && entry.info.ModTime() == info.ModTime() && entry.digest == digest {
+		if entry.path == path && os.SameFile(entry.info, info) && entry.info.Size() == info.Size() && entry.info.ModTime() == info.ModTime() && entry.digest == digest && (ref.Kind != "id" || entry.session.id == ref.Value) {
 			r.piCacheTick++
 			entry.tick = r.piCacheTick
 			session := entry.session
@@ -224,10 +272,20 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 		return nil, err
 	}
 	r.piMu.Lock()
+	for _, entry := range r.piCache {
+		if entry.path == path && os.SameFile(entry.info, info) && entry.session.id == session.id && len(data) >= entry.sourceBytes && sha256.Sum256(data[:entry.sourceBytes]) == entry.digest {
+			session.incarnation = entry.session.incarnation
+			break
+		}
+	}
+	if session.incarnation == "" {
+		session.incarnation = newPiIncarnation()
+	}
 	defer r.piMu.Unlock()
 	r.piCacheTick++
 	kept := r.piCache[:0]
-	total := len(data)
+	// Charge both source bytes and a conservative equal-sized parsed-tree budget.
+	total := len(data) * 2
 	for _, entry := range r.piCache {
 		if entry.path != path {
 			kept = append(kept, entry)
@@ -245,10 +303,18 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 		total -= r.piCache[oldest].bytes
 		r.piCache = append(r.piCache[:oldest], r.piCache[oldest+1:]...)
 	}
-	if len(data) <= maxPiCacheBytes {
-		r.piCache = append(r.piCache, piCacheEntry{path: path, info: info, digest: digest, bytes: len(data), tick: r.piCacheTick, session: session})
+	if len(data)*2 <= maxPiCacheBytes {
+		r.piCache = append(r.piCache, piCacheEntry{path: path, info: info, digest: digest, bytes: len(data) * 2, sourceBytes: len(data), tick: r.piCacheTick, session: session})
 	}
 	return session, nil
+}
+
+func newPiIncarnation() string {
+	var value [12]byte
+	if _, err := rand.Read(value[:]); err != nil {
+		return "unavailable"
+	}
+	return base64.RawURLEncoding.EncodeToString(value[:])
 }
 
 func parsePiSession(path string, data []byte, ref Ref) (*piSession, error) {
@@ -274,6 +340,17 @@ func parsePiSession(path string, data []byte, ref Ref) (*piSession, error) {
 		}
 		if _, exists := s.entries[entry.ID]; exists {
 			return nil, ErrUnavailable
+		}
+		if entry.ParentID != nil {
+			if _, exists := s.entries[*entry.ParentID]; !exists {
+				return nil, ErrUnavailable
+			}
+		}
+		if entry.Type == "message" {
+			var message piMessage
+			if len(entry.Message) == 0 || json.Unmarshal(entry.Message, &message) != nil || message.Role == "" {
+				return nil, ErrUnavailable
+			}
 		}
 		s.entries[entry.ID] = entry
 		s.order = append(s.order, entry.ID)
@@ -345,10 +422,17 @@ func piEvents(session *piSession) []parsedEvent {
 	var out []parsedEvent
 	tools := map[string]int{}
 	for ordinal, entry := range session.branch {
+		eventOrdinal := 0
+		add := func(event parsedEvent) {
+			event.lineStart = ordinal
+			event.sourceOrdinal = eventOrdinal
+			eventOrdinal++
+			out = append(out, event)
+		}
 		switch entry.Type {
 		case "custom_message":
 			if text := piText(entry.Content); entry.Display && text != "" {
-				out = append(out, parsedEvent{Event: Event{Type: "assistant", Text: "[Extension] " + text}, lineStart: ordinal})
+				add(parsedEvent{Event: Event{Type: "assistant", Text: "[Extension] " + text}})
 			}
 		case "message":
 			var msg piMessage
@@ -358,7 +442,7 @@ func piEvents(session *piSession) []parsedEvent {
 			switch msg.Role {
 			case "user":
 				if text := piText(msg.Content); text != "" {
-					out = append(out, parsedEvent{Event: Event{Type: "user", Text: text}, lineStart: ordinal})
+					add(parsedEvent{Event: Event{Type: "user", Text: text}})
 				}
 			case "assistant":
 				var blocks []piBlock
@@ -369,15 +453,15 @@ func piEvents(session *piSession) []parsedEvent {
 					switch block.Type {
 					case "text":
 						if block.Text != "" {
-							out = append(out, parsedEvent{Event: Event{Type: "assistant", Text: block.Text}, lineStart: ordinal})
+							add(parsedEvent{Event: Event{Type: "assistant", Text: block.Text}})
 						}
 					case "thinking":
 						if block.Thinking != "" {
-							out = append(out, parsedEvent{Event: Event{Type: "thinking", Text: block.Thinking}, lineStart: ordinal})
+							add(parsedEvent{Event: Event{Type: "thinking", Text: block.Thinking}})
 						}
 					case "toolCall":
 						if toolName.MatchString(block.Name) && block.ID != "" {
-							out = append(out, parsedEvent{Event: Event{Type: "tool", Name: block.Name, Input: compactJSON(block.Arguments)}, call: block.ID, lineStart: ordinal})
+							add(parsedEvent{Event: Event{Type: "tool", Name: block.Name, Input: compactJSON(block.Arguments)}, call: block.ID})
 							tools[block.ID] = len(out) - 1
 						}
 					}
@@ -397,22 +481,38 @@ func piEvents(session *piSession) []parsedEvent {
 	return out
 }
 
-func encodePiCursor(ref Ref, id string) string {
-	return base64.RawURLEncoding.EncodeToString([]byte("p1:" + refFingerprint(ref) + ":" + id))
+type piCursor struct {
+	Version     int    `json:"v"`
+	Ref         string `json:"r"`
+	Session     string `json:"s"`
+	Incarnation string `json:"i"`
+	Entry       string `json:"e"`
+	Ordinal     int    `json:"o"`
 }
-func decodePiCursor(ref Ref, raw *string) (string, error) {
+
+func encodePiCursor(ref Ref, session *piSession, entry string, ordinal int) string {
+	raw, _ := json.Marshal(piCursor{Version: 1, Ref: refFingerprint(ref), Session: session.id, Incarnation: session.incarnation, Entry: entry, Ordinal: ordinal})
+	return base64.RawURLEncoding.EncodeToString(raw)
+}
+func decodePiCursor(ref Ref, session *piSession, raw *string) (*piCursor, error) {
 	if raw == nil {
-		return "", nil
+		return nil, nil
+	}
+	if len(*raw) > 1024 {
+		return nil, ErrCursorInvalid
 	}
 	data, err := base64.RawURLEncoding.DecodeString(*raw)
 	if err != nil {
-		return "", ErrCursorInvalid
+		return nil, ErrCursorInvalid
 	}
-	parts := strings.Split(string(data), ":")
-	if len(parts) != 3 || parts[0] != "p1" || parts[1] != refFingerprint(ref) || parts[2] == "" {
-		return "", ErrCursorConflict
+	var cursor piCursor
+	if json.Unmarshal(data, &cursor) != nil || cursor.Version != 1 || cursor.Ref != refFingerprint(ref) || cursor.Session != session.id || cursor.Incarnation != session.incarnation || cursor.Entry == "" || cursor.Ordinal < 0 || cursor.Ordinal > 1024 {
+		return nil, ErrCursorConflict
 	}
-	return parts[2], nil
+	if !session.branchSet[cursor.Entry] {
+		return nil, ErrCursorConflict
+	}
+	return &cursor, nil
 }
 
 func (r *Reader) readPiHistory(ref Ref, cursor *string, limit int) (Page, error) {
@@ -426,7 +526,7 @@ func (r *Reader) readPiHistory(ref Ref, cursor *string, limit int) (Page, error)
 	if err != nil {
 		return Page{}, err
 	}
-	end, err := piBoundary(s, ref, cursor)
+	decoded, err := decodePiCursor(ref, s, cursor)
 	if err != nil {
 		return Page{}, err
 	}
@@ -435,7 +535,7 @@ func (r *Reader) readPiHistory(ref Ref, cursor *string, limit int) (Page, error)
 		branchIndex int
 	}
 	var all []indexedMessage
-	for branchIndex, entry := range s.branch[:end] {
+	for branchIndex, entry := range s.branch {
 		if entry.Type == "custom_message" && entry.Display {
 			if text := piText(entry.Content); text != "" {
 				all = append(all, indexedMessage{Message{Role: "assistant", Text: "[Extension] " + text}, branchIndex})
@@ -455,11 +555,28 @@ func (r *Reader) readPiHistory(ref Ref, cursor *string, limit int) (Page, error)
 			}
 		}
 	}
+	end := len(all)
+	if decoded != nil {
+		end = -1
+		for i, item := range all {
+			if s.branch[item.branchIndex].ID == decoded.Entry && decoded.Ordinal == 0 {
+				end = i
+				break
+			}
+		}
+		if end < 0 {
+			return Page{}, ErrCursorConflict
+		}
+	}
+	all = all[:end]
 	start := len(all)
 	pageBytes := 0
+	hadClipping := false
 	for start > 0 && len(all)-start < limit {
 		candidate := all[start-1].message
-		candidate.Text, _ = clip(candidate.Text, maxMessageBytes, false)
+		var clipped bool
+		candidate.Text, clipped = clip(candidate.Text, maxMessageBytes, false)
+		hadClipping = hadClipping || clipped
 		encoded, _ := json.Marshal(candidate)
 		if pageBytes+len(encoded) > maxPageItemsBytes {
 			break
@@ -468,34 +585,15 @@ func (r *Reader) readPiHistory(ref Ref, cursor *string, limit int) (Page, error)
 		pageBytes += len(encoded)
 		start--
 	}
-	page := Page{Messages: make([]Message, 0, len(all)-start), Truncated: start > 0 && pageBytes == 0}
+	page := Page{Messages: make([]Message, 0, len(all)-start), Truncated: hadClipping || (start > 0 && pageBytes == 0)}
 	for _, item := range all[start:] {
 		page.Messages = append(page.Messages, item.message)
 	}
 	if start > 0 {
-		previous := all[start].branchIndex - 1
-		if previous >= 0 {
-			next := encodePiCursor(ref, s.branch[previous].ID)
-			page.NextCursor = &next
-		}
+		next := encodePiCursor(ref, s, s.branch[all[start].branchIndex].ID, 0)
+		page.NextCursor = &next
 	}
 	return page, nil
-}
-
-func piBoundary(s *piSession, ref Ref, cursor *string) (int, error) {
-	id, err := decodePiCursor(ref, cursor)
-	if err != nil {
-		return 0, err
-	}
-	if id == "" {
-		return len(s.branch), nil
-	}
-	for i, e := range s.branch {
-		if e.ID == id {
-			return i + 1, nil
-		}
-	}
-	return 0, ErrCursorConflict
 }
 
 func (r *Reader) readPiTrace(ref Ref, cursor *string, limit int) (TracePage, error) {
@@ -503,13 +601,25 @@ func (r *Reader) readPiTrace(ref Ref, cursor *string, limit int) (TracePage, err
 	if err != nil {
 		return TracePage{}, err
 	}
-	end, err := piBoundary(s, ref, cursor)
+	decoded, err := decodePiCursor(ref, s, cursor)
 	if err != nil {
 		return TracePage{}, err
 	}
-	clone := *s
-	clone.branch = s.branch[:end]
-	events := piEvents(&clone)
+	events := piEvents(s)
+	end := len(events)
+	if decoded != nil {
+		end = -1
+		for i, event := range events {
+			if s.branch[event.lineStart].ID == decoded.Entry && event.sourceOrdinal == decoded.Ordinal {
+				end = i
+				break
+			}
+		}
+		if end < 0 {
+			return TracePage{}, ErrCursorConflict
+		}
+	}
+	events = events[:end]
 	start := len(events)
 	pageBytes := 0
 	for start > 0 && len(events)-start < limit {
@@ -523,47 +633,76 @@ func (r *Reader) readPiTrace(ref Ref, cursor *string, limit int) (TracePage, err
 		start--
 	}
 	for start > 0 && start < len(events) && events[start-1].lineStart == events[start].lineStart {
-		start++
+		start--
 	}
 	page := TracePage{Truncated: start > 0 && pageBytes == 0}
+	emittedBytes := 0
 	for _, parsed := range events[start:] {
-		ev, _ := clipEvent(parsed.Event, false)
+		ev, clipped := clipEvent(parsed.Event, false)
+		ev, clipped = clipEventToLimit(ev, maxTraceItemsBytes-emittedBytes, clipped)
+		if eventSize(ev) > maxTraceItemsBytes-emittedBytes {
+			return TracePage{}, ErrUnavailable
+		}
+		emittedBytes += eventSize(ev)
+		page.Truncated = page.Truncated || clipped
+		if ev.Type != "tool" {
+			page.SummaryTruncated = page.SummaryTruncated || clipped
+		}
 		if ev.Type == "tool" {
-			ev.DetailRef = encodePiDetail(ref, clone.branch[parsed.lineStart].ID, parsed.call, parsed.Name, traceDetailStatic(parsed)+"."+traceDetailRevision(parsed.Event))
+			ev.DetailRef = encodePiDetail(ref, s, s.branch[parsed.lineStart].ID, parsed.sourceOrdinal, parsed.call, parsed.Name, piToolStatic(parsed), traceDetailRevision(parsed.Event))
 		}
 		page.Items = append(page.Items, ev)
 	}
 	if start > 0 {
-		previous := events[start].lineStart - 1
-		if previous >= 0 {
-			next := encodePiCursor(ref, clone.branch[previous].ID)
-			page.NextCursor = &next
-		}
+		next := encodePiCursor(ref, s, s.branch[events[start].lineStart].ID, events[start].sourceOrdinal)
+		page.NextCursor = &next
 	}
 	return page, nil
 }
 
-func encodePiDetail(ref Ref, entry, call, name, static string) string {
-	return base64.RawURLEncoding.EncodeToString([]byte("pd1:" + refFingerprint(ref) + ":" + entry + ":" + call + ":" + name + ":" + static))
+func piToolStatic(event parsedEvent) string {
+	sum := sha256.Sum256([]byte(event.call + "\x00" + event.Name + "\x00" + event.Input))
+	return base64.RawURLEncoding.EncodeToString(sum[:12])
+}
+
+type piDetailLocator struct {
+	Version     int    `json:"v"`
+	Ref         string `json:"r"`
+	Session     string `json:"s"`
+	Incarnation string `json:"i"`
+	Entry       string `json:"e"`
+	Ordinal     int    `json:"o"`
+	Call        string `json:"c"`
+	Name        string `json:"n"`
+	Static      string `json:"h"`
+	Revision    string `json:"x"`
+}
+
+func encodePiDetail(ref Ref, session *piSession, entry string, ordinal int, call, name, static, revision string) string {
+	raw, _ := json.Marshal(piDetailLocator{Version: 1, Ref: refFingerprint(ref), Session: session.id, Incarnation: session.incarnation, Entry: entry, Ordinal: ordinal, Call: call, Name: name, Static: static, Revision: revision})
+	return base64.RawURLEncoding.EncodeToString(raw)
 }
 func (r *Reader) readPiTraceDetail(ref Ref, detail string) (TraceDetail, error) {
+	if detail == "" || len(detail) > 2048 {
+		return TraceDetail{}, ErrCursorInvalid
+	}
 	raw, err := base64.RawURLEncoding.DecodeString(detail)
 	if err != nil {
 		return TraceDetail{}, ErrCursorInvalid
 	}
-	parts := strings.Split(string(raw), ":")
-	if len(parts) != 6 || parts[0] != "pd1" || parts[1] != refFingerprint(ref) {
+	var locator piDetailLocator
+	if json.Unmarshal(raw, &locator) != nil || locator.Version != 1 || locator.Ref != refFingerprint(ref) || locator.Entry == "" || locator.Ordinal < 0 || locator.Ordinal > 1024 {
 		return TraceDetail{}, ErrCursorConflict
 	}
 	s, err := r.loadPiSession(ref, true)
 	if err != nil {
 		return TraceDetail{}, err
 	}
-	if !s.branchSet[parts[2]] {
+	if locator.Session != s.id || locator.Incarnation != s.incarnation || !s.branchSet[locator.Entry] {
 		return TraceDetail{}, ErrCursorConflict
 	}
 	for _, ev := range piEvents(s) {
-		if ev.call == parts[3] && ev.Name == parts[4] && traceDetailStatic(ev)+"."+traceDetailRevision(ev.Event) == parts[5] && s.branch[ev.lineStart].ID == parts[2] {
+		if ev.call == locator.Call && ev.Name == locator.Name && ev.sourceOrdinal == locator.Ordinal && piToolStatic(ev) == locator.Static && s.branch[ev.lineStart].ID == locator.Entry {
 			item, truncated := clipEvent(ev.Event, false)
 			return TraceDetail{DetailRef: detail, Text: item.Text, Input: item.Input, Output: item.Output, Truncated: truncated}, nil
 		}
