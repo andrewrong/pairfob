@@ -6,8 +6,8 @@ import { presentModal, type ModalController } from "./modal";
 export type SheetAction = () => void | Promise<void>;
 export type ActionSheetController = ModalController<SheetAction>;
 
-function SheetFrame({ modal, title, children }: {
-  modal: ActionSheetController; title: string; children: ReactNode;
+export function SheetFrame<T>({ modal, title, children, className = "" }: {
+  modal: ModalController<T>; title: string; children: ReactNode; className?: string;
 }) {
   const body = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -32,7 +32,7 @@ function SheetFrame({ modal, title, children }: {
       if (dialog.open) dialog.close();
     };
   }, [modal]);
-  return <dialog ref={modal.dialog} className="modal sheet" aria-labelledby={modal.titleId} data-react-modal="" data-react-action-sheet="">
+  return <dialog ref={modal.dialog} className={`modal sheet${className ? ` ${className}` : ""}`} aria-labelledby={modal.titleId} data-react-modal="" data-react-action-sheet="">
     <form ref={modal.form} method="dialog" onSubmit={event => event.preventDefault()}>
       <div className="sheet-grab" aria-hidden="true"><span className="sheet-grab-bar" /></div>
       <div className="sheet-head"><h2 id={modal.titleId} className="modal-title">{title}</h2>

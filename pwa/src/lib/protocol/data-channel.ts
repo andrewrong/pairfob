@@ -1,9 +1,9 @@
 import { enqueueHandshakeFrame } from "./frame-socket.ts";
-import { DirectFrameAssembler, splitDirectFrame } from "./direct-frame.ts";
+import { DirectFrameAssembler, directFrameWireBytes, splitDirectFrame } from "./direct-frame.ts";
 import { DIRECT_ICE_GRACE_MS } from "./direct-retry-policy.ts";
 import { decode, encode, type Frame } from "./envelope.ts";
 import { ProtocolError } from "./errors.ts";
-import type { FrameChannel } from "./frame-channel.ts";
+import { CHANNEL_WRITE_BUDGET, waitForWriteBudget, type FrameChannel, type WaitWritable } from "./frame-channel.ts";
 
 const MAX_BUFFERED_BYTES = 2 * 1024 * 1024;
 
@@ -111,6 +111,33 @@ export class DataFrameChannel implements FrameChannel {
       if (this.iceUnhealthy === handler) this.iceUnhealthy = null;
     };
   }
+
+  /**
+   * Pre-seal readiness for one whole P2P frame: the encoded frame PLUS every
+   * 12 B fragment header must fit below the 1 MiB budget, keeping >=1 MiB
+   * headroom to the unchanged fail-closed 2 MiB send guard. Drains use the
+   * DataChannel low-water event with a bounded poll fallback.
+   */
+  waitWritable: WaitWritable = (frameBytes, signal, timeoutMs) => {
+    if (this.ended || this.channel.readyState !== "open") {
+      return Promise.reject(new ProtocolError("disconnected", "P2P 连接已断开", { reason: "data_channel_closed", ...this.diagnosticState() }));
+    }
+    const need = directFrameWireBytes(frameBytes);
+    try { this.channel.bufferedAmountLowThreshold = Math.max(0, CHANNEL_WRITE_BUDGET - need); } catch { /* read-only test double */ }
+    return waitForWriteBudget({
+      backlog: () => (this.ended || this.channel.readyState !== "open" ? null : this.channel.bufferedAmount),
+      need,
+      limit: CHANNEL_WRITE_BUDGET,
+      signal,
+      timeoutMs,
+      onClose: (handler) => this.onClose(handler),
+      onDrain: (handler) => {
+        const listener = handler as EventListener;
+        this.channel.addEventListener("bufferedamountlow", listener);
+        return () => this.channel.removeEventListener("bufferedamountlow", listener);
+      },
+    });
+  };
 
   send(frame: Frame): void {
     if (this.ended || this.channel.readyState !== "open") throw new ProtocolError("disconnected", "P2P 连接已断开", { reason: "data_channel_closed", ...this.diagnosticState() });

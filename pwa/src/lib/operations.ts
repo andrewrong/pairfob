@@ -15,6 +15,8 @@ export const OPERATION_CAPABILITY_KEYS = [
   "zoom_pane",
   "rename_file",
   "delete_file",
+  "upload_file",
+  "upload_file_v2",
 ] as const;
 
 export type OperationCapability = typeof OPERATION_CAPABILITY_KEYS[number];
@@ -34,6 +36,8 @@ export const NO_OPERATION_CAPABILITIES: OperationCapabilities = {
   zoom_pane: false,
   rename_file: false,
   delete_file: false,
+  upload_file: false,
+  upload_file_v2: false,
 };
 
 export const OPERATION_INPUT_LIMITS = {
@@ -50,6 +54,11 @@ export const OPERATION_INPUT_LIMITS = {
 export function fitOperationPrompt(value: string): { text: string; truncated: boolean } {
   const text = truncateUTF8Bytes(value, OPERATION_INPUT_LIMITS.prompt);
   return { text, truncated: text !== value };
+}
+
+/** Whether a raw GetConfig response advertises the V2 upload capability (131072-byte chunks). */
+export function advertisesUploadV2(config: unknown): boolean {
+  return isRecord(config) && isRecord(config.capabilities) && config.capabilities.upload_file_v2 === true;
 }
 
 export type RuntimeOperationsConfig = {
@@ -343,9 +352,10 @@ export function parseRuntimeOperationsConfig(value: unknown): RuntimeOperationsC
 	const rawCapabilities = isRecord(config.capabilities) ? config.capabilities : {};
 	const capabilities = { ...NO_OPERATION_CAPABILITIES };
 	const capabilityKeys = Object.keys(rawCapabilities);
+	const optionalCapabilities = new Set(["rename_file", "delete_file", "upload_file", "upload_file_v2"]);
 	const capabilitiesValid = capabilityKeys.every((key) => (OPERATION_CAPABILITY_KEYS as readonly string[]).includes(key))
 		&& OPERATION_CAPABILITY_KEYS.every((key) => typeof rawCapabilities[key] === "boolean"
-      || ((key === "rename_file" || key === "delete_file") && !(key in rawCapabilities)));
+      || (optionalCapabilities.has(key) && !(key in rawCapabilities)));
 	if (!capabilitiesValid) badResult("GetConfig capabilities 非法");
 	for (const key of OPERATION_CAPABILITY_KEYS) capabilities[key] = rawCapabilities[key] === true;
 

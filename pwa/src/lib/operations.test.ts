@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  advertisesUploadV2,
   createOperationID,
   fitOperationPrompt,
   NO_OPERATION_CAPABILITIES,
@@ -74,10 +75,27 @@ describe("runtime operation config", () => {
 	});
 
   test("old daemon omits file capabilities, malformed extensions fail closed", () => {
-    const { rename_file, delete_file, ...legacy } = NO_OPERATION_CAPABILITIES;
+    const { rename_file, delete_file, upload_file, upload_file_v2, ...legacy } = NO_OPERATION_CAPABILITIES;
     expect(parseRuntimeOperationsConfig(config(legacy)).capabilities).toEqual(NO_OPERATION_CAPABILITIES);
     expect(() => parseRuntimeOperationsConfig(config({ ...legacy, rename_file: "true" }))).toThrow();
     expect(() => parseRuntimeOperationsConfig(config({ ...legacy, file_actions: true }))).toThrow();
+    expect(() => parseRuntimeOperationsConfig(config({ ...legacy, upload_file: 1 }))).toThrow();
+    expect(() => parseRuntimeOperationsConfig(config({ ...legacy, upload_file_v2: "yes" }))).toThrow();
+  });
+
+  test("upload_file_v2 is optional (absent=false) and independent of upload_file", () => {
+    const { upload_file_v2, ...rest } = NO_OPERATION_CAPABILITIES;
+    // Absent upload_file_v2 stays false even when upload_file is true.
+    expect(parseRuntimeOperationsConfig(config({ ...rest, upload_file: true })).capabilities).toEqual({
+      ...NO_OPERATION_CAPABILITIES,
+      upload_file: true,
+    });
+    // Advertised upload_file_v2 is recognized alongside upload_file.
+    expect(parseRuntimeOperationsConfig(config({ ...rest, upload_file: true, upload_file_v2: true })).capabilities).toEqual({
+      ...NO_OPERATION_CAPABILITIES,
+      upload_file: true,
+      upload_file_v2: true,
+    });
   });
 
   test("recognizes every advertised capability", () => {
@@ -86,6 +104,23 @@ describe("runtime operation config", () => {
       capabilities: all,
       agentKinds: ["codex"],
     });
+  });
+});
+
+describe("upload_file_v2 advertisement", () => {
+  test("learns only from a successful GetConfig capabilities.upload_file_v2===true", () => {
+    const cap = (upload_file_v2: unknown) => ({ capabilities: { upload_file_v2 } });
+    expect(advertisesUploadV2(cap(true))).toBe(true);
+    expect(advertisesUploadV2(cap(false))).toBe(false);
+    expect(advertisesUploadV2(cap(undefined))).toBe(false);
+    expect(advertisesUploadV2(cap(1))).toBe(false);
+    expect(advertisesUploadV2(cap("true"))).toBe(false);
+    // Missing capabilities object, or non-record config, never advertises V2.
+    expect(advertisesUploadV2({})).toBe(false);
+    expect(advertisesUploadV2({ capabilities: null })).toBe(false);
+    expect(advertisesUploadV2({ capabilities: "yes" })).toBe(false);
+    expect(advertisesUploadV2(null)).toBe(false);
+    expect(advertisesUploadV2([])).toBe(false);
   });
 });
 

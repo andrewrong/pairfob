@@ -9,6 +9,7 @@ import {
   subscribeComposeView,
 } from "./compose";
 import { preventComposeBlurUnlessIME, usePointerDown } from "../compose-focus";
+import { AttachButton } from "../attachments/attach-button";
 
 export type SessionComposeProps = {
   /** True on the phone session dock: ids `compose-text-mobile` vs `compose-text-desktop`. */
@@ -63,6 +64,7 @@ export function SessionCompose({ includeBack }: SessionComposeProps) {
       enterKeyHint="enter"
       maxLength={OPERATION_INPUT_LIMITS.prompt}
     />
+    <AttachButton />
     <button
       ref={sendRef}
       type="submit"

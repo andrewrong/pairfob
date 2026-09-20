@@ -121,6 +121,9 @@ func runDaemon(store *state.Store, sock string) error {
 	if err != nil {
 		return fmt.Errorf("engine: %w", err)
 	}
+	// Release upload reservations/staging FDs on shutdown without touching
+	// committed files. Ordinary disconnects do not call this.
+	defer eng.CloseUploads()
 	eng.Build = version
 	eng.Updater = newRemoteUpdater(store.Dir)
 	if getenv("PAIRFOB_P2P", "1") != "0" {

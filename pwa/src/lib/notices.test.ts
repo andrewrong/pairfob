@@ -11,7 +11,7 @@ const noticesSrc = await Bun.file(new URL("../app/notices-store.ts", import.meta
 const noticeSrc = await Bun.file(new URL("../app/notice.tsx", import.meta.url)).text();
 const feedbackSrc = await Bun.file(new URL("../shared/ui/primitives/feedback.tsx", import.meta.url)).text();
 const mainSrc = await Bun.file(new URL("../app/bootstrap.ts", import.meta.url)).text();
-const liveSettingsSrc = await Bun.file(new URL("../features/settings/actions.ts", import.meta.url)).text();
+const liveSettingsSrc = await Bun.file(new URL("../features/settings/network-preference.ts", import.meta.url)).text();
 const pairingSrc = await Bun.file(new URL("../features/pairing/actions.ts", import.meta.url)).text();
 
 function fnBody(source: string, name: string): string {

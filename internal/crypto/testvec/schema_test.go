@@ -22,6 +22,8 @@ type schemaNode struct {
 	If                   *schemaNode           `json:"if"`
 	Then                 *schemaNode           `json:"then"`
 	AdditionalProperties *bool                 `json:"additionalProperties"`
+	MaxLength            int                   `json:"maxLength"`
+	MinLength            int                   `json:"minLength"`
 }
 
 func sortedPropertyNames(properties map[string]schemaNode) []string {
@@ -81,7 +83,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		"PushSubscribe", "RevokeDevice", "ListDevices", "History", "AgentTrace", "AgentTraceSummary", "AgentTraceDetail", "RenamePane",
 		"RenameTab", "RenameWorkspace", "ClosePane", "CloseTab", "CloseWorkspace",
 		"CreateConversation", "CreateTab", "SplitPane", "PromptAgent", "ListWorktrees",
-		"WorkspaceOpen", "WorkspaceList", "WorkspaceRead", "WorkspaceMediaOpen", "WorkspaceMediaRead", "WorkspaceMediaClose", "WorkspaceRename", "WorkspaceDelete", "GitStatus", "GitDiff", "GitBranches",
+		"WorkspaceOpen", "WorkspaceList", "WorkspaceRead", "WorkspaceMediaOpen", "WorkspaceMediaRead", "WorkspaceMediaClose", "WorkspaceUploadBegin", "WorkspaceUploadWrite", "WorkspaceUploadStatus", "WorkspaceUploadCommit", "WorkspaceUploadCancel", "WorkspaceUploadBeginV2", "WorkspaceUploadWriteV2", "WorkspaceUploadStatusV2", "WorkspaceUploadCommitV2", "WorkspaceUploadCancelV2", "WorkspaceRename", "WorkspaceDelete", "GitStatus", "GitDiff", "GitBranches",
 		"CreateWorktree", "OpenWorktree", "ResizePane", "SwapPane", "ZoomPane",
 		"TerminalOpen", "TerminalInput", "TerminalResize", "TerminalScroll", "TerminalClose",
 		"TransportOffer", "TransportCommit", "TransportRestart",
@@ -254,7 +256,36 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		"create_conversation", "create_tab", "split_pane", "prompt_agent", "history",
 		"list_worktrees", "create_worktree", "open_worktree", "resize_pane", "swap_pane", "zoom_pane",
 	}
-	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "rename_file", "delete_file"), capabilities)
+	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "rename_file", "delete_file", "upload_file", "upload_file_v2"), capabilities)
+
+	// Stage-2 V2 upload surface: the dedicated state def reports the V2 chunk
+	// bound, and the V2 write carries the larger base64 payload bound. The
+	// legacy def and its 32768/43692 bounds must stay frozen.
+	uploadV2 := schema.Defs["workspaceUploadStateV2"]
+	if uploadV2.Properties["chunk_bytes"].Const.(float64) != 131072 {
+		t.Errorf("workspaceUploadStateV2 chunk_bytes = %v, want 131072", uploadV2.Properties["chunk_bytes"].Const)
+	}
+	if uploadV2.AdditionalProperties == nil || *uploadV2.AdditionalProperties {
+		t.Error("workspaceUploadStateV2 must reject additional properties")
+	}
+	uploadV1 := schema.Defs["workspaceUploadState"]
+	if uploadV1.Properties["chunk_bytes"].Const.(float64) != 32768 {
+		t.Errorf("workspaceUploadState chunk_bytes = %v, want frozen 32768", uploadV1.Properties["chunk_bytes"].Const)
+	}
+	writeV2 := paramsByOp["WorkspaceUploadWriteV2"]
+	if got := writeV2.Properties["data_b64"].MaxLength; got != 174764 {
+		t.Errorf("WorkspaceUploadWriteV2 data_b64 maxLength = %v, want 174764", got)
+	}
+	writeV1 := paramsByOp["WorkspaceUploadWrite"]
+	if got := writeV1.Properties["data_b64"].MaxLength; got != 43692 {
+		t.Errorf("WorkspaceUploadWrite data_b64 maxLength = %v, want frozen 43692", got)
+	}
+	for _, op := range []string{"WorkspaceUploadBeginV2", "WorkspaceUploadWriteV2", "WorkspaceUploadStatusV2", "WorkspaceUploadCommitV2", "WorkspaceUploadCancelV2"} {
+		params := paramsByOp[op]
+		if params.AdditionalProperties == nil || *params.AdditionalProperties {
+			t.Errorf("%s params must reject additional properties", op)
+		}
+	}
 	requireExactObject(t, schema.Defs, "getConfigResult", []string{
 		"protocol", "build", "daemon_id", "hostname", "runtime", "vapid_public", "submit_keys",
 		"idle_pause_ms", "push_delivery", "push_enabled", "agent_kinds", "capabilities",

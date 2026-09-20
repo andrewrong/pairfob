@@ -24,6 +24,9 @@ Pairfob 是 [Herdr](https://herdr.dev) 的手机端。Codex、Claude、Grok 继�
   （和 Agent 发消息）。
 - **工作区检查。** 在手机上浏览文件、查看 git status、diff 和分支，
   全部只读。
+- **把文件交给 Agent。** 从手机通过 P2P 上传照片、PDF 等文件，再将工作区
+  路径插入草稿；支持照片智能压缩和中断后手动续传。见
+  [附件上传](site/doc/zh/app.md#上传附件)。
 - **可选通知。** Agent 等你确认或完成任务时推送提醒。
 - **中文 / English。** 手机端跟随浏览器语言，也可在设置里固定语言。
 

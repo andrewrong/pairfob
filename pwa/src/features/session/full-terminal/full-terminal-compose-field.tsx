@@ -3,6 +3,7 @@ import { useCompose } from "../hooks";
 import { t } from "../../../lib/i18n";
 import { OPERATION_INPUT_LIMITS } from "../../../lib/operations";
 import { bindFullTerminalCompose } from "./full-terminal-compose";
+import { AttachButton } from "../attachments/attach-button";
 
 export type FullTerminalComposeProps = {
   send: (text: string, enter: boolean) => boolean;
@@ -52,6 +53,7 @@ export function FullTerminalCompose({ send }: FullTerminalComposeProps) {
       enterKeyHint="enter"
       maxLength={OPERATION_INPUT_LIMITS.prompt}
     />
+    <AttachButton />
     <button
       type="submit"
       className="full-terminal-compose-send"

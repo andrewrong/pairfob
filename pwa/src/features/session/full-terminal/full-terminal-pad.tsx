@@ -28,6 +28,7 @@ import {
   type KeySpec,
 } from "../keypad/keypad";
 import { FullTerminalCompose } from "./full-terminal-compose-field";
+import { AttachButton } from "../attachments/attach-button";
 import { PadChromeButton } from "../compose-focus";
 import { SessionPadModeBar, SessionSlashPad } from "../guided/session-slash-pad";
 
@@ -204,6 +205,9 @@ export function FullTerminalPad({ options }: FullTerminalPadProps) {
     data-input-mode={live ? "live" : "compose"}
   >
     <FullTerminalPadControls optionsRef={optionsRef} padRef={padRef} />
+    {live && <div className="full-terminal-live-actions">
+      <AttachButton labeled />
+    </div>}
     {!live && <FullTerminalCompose send={(text, enter) => optionsRef.current.sendCompose(text, enter)} />}
   </div>;
 }

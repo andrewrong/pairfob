@@ -43,6 +43,11 @@ func runtimeRPCClient(t *testing.T, rt runtime.Runtime) (*Engine, *phone.Client)
 	if err := client.Resume(engine.DaemonID); err != nil {
 		t.Fatal(err)
 	}
+	// Production drives all RPCs over the pairfob.v2 mux; concurrent tests
+	// (e.g. shuffled V2 chunk writes) rely on per-request ID demux instead of
+	// the single-receiver legacy recv() loop, which can only carry one
+	// outstanding RPC at a time.
+	client.StartRPCMux()
 	return engine, client
 }
 
@@ -85,7 +90,7 @@ func TestRuntimeRPCNewOperationsAndDeduplication(t *testing.T) {
 		t.Fatalf("unexpected config: %s", configRaw)
 	}
 	capabilities, ok := config["capabilities"].(map[string]any)
-	if !ok || len(capabilities) != 13 || capabilities["create_conversation"] != true || capabilities["zoom_pane"] != true || capabilities["worktrees"] != nil || capabilities["layout"] != nil {
+	if !ok || len(capabilities) != 15 || capabilities["create_conversation"] != true || capabilities["zoom_pane"] != true || capabilities["upload_file"] != true || capabilities["upload_file_v2"] != true || capabilities["worktrees"] != nil || capabilities["layout"] != nil {
 		t.Fatalf("unexpected capability contract: %s", configRaw)
 	}
 
@@ -231,7 +236,7 @@ func TestGetConfigTracksRecoveringRuntimeAvailability(t *testing.T) {
 	}
 	offline := decodeResult(t, offlineRaw)
 	offlineCapabilities := offline["capabilities"].(map[string]any)
-	if offline["runtime"] != "offline" || len(offlineCapabilities) != 13 {
+	if offline["runtime"] != "offline" || len(offlineCapabilities) != 15 {
 		t.Fatalf("offline config did not fail closed: %s", offlineRaw)
 	}
 	for capability, available := range offlineCapabilities {

@@ -1,3 +1,4 @@
+import { bindInactiveNetworkPreference } from "../settings/network-preference";
 import { acceptDaemonVersion, markDaemonConfigIncompatible } from "../settings/daemon-update";
 import { t } from "../../lib/i18n";
 import type { NetworkMode } from "../../lib/network-mode";
@@ -182,6 +183,8 @@ export function reconnectLiveSessions(reason: ReconnectReason = "probe"): void {
 export function syncInactiveTransportMode(mode: NetworkMode, active?: LiveSession): void {
   syncPoolTransport(mode, lifecycle, active);
 }
+bindInactiveNetworkPreference(syncInactiveTransportMode);
+
 
 export async function landAfterDisconnect(opts: {
   daemonId?: string | null;

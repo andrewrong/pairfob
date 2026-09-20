@@ -35,6 +35,9 @@ const OWNERS: Record<string, readonly string[]> = {
   ],
   "features/session/compose-store": ["features/settings/preferences-store"],
   "features/session/chat/trace-store": [],
+  // Per-pane attachment queues. Its only feature-local non-owner dependency is
+  // the read-only pure attachment model (pinned in the import-scope test below).
+  "features/session/attachments/attachments-store": [],
   "features/operations/capabilities-store": [],
   // App-owned coordination domains.
   "app/navigation-store": ["features/board/layout-store"],
@@ -55,6 +58,18 @@ const SHARED_REACT = "shared/react/";
 /** Read-only protocol/presentation libraries a domain model may import. */
 const LIB = "lib/";
 
+/**
+ * Exact owner -> internal PRIVATE implementation-part edges (M1bis). A part is
+ * a single module owned by that store owner (a bounded producer with injected
+ * ownership callbacks), NOT a second feature owner and NOT a global feature
+ * exemption. Only this one edge is pinned: attachments-store ->
+ * attachments-thumbnails. Each part must itself be a graph leaf depending only
+ * on lib/ or the shared model (asserted in the dedicated test below).
+ */
+const INTERNAL_PARTS: Record<string, readonly string[]> = {
+  "features/session/attachments/attachments-store": ["features/session/attachments/attachments-thumbnails"],
+};
+
 function deps(id: string): string[] {
   return dependencyIds(sourceRoot, resolve(sourceRoot, `${id}.ts`));
 }
@@ -73,7 +88,7 @@ function reactSpecs(id: string): string[] {
 
 describe("domain owner manifest", () => {
   test("every declared owner exists and is one exact module", () => {
-    expect(OWNER_IDS).toHaveLength(13);
+    expect(OWNER_IDS).toHaveLength(14);
     for (const id of OWNER_IDS) {
       readFileSync(resolve(sourceRoot, `${id}.ts`)); // a renamed owner must fail
       expect(id).toMatch(/-(store)$|^app\/(navigation|notices)-store$/);
@@ -89,6 +104,10 @@ describe("domain owner manifest", () => {
   });
 
   test("owners import only the shared model primitive, read-only libs and (App) the transition", () => {
+    // One feature-local read-only pure model, allowed for exactly one owner.
+    const PURE_FEATURE_MODELS: Record<string, string> = {
+      "features/session/attachments/attachments-store": "features/session/attachments/attach-model",
+    };
     for (const id of OWNER_IDS) {
       const isAppOwner = id.startsWith("app/");
       for (const dep of deps(id)) {
@@ -96,6 +115,8 @@ describe("domain owner manifest", () => {
         const ok =
           dep.startsWith(SHARED_MODEL) ||
           dep.startsWith(LIB) ||
+          dep === PURE_FEATURE_MODELS[id] ||
+          INTERNAL_PARTS[id]?.includes(dep) ||
           dep === "features/board/model/snapshot-state" ||
           (isAppOwner && dep === "app/transition");
         expect(ok, `${id} -> ${dep}`).toBe(true);
@@ -114,6 +135,33 @@ describe("domain owner manifest", () => {
         expect(banned, `${id} -> ${dep}`).toBe(false);
       }
       expect(reactSpecs(id), `${id} must not import React/ReactDOM`).toEqual([]);
+    }
+  });
+
+  test("an owner's internal part is a leaf depending only on lib/shared with no App/UI/controller/other-owner deps", () => {
+    for (const [ownerId, parts] of Object.entries(INTERNAL_PARTS)) {
+      expect(OWNER_IDS).toContain(ownerId); // it is a private part of a real owner
+      for (const partId of parts) {
+        readFileSync(resolve(sourceRoot, `${partId}.ts`)); // a renamed part must fail
+        for (const dep of deps(partId)) {
+          // A private implementation part: no App/React/UI/page/screen, no
+          // sibling controller, and never another feature owner.
+          const banned =
+            dep.startsWith("app/") ||
+            dep.startsWith("ui/") ||
+            dep.startsWith("pages/") ||
+            dep.startsWith("features/screen") ||
+            dep.endsWith("/attachments-controller") ||
+            OWNER_IDS.includes(dep);
+          expect(banned, `${partId} -> ${dep}`).toBe(false);
+          const ok =
+            dep.startsWith(LIB) ||
+            dep.startsWith(SHARED_MODEL) ||
+            dep === PURE_FEATURE_MODELS[ownerId];
+          expect(ok, `${partId} -> ${dep}`).toBe(true);
+        }
+        expect(reactSpecs(partId), `${partId} must not import React/ReactDOM`).toEqual([]);
+      }
     }
   });
 

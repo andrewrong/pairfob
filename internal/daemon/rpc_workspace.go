@@ -26,7 +26,7 @@ func validWorkspaceRelativePath(value string, allowEmpty bool) bool {
 }
 
 func (e *Engine) workspaceRoot(session *string, paneID string) (string, error) {
-	snapshot, err := e.snapshot(session)
+	snapshot, err := e.workspaceSnapshot(session)
 	if err != nil {
 		return "", err
 	}

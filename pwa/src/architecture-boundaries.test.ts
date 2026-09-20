@@ -179,6 +179,7 @@ const layers: LayerPolicy[] = [
       "features/settings/daemon-update",
       "features/settings/daemon-update-view",
       "features/settings/language",
+      "features/settings/network-preference",
       "features/settings/notifications",
     ],
   },
@@ -294,6 +295,7 @@ describe("architecture layer boundaries", () => {
       "features/settings/daemon-update",
       "features/settings/daemon-update-view",
       "features/settings/language",
+      "features/settings/network-preference",
       "features/settings/notifications",
     ]);
   });

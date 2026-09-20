@@ -3,6 +3,13 @@ const CHUNK_DATA_BYTES = 16 * 1024 - CHUNK_HEADER_BYTES;
 const MAX_FRAME_BYTES = 24 + 262_144;
 const MAGIC = new Uint8Array([0x50, 0x46, 0x50, 0x32]);
 
+/** Total on-the-wire bytes of one encoded frame after P2P fragmentation (per-chunk 12 B header). */
+export function directFrameWireBytes(frameBytes: number): number {
+  if (frameBytes < 24 || frameBytes > MAX_FRAME_BYTES) throw new Error("invalid P2P frame length");
+  const chunks = Math.ceil(frameBytes / CHUNK_DATA_BYTES);
+  return frameBytes + chunks * CHUNK_HEADER_BYTES;
+}
+
 export function splitDirectFrame(frame: Uint8Array): Uint8Array[] {
   if (frame.length < 24 || frame.length > MAX_FRAME_BYTES) throw new Error("invalid P2P frame length");
   const chunks: Uint8Array[] = [];

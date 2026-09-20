@@ -25,6 +25,10 @@ The computer dials out — no inbound ports, no Tailscale.
   real PTY), and Chat with the agent.
 - **Workspace inspection.** Browse files and read git status, diff, and
   branches from the phone, read-only.
+- **Pass files to your Agent.** Upload photos, PDFs and other files from the
+  phone over P2P, then insert their workspace paths into the draft. Supports
+  smart photo compression and manual resume after interruptions.
+  See [attachments](site/doc/app.md#upload-attachments).
 - **Optional notifications.** Push when an agent needs you or finishes a task.
 - **中文 / English.** The phone UI follows the browser language or a pinned
   choice.

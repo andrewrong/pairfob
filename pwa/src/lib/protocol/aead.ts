@@ -2,6 +2,8 @@ import { chacha20poly1305 } from "@noble/ciphers/chacha.js";
 
 export const MAX_PLAINTEXT = 262116;
 export const MAX_PAYLOAD = 262144;
+/** 12 B sequence nonce prefix + 16 B Poly1305 tag added by seal(). */
+export const AEAD_SEAL_OVERHEAD = 12 + 16;
 export const DIR_C = 0x63; // 'c'
 export const DIR_S = 0x73; // 's'
 

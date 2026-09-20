@@ -13,6 +13,7 @@ import {
   parseSplitPaneResult,
   parseSwapPaneResult,
   parseZoomPaneResult,
+  advertisesUploadV2,
   fitOperationPrompt,
   withOperationID,
   type CreateConversationInput,
@@ -34,6 +35,13 @@ import {
   type SwapPaneInput,
   type ZoomPaneInput,
 } from "../operations.ts";
+import {
+  parseUploadState,
+  parseUploadStateV2,
+  type UploadBeginInput,
+  type UploadState,
+  type UploadWriteInput,
+} from "./attachments.ts";
 import { relayOrigin } from "./frame-socket.ts";
 import type { PairResult } from "./pair-ws.ts";
 import { reconnectDelay } from "./reconnect-policy.ts";
@@ -65,6 +73,12 @@ import {
   parseWorkspaceMediaOpen,
 } from "./workspace-media.ts";
 import { TransportSwitchBarrier, type TransportSwitchLease } from "./transport-switch.ts";
+import {
+  isUploadMutation,
+  UploadReadinessGate,
+  UPLOAD_READINESS_MAX_CONCURRENT_WAITS,
+  UPLOAD_READINESS_WAIT_MS,
+} from "./session-upload-readiness.ts";
 import {
   encodeTerminalInput,
   parseTerminalCloseResult,
@@ -128,6 +142,21 @@ class ReconnectingSession implements LiveSession {
   private readonly relayWarmup: RelayWarmup;
   private unwatchVisibility: () => void = () => undefined;
   private readonly agentTraceRPC = new AgentTraceRPC((op, params) => this.readRPC(op, params));
+  // upload_file_v2 is learned ONLY from a successful GetConfig and cleared on
+  // every transport-epoch loss (disconnect, transport switch, close). Method
+  // presence never implies the capability. configRequest is a monotonic token,
+  // bumped at every GetConfig start and every epoch loss, so a stale reply can
+  // never install a capability over a newer request or newer transport epoch.
+  private uploadV2 = false;
+  private configRequest = 0;
+  // Bumped synchronously at every switch begin, so an upload paused in a probe
+  // wait is invalidated even by a switch that fails and returns the same
+  // transport object (it is never sent on a switch in progress).
+  private switchGeneration = 0;
+  private readonly uploadReadiness = new UploadReadinessGate(
+    UPLOAD_READINESS_MAX_CONCURRENT_WAITS,
+    UPLOAD_READINESS_WAIT_MS,
+  );
 
   private constructor(
     private readonly relayWS: string,
@@ -147,7 +176,11 @@ class ReconnectingSession implements LiveSession {
       get networkAvailable() { return session.networkAvailable; },
       get networkMode() { return session.networkMode; },
       getTransport: () => session.transport,
-      setTransport: (transport) => { session.transport = transport; },
+      setTransport: (transport) => {
+        session.transport = transport;
+        session.uploadV2 = false;
+        session.configRequest++;
+      },
       beginSwitch: () => session.beginSwitch(),
       ownsSwitch: (lease) => session.transportSwitch.owns(lease),
       endSwitch: (lease) => session.endSwitch(lease),
@@ -165,7 +198,12 @@ class ReconnectingSession implements LiveSession {
     this.unwatchVisibility = watchPageVisibility((hidden) => {
       this.direct.setPageHidden(hidden);
       if (hidden) this.relayWarmup.cancel();
-      if (hidden && this.transport) this.emit({ type: "checking" });
+      if (hidden && this.transport) {
+        // Hidden pages never run the probe: reject paused uploads visibly
+        // instead of holding them until the deadline.
+        this.uploadReadiness.failAll(new ProtocolError("disconnected", "页面已隐藏，连接暂停，本次上传操作未发送；返回页面后可继续"));
+        this.emit({ type: "checking" });
+      }
       if (hidden && this.reconnectTimer !== null) {
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = null;
@@ -215,6 +253,7 @@ class ReconnectingSession implements LiveSession {
     }
     if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+    this.uploadReadiness.failAll(new ProtocolError("disconnected", "手机网络已断开，本次上传操作未发送；网络恢复后可继续"));
     this.direct.dispose();
     this.relayWarmup.cancel();
     this.connectAbort?.abort();
@@ -231,7 +270,33 @@ class ReconnectingSession implements LiveSession {
   agentQuota = async () => parseAgentQuota(await this.readRPC("AgentQuota", {}, 12_000));
   daemonUpdateStatus = () => this.readRPC("DaemonUpdateStatus", {});
   daemonUpdate = (target: string) => this.trackedMutation("DaemonUpdate", { target });
-  getConfig = () => this.readRPC("GetConfig", {}) as Promise<Record<string, unknown>>;
+  getConfig = async (): Promise<Record<string, unknown>> => {
+    const requestToken = ++this.configRequest;
+    // Fail closed from the instant a refresh starts: the capability is only
+    // restored by a valid reply that is still the latest request on the same
+    // transport epoch.
+    this.uploadV2 = false;
+    const transport = await this.captureTransport();
+    if (!transport) throw new ProtocolError("reconnecting", "连接正在恢复");
+    try {
+      const result = await transport.rpc("GetConfig", {}) as Record<string, unknown>;
+      if (
+        requestToken === this.configRequest &&
+        transport === this.transport &&
+        !this.stopped &&
+        !this.checking
+      ) {
+        this.uploadV2 = advertisesUploadV2(result);
+      }
+      // Guard failure assigns nothing: a newer result/epoch must survive.
+      return result;
+    } catch (error) {
+      // A rejected LATEST request fails closed; a stale request's failure does
+      // nothing so it can never clobber a newer request's installed result.
+      if (requestToken === this.configRequest) this.uploadV2 = false;
+      throw error;
+    }
+  };
   snapshot = () => this.readRPC("Snapshot", { session: null }) as Promise<Record<string, unknown>>;
   paneRead = (paneId: string, lines = 80, format: "ansi" | "text" = "ansi") =>
     this.readRPC("PaneRead", { pane_id: paneId, source: "visible", format, lines }) as Promise<{ text: string; truncated?: boolean; hash?: string }>;
@@ -319,6 +384,27 @@ class ReconnectingSession implements LiveSession {
     parseWorkspaceMediaChunk(await this.readRPC("WorkspaceMediaRead", { handle, offset, length }));
   workspaceMediaClose = async (handle: string) =>
     parseWorkspaceMediaClose(await this.readRPC("WorkspaceMediaClose", { handle }));
+  workspaceUploadBegin = async (input: UploadBeginInput): Promise<UploadState> =>
+    parseUploadState(await this.mutationRPC("WorkspaceUploadBegin", withOperationID(input)), input.upload_id);
+  workspaceUploadWrite = async (input: UploadWriteInput): Promise<UploadState> =>
+    parseUploadState(await this.mutationRPC("WorkspaceUploadWrite", withOperationID(input)), input.upload_id);
+  workspaceUploadStatus = async (paneId: string, uploadId: string): Promise<UploadState> =>
+    parseUploadState(await this.readRPC("WorkspaceUploadStatus", { pane_id: paneId, upload_id: uploadId }), uploadId);
+  workspaceUploadCommit = async (paneId: string, uploadId: string): Promise<UploadState> =>
+    parseUploadState(await this.mutationRPC("WorkspaceUploadCommit", withOperationID({ pane_id: paneId, upload_id: uploadId })), uploadId);
+  workspaceUploadCancel = async (paneId: string, uploadId: string): Promise<UploadState> =>
+    parseUploadState(await this.mutationRPC("WorkspaceUploadCancel", withOperationID({ pane_id: paneId, upload_id: uploadId })), uploadId);
+  supportsUploadV2 = (): boolean => !this.stopped && !this.checking && this.uploadV2;
+  workspaceUploadBeginV2 = async (input: UploadBeginInput): Promise<UploadState> =>
+    parseUploadStateV2(await this.mutationRPC("WorkspaceUploadBeginV2", withOperationID(input)), input.upload_id);
+  workspaceUploadWriteV2 = async (input: UploadWriteInput): Promise<UploadState> =>
+    parseUploadStateV2(await this.mutationRPC("WorkspaceUploadWriteV2", withOperationID(input)), input.upload_id);
+  workspaceUploadStatusV2 = async (paneId: string, uploadId: string): Promise<UploadState> =>
+    parseUploadStateV2(await this.readRPC("WorkspaceUploadStatusV2", { pane_id: paneId, upload_id: uploadId }), uploadId);
+  workspaceUploadCommitV2 = async (paneId: string, uploadId: string): Promise<UploadState> =>
+    parseUploadStateV2(await this.mutationRPC("WorkspaceUploadCommitV2", withOperationID({ pane_id: paneId, upload_id: uploadId })), uploadId);
+  workspaceUploadCancelV2 = async (paneId: string, uploadId: string): Promise<UploadState> =>
+    parseUploadStateV2(await this.mutationRPC("WorkspaceUploadCancelV2", withOperationID({ pane_id: paneId, upload_id: uploadId })), uploadId);
   gitStatus = async (paneId: string) => parseGitStatus(await this.readRPC("GitStatus", { pane_id: paneId }));
   gitDiff = async (paneId: string, path: string, layer: GitLayer) =>
     parseGitDiff(await this.readRPC("GitDiff", { pane_id: paneId, path, layer }));
@@ -366,6 +452,11 @@ class ReconnectingSession implements LiveSession {
   close = (): void => {
     this.unwatchVisibility();
     this.stopped = true;
+    // close() publishes no public event: settle paused uploads promptly here
+    // so their callers never wait for the 8 s deadline after close.
+    this.uploadReadiness.failAll(new ProtocolError("disconnected", "会话已关闭，本次上传操作未发送"));
+    this.uploadV2 = false;
+    this.configRequest++;
     this.reconnectRequested = false;
     this.relayWarmup.cancel();
     this.connectAbort?.abort();
@@ -385,9 +476,65 @@ class ReconnectingSession implements LiveSession {
 
   /** Capture one transport; mutation RPCs are never replayed on another socket. */
   private async mutationRPC(op: string, params: unknown): Promise<unknown> {
-    const transport = this.checking ? null : await this.captureTransport();
-    if (!transport || this.checking) return Promise.reject(new ProtocolError("disconnected", "连接已断开；为避免重复输入，本次操作未发送"));
+    if (!isUploadMutation(op)) {
+      const transport = this.checking ? null : await this.captureTransport();
+      if (!transport || this.checking) return Promise.reject(new ProtocolError("disconnected", "连接已断开；为避免重复输入，本次操作未发送"));
+      return trackMutationDelivery((markSent) => transport.rpc(op, params, MUTATION_RPC_TIMEOUT_MS, markSent));
+    }
+    // Upload mutation: pause UNSENT work while a probe verifies the captured
+    // live epoch. The transport and switch generation are snapshotted BEFORE
+    // any wait; the call rides this one epoch or is rejected visibly — never
+    // migrated, never replayed, and no new upload is started automatically.
+    const captured = { transport: this.transport, generation: this.switchGeneration };
+    const check = (): boolean | Error => {
+      const verdict = this.uploadReadinessVerdict(captured, !op.startsWith("WorkspaceUploadCancel"));
+      if (verdict === null) return false;
+      return verdict.ok ? true : verdict.error;
+    };
+    await this.uploadReadiness.wait(check);
+    // Final synchronous identity/readiness gate on the original epoch.
+    const verdict = this.uploadReadinessVerdict(captured, !op.startsWith("WorkspaceUploadCancel"));
+    if (verdict === null || !verdict.ok) {
+      throw verdict?.error ?? new ProtocolError("reconnecting", "连接正在恢复，本次上传操作未发送");
+    }
+    // The original operation_id in params is retained; delivery tracking wraps
+    // exactly this single dispatch (wait-before-first-send is not a retry).
+    const transport = verdict.transport;
     return trackMutationDelivery((markSent) => transport.rpc(op, params, MUTATION_RPC_TIMEOUT_MS, markSent));
+  }
+
+  /**
+   * Whether a paused upload mutation may dispatch on its captured epoch.
+   * null: still checking the same epoch (keep waiting); Error: the unsent
+   * mutation must be rejected; ok: the exact same transport is live again.
+   */
+  private uploadReadinessVerdict(captured: { transport: SessionTransport | null; generation: number }, requireDirect: boolean):
+    { ok: true; transport: SessionTransport } | { ok: false; error: ProtocolError } | null {
+    if (this.stopped) {
+      return { ok: false, error: new ProtocolError("disconnected", "会话已关闭，本次上传操作未发送") };
+    }
+    if (!this.networkAvailable) {
+      return { ok: false, error: new ProtocolError("disconnected", "手机网络已断开，本次上传操作未发送；网络恢复后可继续") };
+    }
+    if (pageHidden()) {
+      return { ok: false, error: new ProtocolError("disconnected", "页面已隐藏，连接暂停，本次上传操作未发送；返回页面后可继续") };
+    }
+    // Any begin of a switch invalidates the wait, including a failed switch
+    // that ends with the identical transport object; an active barrier is the
+    // same case one tick earlier.
+    if (this.switchGeneration !== captured.generation || this.transportSwitch.wait()) {
+      return { ok: false, error: new ProtocolError("disconnected", "连接正在切换，本次上传操作未发送；请刷新确认后继续") };
+    }
+    if (captured.transport === null || this.transport !== captured.transport) {
+      return { ok: false, error: new ProtocolError("disconnected", "连接已恢复到新的会话，本次上传操作未发送；请刷新确认后继续") };
+    }
+    // Status and cancellation remain available for reconciliation/cleanup.
+    // Begin, file bytes and commit must never use the relay.
+    if (requireDirect && captured.transport.kind !== "p2p") {
+      return { ok: false, error: new ProtocolError("disconnected", "文件上传仅支持 P2P 直连；请在设置中切换到 P2P，连接成功后手动重试或续传") };
+    }
+    if (this.checking) return null;
+    return { ok: true, transport: captured.transport };
   }
 
   private async terminalRPC(op: string, params: unknown): Promise<unknown> {
@@ -437,6 +584,17 @@ class ReconnectingSession implements LiveSession {
       this.lastTransport = event.transport ?? this.lastTransport;
     }
     for (const listener of this.listeners) listener(event);
+    // Paused uploads re-evaluate on connection-state events. Data events
+    // (poke/terminal frames/latency) never change the verdict.
+    if (
+      event.type === "checking"
+      || event.type === "connected"
+      || event.type === "disconnected"
+      || event.type === "reconnecting"
+      || event.type === "terminal"
+    ) {
+      this.uploadReadiness.pulse();
+    }
   }
 
   private observeDirectAttempt(observation: P2PAttemptObservation): void {
@@ -480,6 +638,8 @@ class ReconnectingSession implements LiveSession {
 
   private finishDisconnect(error: ProtocolError): void {
     this.transport = null;
+    this.uploadV2 = false;
+    this.configRequest++;
     this.direct.dispose();
     if (TERMINAL_CODES.has(error.code) || error.code === "kicked") {
       this.stopped = true;
@@ -497,7 +657,14 @@ class ReconnectingSession implements LiveSession {
 
   private beginSwitch(): TransportSwitchLease {
     const lease = this.transportSwitch.begin();
+    this.switchGeneration += 1;
+    // A switch can replace or (on failure) keep the transport; either way an
+    // unsent upload must not ride it. The checkpoint stays with the caller for
+    // an explicit resume; nothing is auto-restarted.
+    this.uploadReadiness.failAll(new ProtocolError("disconnected", "连接正在切换，本次上传操作未发送；请刷新确认后继续"));
     this.deferredDisconnect = null;
+    this.uploadV2 = false;
+    this.configRequest++;
     return lease;
   }
 

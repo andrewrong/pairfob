@@ -19,6 +19,7 @@ import { t } from "../../../lib/i18n";
 import { canSend, leaveAgentChat, sizeChatCompose, submitAgentPrompt } from "./agent-chat-controller";
 import { publishAgentChatUI } from "./agent-chat-ui";
 import { Button } from "../../../shared/ui/primitives";
+import { AttachButton } from "../attachments/attach-button";
 
 function composeOwnerMoved(
   session: ReturnType<typeof liveSession>,
@@ -91,6 +92,7 @@ export function AgentCompose() {
     <form className="dock-form" onSubmit={event => { event.preventDefault(); void submitAgentPrompt(); }}>
       <textarea ref={input} rows={1} enterKeyHint="send" maxLength={OPERATION_INPUT_LIMITS.prompt}
         placeholder={t(allowed ? "chat.placeholder" : "chat.cantSend")} disabled={!allowed || busy} />
+      <AttachButton />
       <Button className="send-btn" disabled={!allowed || busy || !draft.trim()}
         onClick={() => void submitAgentPrompt()}>{t("compose.send")}</Button>
     </form>

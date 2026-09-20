@@ -324,6 +324,25 @@ func (e *Engine) dispatch(s *sess, id, op string, params json.RawMessage) {
 		go e.dispatchWorkspaceRead(s, id, op, params)
 	case "WorkspaceMediaOpen", "WorkspaceMediaRead", "WorkspaceMediaClose":
 		go e.dispatchWorkspaceMedia(s, id, op, params)
+	case "WorkspaceUploadBegin", "WorkspaceUploadWrite", "WorkspaceUploadStatus", "WorkspaceUploadCommit", "WorkspaceUploadCancel":
+		go e.dispatchUpload(s, id, op, params)
+	case "WorkspaceUploadBeginV2":
+		// BeginV2 needs no pipeline ticket; keep it on the bounded legacy
+		// upload pool like legacy Begin.
+		go e.dispatchUpload(s, id, op, params)
+	case "WorkspaceUploadWriteV2", "WorkspaceUploadStatusV2", "WorkspaceUploadCommitV2", "WorkspaceUploadCancelV2":
+		// Synchronous dispatch-path admission (ticket claim / barrier capture
+		// / bounded pool) BEFORE the goroutine spawns, so a later StatusV2 can
+		// capture every previously admitted write even if its goroutine or root
+		// lookup has not started, and no unbounded transient goroutine exists.
+		adm, ok := e.admitUploadV2(s, id, op, params)
+		if !ok {
+			return
+		}
+		go func() {
+			defer adm.release()
+			e.dispatchUploadAdmitted(s, id, op, params, adm)
+		}()
 	case "WorkspaceRename", "WorkspaceDelete":
 		go e.rpcWorkspaceMutation(s, id, op, params)
 	case "CreateWorktree":

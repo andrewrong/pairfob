@@ -1,5 +1,16 @@
 export { ProtocolError } from "./errors.ts";
 export {
+  ATTACHMENT_UPLOAD_CHUNK_BYTES,
+  parseUploadState,
+  validAttachmentDigest,
+  validUploadID,
+  type UploadBeginInput,
+  type UploadState,
+  type UploadStateActive,
+  type UploadStateCommitted,
+  type UploadWriteInput,
+} from "./attachments.ts";
+export {
   directFailureDiagnostic,
   type DirectFailureDiagnostic,
 } from "./direct-peer.ts";

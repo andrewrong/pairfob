@@ -1,8 +1,8 @@
 import { recordConnectionDiagnostic, type ConnectionDetails } from "./connection-diagnostics.ts";
-import { Direction } from "./aead.ts";
+import { Direction, AEAD_SEAL_OVERHEAD } from "./aead.ts";
 import { b64url } from "./bytes.ts";
 import { DataFrameChannel } from "./data-channel.ts";
-import { decodeUTF8, Typ, type Frame } from "./envelope.ts";
+import { decodeUTF8, HEADER_SIZE, Typ, type Frame } from "./envelope.ts";
 import { envelopeError, HEARTBEAT_MS, heartbeatPayload, requireHeartbeatPayload, sameBytes } from "./frame-socket.ts";
 import type { FrameChannel, FrameChannelKind } from "./frame-channel.ts";
 import { ProtocolError } from "./errors.ts";
@@ -13,6 +13,14 @@ import { pageHidden, watchPageVisibility } from "./page-activity.ts";
 import { DIRECT_RESUME_GRACE_MS } from "./direct-retry-policy.ts";
 
 const MAX_IN_FLIGHT = 32;
+/**
+ * Bulk upload writes admitted at once, counting requests waiting for buffer
+ * budget AND requests already sent. Well below MAX_IN_FLIGHT so interactive
+ * RPCs always keep free slots even with a full bulk pipeline.
+ */
+export const MAX_BULK_IN_FLIGHT = 4;
+/** Only the two chunk-write RPCs are bulk; every other RPC seals immediately. */
+const BULK_RPC_OPS = new Set(["WorkspaceUploadWrite", "WorkspaceUploadWriteV2"]);
 /** Snapshot/Ping/History and other reads. */
 export const READ_RPC_TIMEOUT_MS = 8_000;
 /** Mutations share the daemon executeRPC deadline. */
@@ -30,7 +38,17 @@ const MAX_LATE_CALLBACKS = MAX_IN_FLIGHT;
 export { MAX_LATE_CALLBACKS as MEDIA_LATE_CALLBACK_CAP };
 const LATE_CALLBACK_TTL_MS = 60_000;
 
-type Pending = { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> };
+type Pending = {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+  /** Bulk upload write: admitted through the hard 4-job cap. */
+  bulk: boolean;
+  /** Counts toward bulkActive from admission until settled; released once. */
+  counted: boolean;
+  /** Aborts the pre-seal readiness wait on timeout/response/close. */
+  abort: AbortController;
+};
 type Late = { fn: (result: unknown) => void; expires: ReturnType<typeof setTimeout> };
 /**
  * WorkspaceMediaOpen hashes up to 32 MiB at 8 MiB/s session disk quota
@@ -64,6 +82,14 @@ export class SessionTransport {
   private unwatchVisibility: () => void = () => undefined;
   private stopError: ProtocolError | null = null;
   private disconnectHandlers = new Set<(error: ProtocolError) => void>();
+  private bulkActive = 0;
+  /**
+   * Serializes ONLY the bulk pre-seal critical section (wait budget -> seal ->
+   * send). At most MAX_BULK_IN_FLIGHT admitted jobs exist; the tail makes their
+   * readiness checks sequential so several resolved waiters can never burst
+   * past the 1 MiB budget. It never waits for an RPC response.
+   */
+  private bulkTail: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly channel: FrameChannel,
@@ -142,26 +168,126 @@ export class SessionTransport {
   async rpc(op: string, params: unknown, timeoutMs = READ_RPC_TIMEOUT_MS, onSent?: () => void, onLate?: (result: unknown) => void): Promise<unknown> {
     if (this.stopped) throw new ProtocolError("disconnected", "连接正在恢复");
     if (this.pending.size >= MAX_IN_FLIGHT) throw new ProtocolError("backpressure", "请求过多，请稍后再试");
+    const bulk = BULK_RPC_OPS.has(op);
+    // Hard bulk cap over EVERY admitted bulk job: queued on the send tail,
+    // waiting for buffer budget, or already sent. The 5th is rejected before
+    // any request id / plaintext / pending entry / timer allocation, so the
+    // rejected call can never grow an admission queue. Interactive RPCs keep
+    // the remaining capacity (MAX_IN_FLIGHT - MAX_BULK_IN_FLIGHT = 28).
+    if (bulk && this.bulkActive >= MAX_BULK_IN_FLIGHT) {
+      throw new ProtocolError("backpressure", "批量上传在途请求已达上限，请等待确认后再发");
+    }
     const id = `req_${b64url(crypto.getRandomValues(new Uint8Array(12)))}`;
     const plaintext = new TextEncoder().encode(JSON.stringify({ v: 1, id, op, params }));
-    return new Promise((resolve, reject) => {
-      const timer = globalThis.setTimeout(() => {
-        this.pending.delete(id);
-        this.rememberLate(id, onLate);
-        reject(new ProtocolError("timeout", `${op} 响应超时；写操作不会自动重试`));
-      }, timeoutMs);
-      this.pending.set(id, { resolve, reject, timer });
-      try {
-        this.sendSealed(plaintext);
-        onSent?.();
-      } catch (error) {
-        clearTimeout(timer);
-        this.pending.delete(id);
-        this.dropLate(id);
-        reject(error instanceof ProtocolError ? error : new ProtocolError("disconnected", String(error)));
-        this.failEpoch(new ProtocolError("disconnected", "加密帧发送失败，正在恢复连接", { reason: "encrypted_send_failed" }));
-      }
+    // Exact whole-frame cost used for pre-seal admission: 24 B envelope header
+    // plus the AEAD nonce/tag expansion; P2P fragment headers are added by the
+    // DataChannel adapter.
+    const frameBytes = HEADER_SIZE + plaintext.length + AEAD_SEAL_OVERHEAD;
+    return new Promise<unknown>((resolve, reject) => {
+      const abort = new AbortController();
+      const entry: Pending = {
+        resolve, reject, bulk, counted: bulk, abort,
+        timer: globalThis.setTimeout(() => this.expireRPC(id, entry, op, onLate), timeoutMs),
+      };
+      this.bulkActive += bulk ? 1 : 0;
+      this.pending.set(id, entry);
+      // Interactive RPCs bypass the bulk tail and seal in THIS tick, so they
+      // preempt bulk jobs that are still waiting for send budget. Bulk jobs
+      // run their wait->seal->send critical section one at a time on the tail.
+      if (bulk) this.enqueueBulk(id, entry, plaintext, frameBytes, onSent);
+      else this.sealAndSend(id, entry, plaintext, onSent);
     });
+  }
+
+  /** Client-side deadline: settle exactly once and release the bulk count. */
+  private expireRPC(id: string, entry: Pending, op: string, onLate?: (result: unknown) => void): void {
+    if (!this.pending.has(id)) return;
+    this.pending.delete(id);
+    entry.abort.abort();
+    this.releaseBulk(entry);
+    this.rememberLate(id, onLate);
+    entry.reject(new ProtocolError("timeout", `${op} 响应超时；写操作不会自动重试`));
+  }
+
+  /**
+   * Append one admitted bulk job to the serialization tail. The tail advances
+   * as soon as the frame was seal-sent (NOT when the RPC responds), and every
+   * rejection is observed so the chain can never stall or surface unhandled.
+   */
+  private enqueueBulk(
+    id: string,
+    entry: Pending,
+    plaintext: Uint8Array,
+    frameBytes: number,
+    onSent?: () => void,
+  ): void {
+    const run = this.bulkTail.then(() => this.dispatchBulk(id, entry, plaintext, frameBytes, onSent));
+    this.bulkTail = run.then(() => undefined, () => undefined);
+  }
+
+  /**
+   * One bulk pre-seal critical section on the tail: alive -> wait for one
+   * whole frame of channel budget -> alive -> seal/send synchronously. No await
+   * sits between seal and send; no ciphertext is ever queued. Readiness
+   * failure settles the RPC itself (never retiring a healthy epoch); a closed
+   * epoch has already rejected the pending entry.
+   */
+  private async dispatchBulk(
+    id: string,
+    entry: Pending,
+    plaintext: Uint8Array,
+    frameBytes: number,
+    onSent?: () => void,
+  ): Promise<void> {
+    if (!this.isLive(id)) return;
+    try {
+      await this.channel.waitWritable?.(frameBytes, entry.abort.signal);
+    } catch (error) {
+      if (this.pending.has(id)) {
+        clearTimeout(entry.timer);
+        this.pending.delete(id);
+        entry.abort.abort();
+        this.releaseBulk(entry);
+        entry.reject(error instanceof ProtocolError ? error : new ProtocolError("disconnected", String(error)));
+      }
+      return;
+    }
+    if (!this.isLive(id)) return;
+    this.sealAndSend(id, entry, plaintext, onSent);
+  }
+
+  /** True while the epoch is open and this RPC has not settled. */
+  private isLive(id: string): boolean {
+    return !this.stopped && this.pending.has(id);
+  }
+
+  /**
+   * Seal and send one frame as a single synchronous block: the AEAD nonce is
+   * allocated only at actual send time, and onSent fires only after the WHOLE
+   * frame (all P2P fragments) came back from send — never at enqueue. A
+   * post-seal send failure is wire uncertainty and keeps the existing
+   * failEpoch behavior (the gapped epoch must not continue).
+   */
+  private sealAndSend(id: string, entry: Pending, plaintext: Uint8Array, onSent?: () => void): void {
+    try {
+      this.sendSealed(plaintext);
+      onSent?.();
+    } catch (error) {
+      if (this.pending.has(id)) {
+        clearTimeout(entry.timer);
+        this.pending.delete(id);
+        entry.abort.abort();
+        this.releaseBulk(entry);
+        entry.reject(error instanceof ProtocolError ? error : new ProtocolError("disconnected", String(error)));
+      }
+      this.failEpoch(new ProtocolError("disconnected", "加密帧发送失败，正在恢复连接", { reason: "encrypted_send_failed" }));
+    }
+  }
+
+  private releaseBulk(entry: Pending): void {
+    if (!entry.counted) return;
+    entry.counted = false;
+    this.bulkActive--;
   }
 
   /** Remember a best-effort late-success callback with a finite TTL and hard cap. */
@@ -276,6 +402,8 @@ export class SessionTransport {
       }
       clearTimeout(pending.timer);
       this.pending.delete(message.id);
+      pending.abort.abort();
+      this.releaseBulk(pending);
       this.dropLate(message.id);
       if (message.ok) pending.resolve(message.result);
       else pending.reject(new ProtocolError(message.error.code, message.error.message));
@@ -302,6 +430,8 @@ export class SessionTransport {
   private rejectPending(error: ProtocolError): void {
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
+      pending.abort.abort();
+      this.releaseBulk(pending);
       pending.reject(error);
     }
     this.pending.clear();

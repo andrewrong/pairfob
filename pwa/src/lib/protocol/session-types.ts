@@ -19,6 +19,11 @@ import type {
   SwapPaneInput,
   ZoomPaneInput,
 } from "../operations.ts";
+import type {
+  UploadBeginInput,
+  UploadState,
+  UploadWriteInput,
+} from "./attachments.ts";
 import type { TerminalFramePart, TerminalOpenResult } from "./terminal.ts";
 import type {
   GitBranches,
@@ -97,6 +102,19 @@ export type LiveSession = {
   workspaceMediaOpen: (paneId: string, path: string) => Promise<WorkspaceMediaOpen>;
   workspaceMediaRead: (handle: string, offset: number, length: number) => Promise<WorkspaceMediaChunk>;
   workspaceMediaClose: (handle: string) => Promise<WorkspaceMediaClose>;
+  /** Optional attachment uploads; absent on older daemons and mocks. */
+  workspaceUploadBegin?: (input: UploadBeginInput) => Promise<UploadState>;
+  workspaceUploadWrite?: (input: UploadWriteInput) => Promise<UploadState>;
+  workspaceUploadStatus?: (paneId: string, uploadId: string) => Promise<UploadState>;
+  workspaceUploadCommit?: (paneId: string, uploadId: string) => Promise<UploadState>;
+  workspaceUploadCancel?: (paneId: string, uploadId: string) => Promise<UploadState>;
+  /** V2 attachment uploads (131072-byte chunks); only callable when supportsUploadV2() is true. */
+  supportsUploadV2?: () => boolean;
+  workspaceUploadBeginV2?: (input: UploadBeginInput) => Promise<UploadState>;
+  workspaceUploadWriteV2?: (input: UploadWriteInput) => Promise<UploadState>;
+  workspaceUploadStatusV2?: (paneId: string, uploadId: string) => Promise<UploadState>;
+  workspaceUploadCommitV2?: (paneId: string, uploadId: string) => Promise<UploadState>;
+  workspaceUploadCancelV2?: (paneId: string, uploadId: string) => Promise<UploadState>;
   gitStatus: (paneId: string) => Promise<GitStatus>;
   gitDiff: (paneId: string, path: string, layer: GitLayer) => Promise<GitDiff>;
   gitBranches: (paneId: string) => Promise<GitBranches>;

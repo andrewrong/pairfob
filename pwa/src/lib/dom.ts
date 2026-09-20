@@ -24,6 +24,15 @@ export function node<K extends keyof HTMLElementTagNameMap>(
   return element;
 }
 
+/**
+ * True while any native `<dialog>` is open (showModal or show). Used to gate
+ * page-level typing so keys never reach a pane while a modal (e.g. the
+ * attachment sheet) is up — even after focus has dropped to <body>.
+ */
+export function hasOpenDialog(): boolean {
+  return document.querySelector("dialog[open]") !== null;
+}
+
 const RIPPLE_MS = 520;
 
 /** Selectors whose geometry motion.css prepares as a ripple host. */

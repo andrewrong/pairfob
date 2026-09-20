@@ -2,7 +2,7 @@ import type { ConnectionDetails } from "./connection-diagnostics.ts";
 import { b64url, b64urlDecode } from "./bytes.ts";
 import { decode, encode, parseJSON, type Frame } from "./envelope.ts";
 import { ProtocolError } from "./errors.ts";
-import type { FrameChannel } from "./frame-channel.ts";
+import { CHANNEL_WRITE_BUDGET, waitForWriteBudget, type FrameChannel, type WaitWritable } from "./frame-channel.ts";
 
 /** Zero route_id for HELLO/ATTACH control frames. Pair and session share send, heartbeat, and envelope checks. */
 export const Z16 = new Uint8Array(16);
@@ -113,6 +113,24 @@ export class FrameSocket implements FrameChannel {
     if (this.ended) throw new ProtocolError("disconnected", "连接已关闭");
     send(this.ws, frame);
   }
+
+  /**
+   * Pre-seal readiness for one whole relay frame when backed by a real
+   * WebSocket exposing bufferedAmount. WebSockets have no low-water event, so
+   * the budget uses the bounded poll; test/handshake adapters without a
+   * bufferedAmount resolve immediately and keep the old behavior.
+   */
+  waitWritable: WaitWritable = (frameBytes, signal, timeoutMs) => {
+    if (typeof this.ws.bufferedAmount !== "number") return Promise.resolve();
+    return waitForWriteBudget({
+      backlog: () => (this.ended || this.ws.readyState !== WebSocket.OPEN ? null : this.ws.bufferedAmount),
+      need: frameBytes,
+      limit: CHANNEL_WRITE_BUDGET,
+      signal,
+      timeoutMs,
+      onClose: (handler) => this.onClose(handler),
+    });
+  };
 
   close(code?: number, reason?: string): void {
     // Browser close events may arrive much later, especially after a network change.

@@ -198,6 +198,8 @@ type Engine struct {
 	mediaTestHold    <-chan struct{}
 	mediaTestEntered chan<- struct{}
 	mediaSendHook    func(*sess, envelope.Frame)
+
+	uploads *uploadRegistry
 }
 
 const PairingTTLDefault = 180 * time.Second
@@ -217,8 +219,9 @@ func newEngine(hub *mux.Hub, conn mux.Conn, rt runtimeapi.Runtime, pk ed25519.Pu
 		nonceByDevice: map[string][]string{}, helloByDevice: map[string][]time.Time{},
 		pushLast: map[string]time.Time{}, pushSem: make(chan struct{}, 8), PushHTTPClient: productionPushHTTPClient(),
 		Journal: journal.NewDefault(), operations: map[string]*operationRecord{},
-		media:  newMediaRegistry(),
-		Origin: "https://pairfob.com", Banner: os.Stdout, PairingTTL: PairingTTLDefault,
+		media:   newMediaRegistry(),
+		uploads: newUploadRegistry(),
+		Origin:  "https://pairfob.com", Banner: os.Stdout, PairingTTL: PairingTTLDefault,
 	}
 }
 

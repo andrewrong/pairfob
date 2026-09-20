@@ -1,5 +1,5 @@
 import { pickResumeCredential } from "../lib/computer-catalog";
-import { bindRippleSurface } from "../lib/dom";
+import { bindRippleSurface, hasOpenDialog } from "../lib/dom";
 import { bindLegacyGestureBoundary } from "../lib/gesture-boundary";
 import { detectLang, initI18n, langPref, setLang, t } from "../lib/i18n";
 import { messageOf } from "../lib/notices";
@@ -240,10 +240,15 @@ function bindResponsiveLayout(signal: AbortSignal): void {
   signal.addEventListener("abort", () => media.removeEventListener("change", onDeskChange), { once: true });
 }
 
-function bindPaneKeys(signal: AbortSignal): void {
+export function bindPaneKeys(signal: AbortSignal): void {
   document.addEventListener("keydown", (event) => {
     if (currentPhase() !== "live" || currentScreen() !== "pane" || termSelect() || isFullTerminal() || isAgentChat()) return;
     if (event.defaultPrevented) return;
+    // A native modal dialog is open: never forward typing keys to the pane. This
+    // is checked before the target guard because focus can drop to <body> (the
+    // Insert All/focused button being disabled), so an ESC or printable key must
+    // not leak into the PTY — native Escape keeps closing the top modal.
+    if (hasOpenDialog()) return;
     const target = event.target;
     if (
       target instanceof HTMLElement &&

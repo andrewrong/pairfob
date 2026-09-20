@@ -48,6 +48,12 @@ func (e *Engine) rpcGetConfig(s *sess, id string, params json.RawMessage) {
 		"zoom_pane":           descriptor.Supports(runtime.FeatureLayoutZoom),
 		"rename_file":         describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
 		"delete_file":         describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
+		"upload_file":         describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
+		// upload_file_v2: the ordered V2 write pipeline (bounded max-4
+		// window, durable ordered offsets, out-of-order notification, fail-
+		// closed roots) is complete and the backend suite passes, so
+		// advertise true to let clients select the 128 KiB V2 upload path.
+		"upload_file_v2": describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
 	}
 	agentKinds := make([]string, 0, len(descriptor.AgentKinds))
 	for _, kind := range descriptor.AgentKinds {

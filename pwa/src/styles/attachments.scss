@@ -1,0 +1,617 @@
+/* Universal attachments: compose affordance, picker sheet, image editor.
+   Owned by the session attachment UI leaf. */
+
+/* --- Compose affordance ---------------------------------------------------------------- */
+
+.attach-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  min-height: 46px;
+  padding: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  color: var(--ink);
+  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+
+.attach-btn:active:not(:disabled) {
+  transform: scale(0.95);
+  background: #232c38;
+}
+
+.attach-glyph {
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21.4 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21.4 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* --- Picker sheet ---------------------------------------------------------------------- */
+
+.attach-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.attach-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.45;
+}
+
+.attach-native-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.attach-sources {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+/* 320px phones: three ≥44px labeled buttons wrap to a stacked grid instead of
+   overflowing; 390px keeps the three-across row. */
+@media (max-width: 359px) {
+  .attach-sources { grid-template-columns: 1fr; }
+  .attach-row-actions { justify-content: stretch; }
+  .attach-row-actions .attach-act { flex: 1 1 auto; }
+}
+
+.attach-source {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.attach-source:disabled { color: var(--muted); opacity: 0.6; }
+
+.attach-source:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.attach-banner {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 180, 84, 0.45);
+  border-radius: var(--r-sm);
+  background: rgba(255, 180, 84, 0.1);
+  color: #ffb454;
+  font-size: var(--text-caption);
+  line-height: 1.4;
+}
+
+.attach-empty {
+  margin: var(--space-2) 0;
+  padding: 18px 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm);
+}
+
+.attach-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attach-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.attach-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0a0d12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attach-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.attach-thumb-mark {
+  width: 16px;
+  height: 20px;
+  border: 1.6px solid var(--muted);
+  border-radius: 2px;
+  position: relative;
+}
+
+.attach-thumb-mark::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 4px;
+  height: 1.6px;
+  background: var(--muted);
+  box-shadow: 0 -4px 0 var(--muted);
+}
+
+.attach-meta { min-width: 0; }
+
+.attach-name {
+  margin: 0;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attach-status {
+  margin: 2px 0 0;
+  font-size: var(--text-caption);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attach-status.is-error { color: var(--danger-bright); }
+
+.attach-restored {
+  margin: 2px 0 0;
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+.attach-persist-warn {
+  margin: 2px 0 0;
+  font-size: var(--text-caption);
+  color: #ffb454;
+  overflow-wrap: anywhere;
+}
+
+.attach-edit-note {
+  margin: 2px 0 0;
+  font-size: var(--text-caption);
+  color: #ffb454;
+}
+
+.attach-progress {
+  width: 100%;
+  height: 4px;
+  margin-top: 6px;
+  accent-color: var(--accent);
+}
+
+/* Live throughput line: acknowledged bytes, speed/ETA, or a stall note.
+   Metric-only text (the status line already carries the percentage), so it
+   stays small and never wraps into a second line on a 390px phone. */
+.attach-rate {
+  margin: 2px 0 0;
+  font-size: var(--text-caption);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.attach-rate-bytes { font-variant-numeric: tabular-nums; }
+
+.attach-rate-metric::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--line-strong);
+}
+
+.attach-waiting {
+  color: #ffb454;
+}
+
+/* Per-image rendering intent: a native select, ≥ 44px target, focus-visible. */
+.attach-intent {
+  margin-top: 4px;
+  min-width: 0;
+}
+
+.attach-intent-select {
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.attach-intent-select:disabled { color: var(--muted); opacity: 0.65; }
+
+.attach-intent-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.attach-intent-caption {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* Per-image compression preference: a compact segmented radio pair with
+   ≥44px everyday touch targets. It may shrink and wrap at 390/320px so the
+   row never overflows horizontally. */
+.attach-mode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 2px;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(128, 128, 128, 0.06);
+}
+
+.attach-mode-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  white-space: nowrap;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.attach-mode-caption {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.attach-mode-option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.attach-mode-option input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.attach-mode-option.is-on {
+  background: rgba(110, 168, 254, 0.16);
+  color: var(--accent);
+}
+
+.attach-mode-option:has(input:disabled) {
+  cursor: default;
+  opacity: 0.65;
+}
+
+/* Compression outcome / in-flight note under the radio pair. */
+.attach-compression {
+  margin: 2px 0 0;
+  font-size: var(--text-caption);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.attach-compression.is-saved { color: var(--accent); }
+
+.attach-compression.is-compressing { color: #ffb454; }
+
+/* Expandable stage timings; shown only when real numbers exist. */
+.attach-details {
+  margin-top: 4px;
+  min-width: 0;
+}
+
+.attach-details summary {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(128, 128, 128, 0.06);
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.attach-details summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.attach-stages {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.attach-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.attach-act {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.attach-act:disabled { color: var(--muted); opacity: 0.6; }
+
+.attach-act:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.attach-act.attach-danger { color: var(--danger-bright); }
+.attach-inserted { color: var(--muted); font-size: var(--text-caption); align-self: center; }
+
+.attach-capacity {
+  margin: 0;
+  text-align: right;
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+
+/* Remote upload caps are a separate, smaller line from local retention. */
+.attach-capacity-remote {
+  margin: 2px 0 0;
+  text-align: right;
+  color: var(--muted);
+  opacity: 0.78;
+  font-size: var(--text-caption);
+}
+
+.attach-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Visible live-status region: wraps and breathes so rejection reasons are
+   readable on mobile. Empty is sr-only (hidden); nonempty drops sr-only and
+   this rule gives it layout. */
+.attach-live {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(128, 128, 128, 0.08);
+  color: var(--ink);
+  font-size: var(--text-caption);
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* --- Image editor modal ---------------------------------------------------------------- */
+
+.imgedit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.imgedit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.imgedit-tool {
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.imgedit-tool.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(110, 168, 254, 0.14);
+}
+
+.imgedit-text {
+  min-height: 40px;
+  padding: 0 12px;
+  background: #0a0d12;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  color: var(--term-ink);
+  font-size: 16px;
+}
+
+.imgedit-frame {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  background: #07090d;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  touch-action: none;
+}
+
+.imgedit-canvas {
+  display: block;
+  /* Width AND height are always set together from the measured frame, so the
+     preview keeps the source aspect ratio; never let CSS shrink one side. */
+  max-width: none;
+  border-radius: 4px;
+  touch-action: none;
+}
+
+.imgedit-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.4;
+}
+
+/* Two action rows: secondary actions share one nowrap row, the long primary
+   button gets the next full-width row. This stops Chinese labels (撤销/重置/
+   取消) being squeezed into one-character columns on 390px phones. */
+.imgedit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.imgedit-actions-secondary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.imgedit-actions-secondary button,
+.imgedit-apply {
+  min-width: 0;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.imgedit-actions-secondary button {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.imgedit-apply {
+  width: 100%;
+  justify-content: center;
+}
+
+.imgedit-error {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(214, 59, 49, 0.45);
+  border-radius: var(--r-sm);
+  background: rgba(214, 59, 49, 0.1);
+  color: var(--danger-bright);
+  font-size: var(--text-caption);
+  line-height: 1.4;
+}
+
+/* Generic modal cards make every .btn full width; attachment modals lay their
+   own footer rows out. */
+dialog.modal.attach-modal .attach-footer .btn,
+dialog.modal.imgedit-modal .imgedit-apply,
+dialog.modal.imgedit-modal .imgedit-actions-secondary .btn {
+  width: auto;
+  margin: 0;
+  flex: 1 1 0;
+  min-height: 44px;
+  justify-content: center;
+}
+
+dialog.modal.imgedit-modal .imgedit-apply {
+  width: 100%;
+  flex: none;
+}
+
+.imgedit-modal .modal-title { margin-bottom: 2px; }
+
+/* --- Full-terminal live mode (no compose field mounted) ------------------------------- */
+
+.full-terminal-live-actions {
+  flex: 0 0 auto;
+  display: flex;
+  padding: 2px 0;
+}
+
+.attach-btn-labeled {
+  flex: 1 1 auto;
+  width: auto;
+  gap: 9px;
+  font-size: var(--text-lead);
+  font-weight: 600;
+}
+
+.attach-btn-labeled .attach-glyph {
+  width: 19px;
+  height: 19px;
+}
+
+.attach-btn-labeled .attach-btn-text {
+  white-space: nowrap;
+}

@@ -133,7 +133,9 @@
         "swap_pane": { "type": "boolean" },
         "zoom_pane": { "type": "boolean" },
         "rename_file": { "type": "boolean" },
-        "delete_file": { "type": "boolean" }
+        "delete_file": { "type": "boolean" },
+        "upload_file": { "type": "boolean" },
+        "upload_file_v2": { "type": "boolean" }
       },
       "additionalProperties": false
     },
@@ -482,6 +484,75 @@
       },
       "additionalProperties": false
     },
+    "uploadId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "uploadStateKind": {
+      "enum": ["uploading", "committed", "cancelled"]
+    },
+    "workspaceUploadState": {
+      "type": "object",
+      "required": ["upload_id", "state", "offset", "size", "sha256", "chunk_bytes"],
+      "properties": {
+        "upload_id": { "$ref": "#/$defs/uploadId" },
+        "state": { "$ref": "#/$defs/uploadStateKind" },
+        "offset": { "type": "integer", "minimum": 0, "maximum": 20971520 },
+        "size": { "type": "integer", "minimum": 0, "maximum": 20971520 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "chunk_bytes": { "const": 32768 },
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "relative_path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "mime": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,63}/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,63}$" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "committed" } } },
+          "then": { "required": ["path", "relative_path", "name", "mime"] }
+        },
+        {
+          "if": { "properties": { "state": { "const": "uploading" } } },
+          "then": { "not": { "anyOf": [ { "required": ["path"] }, { "required": ["relative_path"] }, { "required": ["name"] }, { "required": ["mime"] } ] } }
+        },
+        {
+          "if": { "properties": { "state": { "const": "cancelled" } } },
+          "then": { "not": { "anyOf": [ { "required": ["path"] }, { "required": ["relative_path"] }, { "required": ["name"] }, { "required": ["mime"] } ] } }
+        }
+      ]
+    },
+    "workspaceUploadStateV2": {
+      "type": "object",
+      "required": ["upload_id", "state", "offset", "size", "sha256", "chunk_bytes"],
+      "properties": {
+        "upload_id": { "$ref": "#/$defs/uploadId" },
+        "state": { "$ref": "#/$defs/uploadStateKind" },
+        "offset": { "type": "integer", "minimum": 0, "maximum": 20971520 },
+        "size": { "type": "integer", "minimum": 0, "maximum": 20971520 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "chunk_bytes": { "const": 131072 },
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "relative_path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "mime": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,63}/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,63}$" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "committed" } } },
+          "then": { "required": ["path", "relative_path", "name", "mime"] }
+        },
+        {
+          "if": { "properties": { "state": { "const": "uploading" } } },
+          "then": { "not": { "anyOf": [ { "required": ["path"] }, { "required": ["relative_path"] }, { "required": ["name"] }, { "required": ["mime"] } ] } }
+        },
+        {
+          "if": { "properties": { "state": { "const": "cancelled" } } },
+          "then": { "not": { "anyOf": [ { "required": ["path"] }, { "required": ["relative_path"] }, { "required": ["name"] }, { "required": ["mime"] } ] } }
+        }
+      ]
+    },
     "gitChange": {
       "type": "object",
       "required": ["path", "original_path", "index", "worktree"],
@@ -804,6 +875,16 @@
             "WorkspaceMediaOpen",
             "WorkspaceMediaRead",
             "WorkspaceMediaClose",
+            "WorkspaceUploadBegin",
+            "WorkspaceUploadWrite",
+            "WorkspaceUploadStatus",
+            "WorkspaceUploadCommit",
+            "WorkspaceUploadCancel",
+            "WorkspaceUploadBeginV2",
+            "WorkspaceUploadWriteV2",
+            "WorkspaceUploadStatusV2",
+            "WorkspaceUploadCommitV2",
+            "WorkspaceUploadCancelV2",
             "WorkspaceRename",
             "WorkspaceDelete",
             "GitStatus",
@@ -1370,6 +1451,196 @@
                 "required": ["handle"],
                 "properties": {
                   "handle": { "$ref": "#/$defs/mediaHandle" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadBegin" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id", "operation_id", "name", "size", "sha256", "mime"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" },
+                  "operation_id": { "$ref": "#/$defs/operationId" },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+                  "size": { "type": "integer", "minimum": 0, "maximum": 20971520 },
+                  "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                  "mime": { "type": "string", "minLength": 1, "maxLength": 128 }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadWrite" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id", "operation_id", "offset", "data_b64"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" },
+                  "operation_id": { "$ref": "#/$defs/operationId" },
+                  "offset": { "type": "integer", "minimum": 0, "maximum": 20971520 },
+                  "data_b64": { "type": "string", "minLength": 1, "maxLength": 43692, "contentEncoding": "base64" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadStatus" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadCommit" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id", "operation_id"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" },
+                  "operation_id": { "$ref": "#/$defs/operationId" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadCancel" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id", "operation_id"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" },
+                  "operation_id": { "$ref": "#/$defs/operationId" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadBeginV2" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id", "operation_id", "name", "size", "sha256", "mime"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" },
+                  "operation_id": { "$ref": "#/$defs/operationId" },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+                  "size": { "type": "integer", "minimum": 0, "maximum": 20971520 },
+                  "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                  "mime": { "type": "string", "minLength": 1, "maxLength": 128 }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadWriteV2" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id", "operation_id", "offset", "data_b64"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" },
+                  "operation_id": { "$ref": "#/$defs/operationId" },
+                  "offset": { "type": "integer", "minimum": 0, "maximum": 20971520 },
+                  "data_b64": { "type": "string", "minLength": 1, "maxLength": 174764, "contentEncoding": "base64" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadStatusV2" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadCommitV2" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id", "operation_id"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" },
+                  "operation_id": { "$ref": "#/$defs/operationId" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceUploadCancelV2" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "upload_id", "operation_id"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "upload_id": { "$ref": "#/$defs/uploadId" },
+                  "operation_id": { "$ref": "#/$defs/operationId" }
                 },
                 "additionalProperties": false
               }

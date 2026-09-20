@@ -342,3 +342,8 @@ dialog.modal.sheet > form {
 @media (prefers-reduced-motion: reduce) {
   body.sheet-open #app { transform: none; }
 }
+
+/* Native close removes [open] before its queued close event unmounts the
+   portal. Override the sheet's flex display during that gap so the closed
+   dialog cannot reappear in the document outside the top layer. */
+dialog.modal:not([open]) { display: none; }

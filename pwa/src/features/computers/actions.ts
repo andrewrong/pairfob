@@ -27,6 +27,7 @@ import {
   startPolling, stopPolling,
 } from "../connection/controller";
 import { askConfirm } from "../../shared/ui/overlay/basic-dialogs";
+import { forgetDaemonAttachments } from "../session/attachments/attachments-recovery";
 import { retirePairingWork } from "../pairing/work";
 import type { ComputersBackTarget, ComputersViewInput } from "./model";
 import { advanceComputersFlow, computersFlowId } from "./work";
@@ -215,6 +216,10 @@ export async function forgetComputer(daemonId: string): Promise<void> {
   closeComputerSession(forgottenDaemonId);
   if (wasCurrent) setCredential(null);
   await deleteCredential(forgottenDaemonId);
+  // After the credential is gone, drop that daemon's attachment journal and
+  // local rows (its epoch is marked before any await, so late writes can't
+  // resurrect them). No server RPC; other daemons are preserved.
+  await forgetDaemonAttachments(forgottenDaemonId);
   // reloadComputers publishes the fresh catalog through the computers domain
   // (batched after its load-generation guard); the stale-owner guard below
   // suppresses this completion's landing/toast for a replacement owner.
