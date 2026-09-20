@@ -32,15 +32,22 @@ export type ChatRecord = {
 };
 
 let traceOwnerVersion = 0;
+const paneOwnerVersions = new Map<string, number>();
 
 export function currentTraceOwnerVersion(): number {
   return traceOwnerVersion;
 }
 
-/** Retire pane reads when a snapshot says the pane now belongs to another runtime occupant. */
-export function invalidateAgentTraceOwner(paneId: string): void {
-  traceOwnerVersion += 1;
+export function paneTraceOwnerVersion(paneId: string): number {
+  return paneOwnerVersions.get(paneId) ?? 0;
+}
+
+/** Retire cached and in-flight reads for a replaced pane occupant. */
+export function invalidateAgentTraceOwner(paneId: string, active = true): void {
+  paneOwnerVersions.set(paneId, paneTraceOwnerVersion(paneId) + 1);
   forgetAgentTrace(paneId);
+  if (!active) return;
+  traceOwnerVersion += 1;
   resetTrace();
 }
 

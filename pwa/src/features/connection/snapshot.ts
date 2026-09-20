@@ -22,6 +22,7 @@ import {
 import { t } from "../../lib/i18n";
 import { choosePane, type DashboardAgentCard, type SnapshotWire } from "../../lib/dashboard";
 import { invalidateAgentTraceOwner } from "../session/chat/trace-store";
+import { batch } from "../../shared/model/domain-store";
 import { ProtocolError, type LiveSession } from "../../lib/protocol/client";
 import { liveView, liveViewIsCurrent } from "./generations";
 
@@ -51,11 +52,24 @@ function dropGonePane(): void {
   applyPaneRead("", "");
 }
 
-function occupantChanged(before: DashboardAgentCard | undefined, after: DashboardAgentCard | undefined): boolean {
-  if (!before || !after) return false;
+function occupantChanged(before: DashboardAgentCard, after: DashboardAgentCard | undefined): boolean {
+  if (!after) return true;
   return before.runtimeSession !== after.runtimeSession ||
     before.terminalId !== after.terminalId ||
     before.agentInstanceId !== after.agentInstanceId;
+}
+
+function invalidateChangedPaneOwners(
+  previous: readonly DashboardAgentCard[],
+  next: readonly DashboardAgentCard[],
+  activePaneId: string,
+): void {
+  const current = new Map(next.map((agent) => [agent.paneId, agent]));
+  for (const before of previous) {
+    if (occupantChanged(before, current.get(before.paneId))) {
+      invalidateAgentTraceOwner(before.paneId, before.paneId === activePaneId);
+    }
+  }
 }
 
 export async function refreshSnapshot(ports: SnapshotPorts): Promise<void> {
@@ -78,11 +92,14 @@ export async function refreshSnapshot(ports: SnapshotPorts): Promise<void> {
     // the old response must not apply onto it.
     if (!viewIsCurrent(session, viewVersion, ports)) return;
     const previousLayoutSig = boardStore.get().lastLayoutSig;
-    const paneBefore = dashboardStore.get().agents.find((agent) => agent.paneId === openPaneId());
-    const { previous, unchanged } = applySnapshot(snapshot);
-    const paneAfter = dashboardStore.get().agents.find((agent) => agent.paneId === openPaneId());
-    if (occupantChanged(paneBefore, paneAfter)) invalidateAgentTraceOwner(openPaneId());
-    // applySnapshot publishes the dashboard: a subscriber retiring this owner
+    const activePaneId = openPaneId();
+    let applied!: ReturnType<typeof applySnapshot>;
+    batch(() => {
+      applied = applySnapshot(snapshot);
+      invalidateChangedPaneOwners(applied.previous, dashboardStore.get().agents, activePaneId);
+    });
+    const { previous, unchanged } = applied;
+    // The atomic dashboard/cache publication can reenter and retire this owner;
     // there (a newer computer/session/view) must not let the old status touch
     // persist under the replacement daemon's key. Revalidate before the second
     // owned domain write; checking only after both publications is too late.

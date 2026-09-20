@@ -12,12 +12,18 @@ import {
   queueSnapshot,
   resetObservationLifecycle,
   selectPane,
+  setAgentChat,
   sessionStore,
   snapshotIsPending,
   takeQueuedSnapshot,
 } from "../session/session-store";
 import { bumpLiveView, liveView } from "./generations";
 import { refreshSnapshot, type SnapshotPorts } from "./snapshot";
+import { applyTrace, chatSnapshot } from "../session/chat/trace-store";
+import { refreshAgentTrace } from "../session/chat/agent-chat-controller";
+import { loadToolDetail, toolDetailView } from "../session/chat/agent-chat-detail";
+import { cacheAgentTrace, cachedAgentTrace } from "../../lib/agent-trace-cache";
+import { composeDraft, setComposeDraft } from "../session/compose-store";
 
 const snap = (id: string) => ({
   panes: [{ pane_id: id, workspace_id: "w", tab_id: "t", agent: "codex", agent_status: "idle" }],
@@ -146,6 +152,44 @@ describe("snapshot observation ownership", () => {
     await refreshSnapshot(snapshotPorts);
     expect(reads).toBe(2);
     expect(calls).toEqual([]);
+  });
+
+  test("production snapshot invalidates active and background occupant caches without losing the draft", async () => {
+    const observed = (a: string, b: string) => ({
+      session: "named",
+      panes: [
+        { pane_id: "p1", workspace_id: "w", agent: "codex", agent_status: "idle", agent_instance_id: a },
+        { pane_id: "p2", workspace_id: "w", agent: "codex", agent_status: "idle", agent_instance_id: b },
+      ],
+    });
+    applySnapshot(observed("a1", "b1"));
+    selectPane("p1");
+    setAgentChat(true);
+    setComposeDraft("keep this draft");
+    applyTrace({ agentTraceItems: [{ type: "assistant", text: "old" }], agentTraceLoadState: "ready" });
+    const cached = { items: [{ type: "assistant" as const, text: "cached" }], nextCursor: null, note: "", truncated: false, signature: "cached", tail: 1 };
+    cacheAgentTrace("p1", cached);
+    cacheAgentTrace("p2", cached);
+    let finishTrace!: (page: { items: Array<{ type: "assistant"; text: string }>; nextCursor: null; truncated: false }) => void;
+    let finishDetail!: (detail: { title: string; body: string }) => void;
+    session.agentTrace = () => new Promise((resolve) => { finishTrace = resolve; });
+    session.agentTraceDetail = () => new Promise((resolve) => { finishDetail = resolve; });
+    session.snapshot = async () => observed("a2", "b2");
+    void refreshAgentTrace();
+    loadToolDetail("p2", "detail", () => undefined);
+    await Promise.resolve();
+
+    await refreshSnapshot(snapshotPorts);
+    expect(cachedAgentTrace("p1")).toBeNull();
+    expect(cachedAgentTrace("p2")).toBeNull();
+    expect(chatSnapshot().agentTraceItems).toEqual([]);
+    expect(composeDraft()).toBe("keep this draft");
+    finishTrace({ items: [{ type: "assistant", text: "stale" }], nextCursor: null, truncated: false });
+    finishDetail({ title: "stale", body: "stale" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(chatSnapshot().agentTraceItems).toEqual([]);
+    expect(toolDetailView("p2", "detail").status).toBe("idle");
   });
 
   test("a catalog-publication owner retirement cannot persist a false status touch under the replacement daemon", async () => {
