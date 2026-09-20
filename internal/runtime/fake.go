@@ -307,6 +307,10 @@ func (f *Fake) snapshotLocked(session SessionRef) Snapshot {
 	for i, pane := range f.Snap.Panes {
 		snapshot.Panes[i] = pane
 		snapshot.Panes[i].Label = cloneString(pane.Label)
+		snapshot.Panes[i].Revision = cloneUint64(pane.Revision)
+		snapshot.Panes[i].StateChangeSeq = cloneUint64(pane.StateChangeSeq)
+		snapshot.Panes[i].InteractiveReady = cloneBool(pane.InteractiveReady)
+		snapshot.Panes[i].LaunchPending = cloneBool(pane.LaunchPending)
 		if pane.AgentSession != nil {
 			binding := *pane.AgentSession
 			snapshot.Panes[i].AgentSession = &binding

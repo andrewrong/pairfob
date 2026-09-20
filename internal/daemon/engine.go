@@ -174,6 +174,10 @@ type Engine struct {
 	pushLast      map[string]time.Time
 	pushSem       chan struct{}
 
+	runtimeMonitorMu      sync.Mutex
+	runtimeMonitorTouches map[string]time.Time
+	runtimeMonitorWake    chan struct{}
+
 	AutoAdmit  bool // explicit development/test injection
 	Banner     io.Writer
 	Origin     string
@@ -217,8 +221,10 @@ func newEngine(hub *mux.Hub, conn mux.Conn, rt runtimeapi.Runtime, pk ed25519.Pu
 		Hub: hub, Conn: conn, RT: rt, PK: pk, SK: sk,
 		Devices: map[string]*Device{}, sessions: map[[16]byte]*sess{}, byDevice: map[string][16]byte{},
 		nonceByDevice: map[string][]string{}, helloByDevice: map[string][]time.Time{},
-		pushLast: map[string]time.Time{}, pushSem: make(chan struct{}, 8), PushHTTPClient: productionPushHTTPClient(),
-		Journal: journal.NewDefault(), operations: map[string]*operationRecord{},
+		pushLast: map[string]time.Time{}, pushSem: make(chan struct{}, 8),
+		runtimeMonitorTouches: map[string]time.Time{}, runtimeMonitorWake: make(chan struct{}, 1),
+		PushHTTPClient: productionPushHTTPClient(),
+		Journal:        journal.NewDefault(), operations: map[string]*operationRecord{},
 		media:   newMediaRegistry(),
 		uploads: newUploadRegistry(),
 		Origin:  "https://pairfob.com", Banner: os.Stdout, PairingTTL: PairingTTLDefault,

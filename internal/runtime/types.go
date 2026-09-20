@@ -14,6 +14,40 @@ type Runtime interface {
 	Execute(context.Context, SessionRef, string, Command) (Receipt, error)
 }
 
+// EventSubscriber is an optional runtime extension. Runtimes that do not
+// implement it continue to work through snapshot polling.
+type EventSubscriber interface {
+	SubscribeEvents(context.Context, SessionRef, EventSubscription) (EventStream, error)
+}
+
+type EventSubscription struct {
+	// PaneIDs selects per-pane agent status events. Structural events are always
+	// included so callers can refresh this membership after panes change.
+	PaneIDs []string
+}
+
+type EventKind string
+
+const (
+	EventStructure   EventKind = "structure"
+	EventAgentStatus EventKind = "agent_status"
+)
+
+type Event struct {
+	Kind        EventKind
+	PaneID      string
+	AgentStatus string
+}
+
+// EventStream owns one long-lived runtime connection. Done closes after Events;
+// Err is safe to inspect after Done closes. Close is idempotent.
+type EventStream interface {
+	Events() <-chan Event
+	Done() <-chan struct{}
+	Err() error
+	Close() error
+}
+
 // SessionRef selects a Herdr socket. An empty name selects the default socket.
 // The name is never forwarded in a Herdr request.
 type SessionRef struct {
@@ -109,8 +143,17 @@ type Pane struct {
 	AgentStatus string  `json:"agent_status"`
 	Label       *string `json:"label"`
 	// TerminalTitle is the stripped PTY OSC title. Display-only; it is not a user-assigned name.
-	TerminalTitle    string `json:"terminal_title,omitempty"`
-	HistoryAvailable bool   `json:"history_available"`
+	TerminalTitle string `json:"terminal_title,omitempty"`
+	// Runtime observations are optional so snapshots from older Herdr versions
+	// retain their exact legacy shape. AgentInstanceID is a one-way binding and
+	// never contains the native AgentSession value.
+	TerminalID       string  `json:"terminal_id,omitempty"`
+	AgentInstanceID  string  `json:"agent_instance_id,omitempty"`
+	Revision         *uint64 `json:"revision,omitempty"`
+	StateChangeSeq   *uint64 `json:"state_change_seq,omitempty"`
+	InteractiveReady *bool   `json:"interactive_ready,omitempty"`
+	LaunchPending    *bool   `json:"launch_pending,omitempty"`
+	HistoryAvailable bool    `json:"history_available"`
 	// AgentSession is trusted runtime state for transcript adapters. It must
 	// never be serialized to a Web client.
 	AgentSession *AgentSessionRef `json:"-"`

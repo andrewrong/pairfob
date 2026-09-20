@@ -74,6 +74,7 @@ func (g *observeGroup) waiterCount(key string) int {
 }
 
 func (e *Engine) observe(session *string, query runtime.Query) (runtime.View, error) {
+	e.touchRuntimeSession(runtimeSession(session))
 	run := func() (runtime.View, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 		defer cancel()

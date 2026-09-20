@@ -83,6 +83,10 @@ type HerdPush struct {
 	TerminalTitle  string
 	TabLabel       string
 	Kind           PushKind
+	// Identity and sequence participate only in local delivery deduplication;
+	// neither value is included in the Web Push payload.
+	AgentInstanceID string
+	StateChangeSeq  *uint64
 }
 
 type PushKind string
@@ -370,6 +374,12 @@ func (e *Engine) NotifyHerd(event HerdPush) error {
 			continue
 		}
 		key := id + "\x00" + event.HerdID + "\x00" + string(event.Kind)
+		if event.AgentInstanceID != "" {
+			key += "\x00" + event.AgentInstanceID
+		}
+		if event.StateChangeSeq != nil {
+			key += fmt.Sprintf("\x00%d", *event.StateChangeSeq)
+		}
 		if last := e.pushLast[key]; !last.IsZero() && now.Sub(last) < pushDebounce {
 			continue
 		}
@@ -455,79 +465,9 @@ func transitionRuntimeAvailability(current runtimeAvailability, online bool) (ru
 	return next, reason
 }
 
-// MonitorPush observes snapshot status transitions. It never includes prompt
-// text or full cwd in a notification payload.
+// MonitorPush runs the default-session monitor and leases bounded monitors for
+// named sessions observed by authenticated RPCs. Event subscriptions accelerate
+// refreshes; authoritative snapshots remain the convergence source.
 func (e *Engine) MonitorPush(stop <-chan struct{}, every time.Duration) {
-	if every <= 0 {
-		every = 2 * time.Second
-	}
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
-	type pokeEvent struct{ reason, paneID string }
-	pokes := make(chan pokeEvent, 64)
-	defer close(pokes)
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			case event, ok := <-pokes:
-				if !ok {
-					return
-				}
-				e.sendPoke(event.reason, event.paneID)
-			}
-		}
-	}()
-	emitPoke := func(reason, paneID string) {
-		select {
-		case pokes <- pokeEvent{reason: reason, paneID: paneID}:
-		default:
-			// Pokes are refresh hints. A stalled transport must never stall
-			// runtime monitoring; the next transition/snapshot will converge.
-		}
-	}
-	statusByPane := map[string]string{}
-	availability := runtimeUnknown
-	for {
-		select {
-		case <-stop:
-			return
-		case <-ticker.C:
-			snapshot, err := e.snapshot(nil)
-			nextAvailability, availabilityPoke := transitionRuntimeAvailability(availability, err == nil)
-			availability = nextAvailability
-			if availabilityPoke != "" {
-				emitPoke(availabilityPoke, "")
-			}
-			if err != nil {
-				continue
-			}
-			labels := map[string]string{}
-			for _, workspace := range snapshot.Workspaces {
-				labels[workspace.WorkspaceID] = workspace.Label
-			}
-			tabLabels := map[string]string{}
-			for _, tab := range snapshot.Tabs {
-				tabLabels[tab.TabID] = tab.Label
-			}
-			seen := map[string]string{}
-			for _, pane := range snapshot.Panes {
-				previous, known := statusByPane[pane.PaneID]
-				seen[pane.PaneID] = pane.AgentStatus
-				if !known || previous != pane.AgentStatus {
-					emitPoke("agent_status", pane.PaneID)
-				}
-				if kind, notify := pushKindForTransition(previous, known, pane.AgentStatus); notify && e.PushEnabled {
-					event := HerdPush{
-						HerdID: pane.PaneID, Agent: pane.Agent, WorkspaceLabel: labels[pane.WorkspaceID],
-						Cwd: pane.Cwd, PaneLabel: optionalText(pane.Label), TerminalTitle: pane.TerminalTitle,
-						TabLabel: tabLabels[pane.TabID], Kind: kind,
-					}
-					go func(event HerdPush) { _ = e.NotifyHerd(event) }(event)
-				}
-			}
-			statusByPane = seen
-		}
-	}
+	e.runRuntimeMonitors(stop, every)
 }

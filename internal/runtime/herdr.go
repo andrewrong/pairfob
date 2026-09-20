@@ -202,7 +202,7 @@ func herdrFault(operation, code, message string) error {
 		mapped = CodeConflict
 	case strings.Contains(code, "timeout"):
 		mapped = CodeTimeout
-	case strings.Contains(code, "unsupported") || code == "not_implemented" || code == "protocol_mismatch":
+	case strings.Contains(code, "unsupported") || code == "not_implemented" || code == "protocol_mismatch" || code == "method_not_found" || code == "unknown_method":
 		mapped = CodeUnsupported
 	case strings.Contains(code, "rate"):
 		mapped = CodeRateLimited

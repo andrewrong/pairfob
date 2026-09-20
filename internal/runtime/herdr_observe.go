@@ -2,6 +2,9 @@ package runtime
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"path/filepath"
 	"sort"
@@ -19,6 +22,7 @@ type herdrAgentSessionWire struct {
 
 type herdrPaneWire struct {
 	PaneID       string                 `json:"pane_id"`
+	TerminalID   string                 `json:"terminal_id"`
 	WorkspaceID  string                 `json:"workspace_id"`
 	TabID        string                 `json:"tab_id"`
 	Cwd          string                 `json:"cwd"`
@@ -26,11 +30,25 @@ type herdrPaneWire struct {
 	AgentStatus  string                 `json:"agent_status"`
 	Label        *string                `json:"label"`
 	Title        string                 `json:"terminal_title_stripped"`
+	Revision     *uint64                `json:"revision"`
 	AgentSession *herdrAgentSessionWire `json:"agent_session"`
 	Scroll       *struct {
 		OffsetFromBottom int `json:"offset_from_bottom"`
 		ViewportRows     int `json:"viewport_rows"`
 	} `json:"scroll"`
+}
+
+type herdrAgentWire struct {
+	PaneID           string                 `json:"pane_id"`
+	TerminalID       string                 `json:"terminal_id"`
+	Agent            string                 `json:"agent"`
+	AgentStatus      string                 `json:"agent_status"`
+	Title            string                 `json:"terminal_title_stripped"`
+	Revision         *uint64                `json:"revision"`
+	StateChangeSeq   *uint64                `json:"state_change_seq"`
+	InteractiveReady *bool                  `json:"interactive_ready"`
+	LaunchPending    *bool                  `json:"launch_pending"`
+	AgentSession     *herdrAgentSessionWire `json:"agent_session"`
 }
 
 type herdrWorkspaceWire struct {
@@ -58,6 +76,7 @@ type herdrSnapWire struct {
 		Workspaces         []herdrWorkspaceWire `json:"workspaces"`
 		Tabs               []herdrTabWire       `json:"tabs"`
 		Panes              []herdrPaneWire      `json:"panes"`
+		Agents             []herdrAgentWire     `json:"agents"`
 		Layouts            []herdrLayoutWire    `json:"layouts"`
 	} `json:"snapshot"`
 }
@@ -89,9 +108,23 @@ func (h *Herdr) snapshot(ctx context.Context, session SessionRef) (Snapshot, err
 		}
 	}
 	for _, pane := range s.Panes {
-		if !validResourceID.MatchString(pane.PaneID) || !validResourceID.MatchString(pane.WorkspaceID) || !validResourceID.MatchString(pane.TabID) {
-			return Snapshot{}, responseFault("session.snapshot", "invalid Herdr pane id", nil, false)
+		if !validResourceID.MatchString(pane.PaneID) || !validResourceID.MatchString(pane.WorkspaceID) || !validResourceID.MatchString(pane.TabID) ||
+			!validOptionalResourceID(pane.TerminalID) || !validAgentStatus(pane.AgentStatus) || !validSafeUint(pane.Revision) {
+			return Snapshot{}, responseFault("session.snapshot", "invalid Herdr pane observation", nil, false)
 		}
+	}
+	type agentKey struct{ paneID, terminalID string }
+	agents := make(map[agentKey]herdrAgentWire, len(s.Agents))
+	for _, agent := range s.Agents {
+		if !validResourceID.MatchString(agent.PaneID) || !validResourceID.MatchString(agent.TerminalID) ||
+			!validAgentStatus(agent.AgentStatus) || !validSafeUint(agent.Revision) || !validSafeUint(agent.StateChangeSeq) {
+			return Snapshot{}, responseFault("session.snapshot", "invalid Herdr agent observation", nil, false)
+		}
+		key := agentKey{paneID: agent.PaneID, terminalID: agent.TerminalID}
+		if _, duplicate := agents[key]; duplicate {
+			return Snapshot{}, responseFault("session.snapshot", "duplicate Herdr agent observation", nil, false)
+		}
+		agents[key] = agent
 	}
 	out := Snapshot{
 		HerdrVersion: s.Version, HerdrProtocol: s.Protocol, CapturedAt: time.Now().Unix(),
@@ -111,7 +144,26 @@ func (h *Herdr) snapshot(ctx context.Context, session SessionRef) (Snapshot, err
 		out.Tabs = append(out.Tabs, Tab{TabID: tab.TabID, WorkspaceID: tab.WorkspaceID, Label: tab.Label})
 	}
 	for _, pane := range s.Panes {
-		out.Panes = append(out.Panes, normalizePane(pane))
+		normalized := normalizePane(pane)
+		if pane.TerminalID != "" {
+			if agent, ok := agents[agentKey{paneID: pane.PaneID, terminalID: pane.TerminalID}]; ok {
+				normalized.Agent = agent.Agent
+				normalized.AgentStatus = agent.AgentStatus
+				normalized.Revision = cloneUint64(agent.Revision)
+				normalized.StateChangeSeq = cloneUint64(agent.StateChangeSeq)
+				normalized.InteractiveReady = cloneBool(agent.InteractiveReady)
+				normalized.LaunchPending = cloneBool(agent.LaunchPending)
+				if title := strings.TrimSpace(agent.Title); title != "" {
+					normalized.TerminalTitle = title
+				}
+				if binding := agentSessionFromWire(agent.AgentSession); binding != nil {
+					normalized.AgentSession = binding
+					normalized.HistoryAvailable = true
+				}
+			}
+			normalized.AgentInstanceID = opaqueAgentInstanceID(pane.TerminalID, normalized.AgentSession)
+		}
+		out.Panes = append(out.Panes, normalized)
 	}
 	out.Layouts = normalizeLayouts(s.Layouts)
 	return out, nil
@@ -119,15 +171,65 @@ func (h *Herdr) snapshot(ctx context.Context, session SessionRef) (Snapshot, err
 
 func normalizePane(p herdrPaneWire) Pane {
 	out := Pane{
-		PaneID: p.PaneID, WorkspaceID: p.WorkspaceID, TabID: p.TabID, Cwd: p.Cwd,
+		PaneID: p.PaneID, TerminalID: p.TerminalID, WorkspaceID: p.WorkspaceID, TabID: p.TabID, Cwd: p.Cwd,
 		Agent: p.Agent, AgentStatus: p.AgentStatus, Label: p.Label, Scroll: p.Scroll,
-		TerminalTitle: strings.TrimSpace(p.Title),
+		TerminalTitle: strings.TrimSpace(p.Title), Revision: cloneUint64(p.Revision),
 	}
-	if session := p.AgentSession; session != nil && session.Source != "" && session.Agent != "" && session.Value != "" && (session.Kind == "id" || session.Kind == "path") {
-		out.AgentSession = &AgentSessionRef{Source: session.Source, Agent: session.Agent, Kind: session.Kind, Value: session.Value}
+	if binding := agentSessionFromWire(p.AgentSession); binding != nil {
+		out.AgentSession = binding
 		out.HistoryAvailable = true
 	}
 	return out
+}
+
+func agentSessionFromWire(session *herdrAgentSessionWire) *AgentSessionRef {
+	if session == nil || session.Source == "" || session.Agent == "" || session.Value == "" || (session.Kind != "id" && session.Kind != "path") {
+		return nil
+	}
+	return &AgentSessionRef{Source: session.Source, Agent: session.Agent, Kind: session.Kind, Value: session.Value}
+}
+
+func validAgentStatus(status string) bool {
+	return status == "idle" || status == "working" || status == "blocked" || status == "done" || status == "unknown"
+}
+
+const maxSafeJSONInteger = uint64(1<<53 - 1)
+
+func validSafeUint(value *uint64) bool { return value == nil || *value <= maxSafeJSONInteger }
+
+func cloneUint64(value *uint64) *uint64 {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func cloneBool(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func opaqueAgentInstanceID(terminalID string, session *AgentSessionRef) string {
+	hash := sha256.New()
+	_, _ = hash.Write([]byte("pairfob-agent-instance-v1"))
+	writeHashPart := func(value string) {
+		var size [8]byte
+		binary.BigEndian.PutUint64(size[:], uint64(len(value)))
+		_, _ = hash.Write(size[:])
+		_, _ = hash.Write([]byte(value))
+	}
+	writeHashPart(terminalID)
+	if session != nil {
+		writeHashPart(session.Source)
+		writeHashPart(session.Agent)
+		writeHashPart(session.Kind)
+		writeHashPart(session.Value)
+	}
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 type agentManifestWire struct {

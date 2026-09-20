@@ -90,6 +90,35 @@
       "maxLength": 128,
       "pattern": "^[A-Za-z0-9._-]+$"
     },
+    "snapshotPaneObservations": {
+      "description": "Additive optional fields on each Snapshot result pane. Absence preserves legacy unknown semantics.",
+      "type": "object",
+      "properties": {
+        "terminal_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "agent_instance_id": {
+          "description": "Opaque Pairfob SHA-256 binding; never a native runtime session identifier or path.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "state_change_seq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "interactive_ready": { "type": "boolean" },
+        "launch_pending": { "type": "boolean" }
+      }
+    },
     "appliedOutcome": {
       "enum": ["applied"]
     },
