@@ -56,7 +56,7 @@ import { agentEmptySpec, agentStreamSignature, type AgentEmptySpec } from "./mod
 import { publishAgentChatUI } from "./agent-chat-ui";
 import { captureTraceViewport, restoreTraceViewport } from "./viewport";
 
-function fingerprint(items: AgentTraceItem[]): string {
+function fingerprint(items: readonly AgentTraceItem[]): string {
   return JSON.stringify(items);
 }
 
@@ -121,14 +121,31 @@ function applyTracePage(page: AgentTracePage, older: boolean): boolean {
     return true;
   }
   const sig = fingerprint(page.items);
-  if (sig === chatSnapshot().agentTraceSig) {
-    const changed = chatSnapshot().agentTraceItems.length === chatSnapshot().agentTraceTail && chatSnapshot().agentTraceNext !== page.nextCursor;
-    if (chatSnapshot().agentTraceItems.length === chatSnapshot().agentTraceTail) applyTrace({ agentTraceNext: page.nextCursor });
+  const current = chatSnapshot();
+  // A terminal page is the complete authoritative history. In particular, a
+  // branch/reset must not retain an older prefix loaded for the prior history.
+  if (page.nextCursor === null) {
+    const changed = fingerprint(current.agentTraceItems) !== sig || current.agentTraceNext !== null;
+    applyTrace({
+      agentTraceItems: [...page.items],
+      agentTraceTail: page.items.length,
+      agentTraceSig: sig,
+      agentTraceNext: null,
+    });
     absorbPending(page.items);
     return changed;
   }
-  const kept = Math.max(0, chatSnapshot().agentTraceItems.length - chatSnapshot().agentTraceTail);
-  const prefix = kept > 0 ? chatSnapshot().agentTraceItems.slice(0, kept) : [];
+  if (sig === current.agentTraceSig) {
+    const changed = current.agentTraceItems.length === current.agentTraceTail && current.agentTraceNext !== page.nextCursor;
+    if (current.agentTraceItems.length === current.agentTraceTail) applyTrace({ agentTraceNext: page.nextCursor });
+    absorbPending(page.items);
+    return changed;
+  }
+  const kept = Math.max(0, current.agentTraceItems.length - current.agentTraceTail);
+  const priorTail = current.agentTraceItems.slice(kept);
+  const prefix = kept > 0 && traceSegmentsOverlap(priorTail, page.items)
+    ? current.agentTraceItems.slice(0, kept)
+    : [];
   const merged = mergeAgentTraceSegments(prefix, page.items);
   const patch: Partial<ChatRecord> = {
     agentTraceItems: merged.items,
@@ -154,13 +171,22 @@ function rememberTrace(paneId: string, ownerKey = currentAgentTraceOwnerKey(), v
   });
 }
 
-export function rememberAgentViewport(stream: HTMLElement, paneId = openPaneId(), ownerKey = currentAgentTraceOwnerKey()): void {
+export function rememberAgentViewport(
+  stream: HTMLElement,
+  paneId = openPaneId(),
+  ownerKey = currentAgentTraceOwnerKey(),
+  posture?: { follow: boolean; unread: boolean },
+): void {
   if (!paneId || !ownerKey) return;
   const snapshot = chatSnapshot();
   cacheAgentTraceViewport(
     paneId,
     ownerKey,
-    captureTraceViewport(stream, snapshot.agentTraceFollow, snapshot.agentTraceUnread),
+    captureTraceViewport(
+      stream,
+      posture?.follow ?? snapshot.agentTraceFollow,
+      posture?.unread ?? snapshot.agentTraceUnread,
+    ),
   );
 }
 
@@ -168,6 +194,11 @@ export function restoreAgentViewport(stream: HTMLElement, paneId = openPaneId(),
   if (!paneId || !ownerKey) return false;
   const viewport = cachedAgentTrace(paneId, ownerKey)?.viewport;
   return viewport ? restoreTraceViewport(stream, viewport) : false;
+}
+
+export function restoreAgentReadingPosition(): void {
+  const stream = streamEl();
+  if (stream && !restoreAgentViewport(stream)) stickAgentStream();
 }
 
 export function restoreAgentTrace(paneId: string): boolean {
@@ -252,6 +283,23 @@ function sameTracePosition(before: AgentTraceItem, after: AgentTraceItem): boole
   return left === right || ((before.type === "assistant" || before.type === "thinking") && right.startsWith(left));
 }
 
+function traceSegmentsOverlap(before: readonly AgentTraceItem[], after: readonly AgentTraceItem[]): boolean {
+  for (let left = 0; left < before.length; left += 1) {
+    for (let right = 0; right < after.length; right += 1) {
+      let count = 0;
+      while (
+        left + count < before.length && right + count < after.length &&
+        sameTracePosition(before[left + count], after[right + count])
+      ) count += 1;
+      // One repeated prompt is ambiguous after a branch/reset. Two adjacent
+      // events, or one matching non-user event, prove continuity strongly
+      // enough to retain the separately loaded prefix.
+      if (count >= 2 || (count === 1 && before[left].type !== "user")) return true;
+    }
+  }
+  return false;
+}
+
 function pendingBoundary(items: readonly AgentTraceItem[]): number {
   const baseline = chatSnapshot().agentTracePendingBase;
   let index = 0;
@@ -327,7 +375,8 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
   const ownerKey = currentAgentTraceOwnerKey();
   if (!session || !paneId || !ownerKey || !isAgentChat() || !session.isConnected()) return Promise.resolve(false);
   const current = traceLane;
-  if (current && current.session === session && current.paneId === paneId && current.ownerKey === ownerKey) {
+  if (current && current.session === session && current.paneId === paneId && current.ownerKey === ownerKey
+    && current.ownerVersion === currentTraceOwnerVersion()) {
     if (!older) current.trailing = true;
     return older ? Promise.resolve(false) : current.promise;
   }
@@ -401,7 +450,7 @@ async function performAgentTraceRefresh(older = false): Promise<boolean> {
       // while this RPC was in flight.
       const pageFollow = !older && (!beforeStream || atBottom(beforeStream));
       const viewport = beforeStream
-        ? captureTraceViewport(beforeStream, pageFollow, beforeSnapshot.agentTraceUnread)
+        ? captureTraceViewport(beforeStream, pageFollow, beforeSnapshot.agentTraceUnread, cursor === null ? "start" : "end")
         : undefined;
       let applied = false;
       batch(() => {
@@ -659,7 +708,9 @@ export async function submitAgentPrompt(): Promise<void> {
         if (promptRequestIsLive(owner)) await refreshAgentTrace();
       }
     } else if (unknownOutcome) {
-      await reconcileAmbiguousMutation(session, error, undefined, () => promptRequestIsLive(owner) && !composeIME());
+      // The mutation owner is stale, but its read-only reconciliation still
+      // updates the current computer (and can remove a pane that disappeared).
+      await reconcileAmbiguousMutation(session, error);
     } else if (restoredVisible) {
       restoreOwnerComposeField();
     }

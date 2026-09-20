@@ -14,7 +14,7 @@ import { setScreen } from "../../app/navigation-store";
 import { applyPaneRead, selectPane, setAgentChat, setFullTerminal } from "../session/session-store";
 import { applyRuntimeIdentity, resetRuntime } from "./runtime-store";
 import { resetGenerationsForTests } from "./generations";
-import { closeComputerSession, establish, stopPolling } from "./controller";
+import { closeComputerSession, establish, recoverVisibleSession, startPolling, stopPolling } from "./controller";
 
 function app(): HTMLElement {
   return document.getElementById("app") as HTMLElement;
@@ -69,7 +69,7 @@ afterEach(async () => act(async () => {
   app().replaceChildren();
 }));
 
-type Boot = { reads: () => number; change: (next: string, paneId?: string) => void };
+type Boot = { reads: () => number; change: (next: string, paneId?: string) => void; session: LiveSession };
 
 async function boot(fullTerminal: boolean): Promise<Boot> {
   globalThis.fetch = (async () => new Response("1.0.0")) as typeof fetch;
@@ -104,6 +104,7 @@ async function boot(fullTerminal: boolean): Promise<Boot> {
   applyPaneRead("unchanged terminal", "a".repeat(64));
   return {
     reads: () => reads,
+    session,
     change: (next: string, paneId = "p1") => {
       status = next;
       listener({ type: "poke", reason: "agent_status", paneId });
@@ -146,6 +147,98 @@ test("hidden status events do not start network reads", async () => {
   runtime.change("done");
   await settle();
   expect(runtime.reads()).toBe(before);
+});
+
+test("slow foreground recovery gates polling and coalesces repeated triggers", async () => {
+  const runtime = await boot(false);
+  setAgentChat(true);
+  let releaseConfig!: () => void;
+  let configReads = 0;
+  let traceReads = 0;
+  const order: string[] = [];
+  runtime.session.getConfig = async () => {
+    configReads += 1;
+    order.push(`config:${configReads}:start`);
+    if (configReads === 1) await new Promise<void>((resolve) => { releaseConfig = resolve; });
+    order.push(`config:${configReads}:done`);
+    return { build: "1.0.0" };
+  };
+  runtime.session.snapshot = async () => {
+    order.push("snapshot");
+    return { panes: [{ pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "working" }] };
+  };
+  runtime.session.agentTrace = async () => {
+    traceReads += 1;
+    order.push("tail");
+    return { items: [], nextCursor: null, truncated: false };
+  };
+
+  startPolling();
+  const recovery = recoverVisibleSession();
+  const repeated = [recoverVisibleSession(), recoverVisibleSession()];
+  await new Promise<void>((resolve) => setTimeout(resolve, 1_650));
+  expect({ traceReads, configReads }).toEqual({ traceReads: 0, configReads: 1 });
+  releaseConfig();
+  await Promise.all([recovery, ...repeated]);
+  expect(configReads).toBe(2);
+  expect(traceReads).toBe(2);
+  expect(order).toEqual([
+    "config:1:start", "config:1:done", "snapshot", "tail",
+    "config:2:start", "config:2:done", "snapshot", "tail",
+  ]);
+});
+
+test("hiding during a pending foreground config cannot start a tail read", async () => {
+  const runtime = await boot(false);
+  setAgentChat(true);
+  let releaseConfig!: () => void;
+  let traceReads = 0;
+  runtime.session.getConfig = async () => {
+    await new Promise<void>((resolve) => { releaseConfig = resolve; });
+    return { build: "1.0.0" };
+  };
+  runtime.session.agentTrace = async () => {
+    traceReads += 1;
+    return { items: [], nextCursor: null, truncated: false };
+  };
+
+  startPolling();
+  const recovery = recoverVisibleSession();
+  Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+  stopPolling();
+  releaseConfig();
+  await recovery;
+  expect(traceReads).toBe(0);
+  Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+});
+
+test("hiding during a pending foreground snapshot cannot start a tail read", async () => {
+  const runtime = await boot(false);
+  setAgentChat(true);
+  let releaseSnapshot!: () => void;
+  let snapshotStarted = false;
+  let traceReads = 0;
+  runtime.session.getConfig = async () => ({ build: "1.0.0" });
+  runtime.session.snapshot = async () => {
+    snapshotStarted = true;
+    await new Promise<void>((resolve) => { releaseSnapshot = resolve; });
+    return { panes: [{ pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "working" }] };
+  };
+  runtime.session.agentTrace = async () => {
+    traceReads += 1;
+    return { items: [], nextCursor: null, truncated: false };
+  };
+
+  startPolling();
+  const recovery = recoverVisibleSession();
+  for (let index = 0; index < 10 && !snapshotStarted; index += 1) await Promise.resolve();
+  expect(snapshotStarted).toBeTrue();
+  Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+  stopPolling();
+  releaseSnapshot();
+  await recovery;
+  expect(traceReads).toBe(0);
+  Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
 });
 
 test("mobile full-terminal controls follow status without remounting the terminal", async () => {

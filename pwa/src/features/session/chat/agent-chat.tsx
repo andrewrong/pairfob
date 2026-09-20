@@ -55,6 +55,8 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
   useSyncExternalStore(subscribeVisibleNotice, visibleNotice);
   const sessionSnap = useSession();
   const chat = useChat();
+  const reading = useRef({ follow: chat.agentTraceFollow, unread: chat.agentTraceUnread });
+  reading.current = { follow: chat.agentTraceFollow, unread: chat.agentTraceUnread };
   const paneId = sessionSnap.paneId;
   const working = agentFromDashboardSnapshot(useDashboard(), paneId)?.status === "working";
   const items = visibleItems();
@@ -68,7 +70,7 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
     const ownerKey = currentAgentTraceOwnerKey();
     if (element) restoreAgentViewport(element, paneId, ownerKey);
     return () => {
-      if (element) rememberAgentViewport(element, paneId, ownerKey);
+      if (element) rememberAgentViewport(element, paneId, ownerKey, reading.current);
     };
   }, [paneId]);
   useEffect(() => {

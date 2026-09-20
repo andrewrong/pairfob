@@ -31,6 +31,31 @@ test("restores the first visible transcript anchor through a prepend", () => {
   expect(stream.scrollTop).toBe(600);
 });
 
+test("duplicate turns keep the same anchor across append and prepend", () => {
+  const stream = document.querySelector<HTMLElement>("#stream")!;
+  stream.getBoundingClientRect = () => rect(100, 200);
+  const install = (tops: number[]) => {
+    stream.innerHTML = tops.map((_, index) => `<div data-trace-anchor="same:user" data-trace-ordinal="${index}" data-trace-ordinal-end="${tops.length - index - 1}"></div>`).join("");
+    [...stream.children].forEach((child, index) => {
+      (child as HTMLElement).getBoundingClientRect = () => rect(tops[index], 60);
+    });
+  };
+
+  install([20, 130]);
+  stream.scrollTop = 300;
+  const appendAnchor = captureTraceViewport(stream, false, true, "start");
+  install([20, 330, 410]);
+  expect(restoreTraceViewport(stream, appendAnchor)).toBeTrue();
+  expect(stream.scrollTop).toBe(500);
+
+  install([20, 130]);
+  stream.scrollTop = 300;
+  const prependAnchor = captureTraceViewport(stream, false, true, "end");
+  install([20, 80, 330]);
+  expect(restoreTraceViewport(stream, prependAnchor)).toBeTrue();
+  expect(stream.scrollTop).toBe(500);
+});
+
 test("tail-follow restores the newest output instead of a stale anchor", () => {
   const stream = document.querySelector<HTMLElement>("#stream")!;
   Object.defineProperty(stream, "scrollHeight", { configurable: true, value: 900 });

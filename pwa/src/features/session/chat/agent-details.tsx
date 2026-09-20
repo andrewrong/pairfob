@@ -8,7 +8,8 @@ import {
 
 type AgentDetailsProps = {
   traceKey: string; className: string; auto?: boolean; kept?: DetailsState;
-  dataTraceAnchor?: string; onOpen?: (source: "automatic" | "toggle") => void; children: ReactNode;
+  dataTraceAnchor?: string; dataTraceOrdinal?: number; dataTraceOrdinalEnd?: number;
+  onOpen?: (source: "automatic" | "toggle") => void; children: ReactNode;
 };
 
 /** A different trace entry must not inherit the preceding tool's manual choice. */
@@ -16,7 +17,8 @@ export function AgentDetails(props: AgentDetailsProps) {
   return <DetailsStateView key={props.traceKey} {...props} />;
 }
 
-function DetailsStateView({ traceKey, className, auto = false, kept, dataTraceAnchor, onOpen, children }: AgentDetailsProps) {
+function DetailsStateView({ traceKey, className, auto = false, kept, dataTraceAnchor,
+  dataTraceOrdinal, dataTraceOrdinalEnd, onOpen, children }: AgentDetailsProps) {
   const element = useRef<HTMLDetailsElement>(null);
   const owner = useRef(chatDetailsOwner());
   const [choice, setChoice] = useState<boolean | null>(() => choiceFromDetails(kept, traceKey));
@@ -35,7 +37,7 @@ function DetailsStateView({ traceKey, className, auto = false, kept, dataTraceAn
     return () => { retired = true; };
   }, [opened, onOpen]);
   return <details ref={element} className={className} open={opened} data-key={traceKey} data-trace-anchor={dataTraceAnchor}
-    data-auto-open={choice === null && auto ? "1" : undefined}
+    data-trace-ordinal={dataTraceOrdinal} data-trace-ordinal-end={dataTraceOrdinalEnd} data-auto-open={choice === null && auto ? "1" : undefined}
     data-user={choice === null ? undefined : choice ? "open" : "closed"}
     onToggle={event => {
       if (!live()) return;

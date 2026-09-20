@@ -25,7 +25,14 @@ import { setLang } from "../../../lib/i18n";
 import { mountTestApp, commitTest, unmountTestApp } from "../../../../test-support/react-harness";
 import { bindSessionOwnerFromLive } from "../bind-live";
 import { AgentChatPane } from "./agent-chat";
-import { leaveAgentChat, patchAgentChat, refreshAgentTrace } from "./agent-chat-controller";
+import {
+  currentAgentTraceOwnerKey,
+  leaveAgentChat,
+  patchAgentChat,
+  refreshAgentTrace,
+  restoreAgentTrace,
+  retireAgentTraceRefreshes,
+} from "./agent-chat-controller";
 
 const handlers = { onBack() {}, onWorkspace() {}, onMenu() {}, onSwitch() {} };
 const page = (text: string) => ({
@@ -237,6 +244,89 @@ test("overlapping tail invalidations coalesce into one trailing owner read", asy
   expect(chatSnapshot().agentTraceItems.at(-1)?.text).toBe("tail 2");
 });
 
+test("a complete authoritative tail drops older pages from an abandoned branch", async () => {
+  applyTrace({
+    agentTraceItems: [
+      { type: "user", text: "abandoned old question" },
+      { type: "assistant", text: "abandoned old answer" },
+      ...page("old branch tail").items,
+    ],
+    agentTraceTail: 2,
+    agentTraceSig: JSON.stringify(page("old branch tail").items),
+    agentTraceNext: "older",
+  });
+  withLive({ agentTrace: async () => ({ ...page("new branch"), nextCursor: null }) });
+  await act(async () => mount());
+  await act(async () => { await refreshAgentTrace(); });
+  expect(chatSnapshot().agentTraceItems.map((item) => item.text)).toEqual(["Question", "new branch"]);
+  expect(chatSnapshot().agentTraceNext).toBeNull();
+});
+
+test("a changed paginated tail discards an older prefix without proven overlap", async () => {
+  applyTrace({
+    agentTraceItems: [
+      { type: "user", text: "old prefix" },
+      { type: "assistant", text: "old prefix answer" },
+      ...page("old tail").items,
+    ],
+    agentTraceTail: 2,
+    agentTraceSig: JSON.stringify(page("old tail").items),
+    agentTraceNext: "older",
+  });
+  withLive({ agentTrace: async () => ({ ...page("unrelated branch"), nextCursor: "new-older" }) });
+  await act(async () => mount());
+  await act(async () => { await refreshAgentTrace(); });
+  expect(chatSnapshot().agentTraceItems.map((item) => item.text)).toEqual(["Question", "unrelated branch"]);
+  expect(chatSnapshot().agentTraceNext).toBe("new-older");
+});
+
+test("retiring a lane lets the same visible owner start fresh immediately", async () => {
+  let reads = 0;
+  let finishOld!: (value: ReturnType<typeof page>) => void;
+  withLive({
+    agentTrace: async () => {
+      reads += 1;
+      if (reads === 1) return await new Promise((resolve) => { finishOld = resolve; });
+      return page("fresh owner generation");
+    },
+  });
+  await act(async () => mount());
+  let stale!: Promise<boolean>;
+  await act(async () => { stale = refreshAgentTrace(); });
+  retireAgentTraceRefreshes();
+  await act(async () => { await refreshAgentTrace(); });
+  expect(reads).toBe(2);
+  expect(chatSnapshot().agentTraceItems.at(-1)?.text).toBe("fresh owner generation");
+  await act(async () => { finishOld(page("stale generation")); await stale; });
+  expect(chatSnapshot().agentTraceItems.at(-1)?.text).toBe("fresh owner generation");
+});
+
+test("a tail invalidation during older pagination runs once after the older read", async () => {
+  let finishOlder!: (value: ReturnType<typeof page>) => void;
+  const cursors: Array<string | null> = [];
+  withLive({
+    agentTrace: async (_paneId, cursor) => {
+      cursors.push(cursor);
+      if (cursor) return await new Promise((resolve) => { finishOlder = resolve; });
+      return { ...page("fresh tail"), nextCursor: null };
+    },
+  });
+  await act(async () => mount());
+  let older!: Promise<boolean>;
+  let tail!: Promise<boolean>;
+  await act(async () => {
+    older = refreshAgentTrace(true);
+    tail = refreshAgentTrace();
+  });
+  expect(cursors).toEqual(["older"]);
+  await act(async () => {
+    finishOlder({ ...page("older page"), nextCursor: null });
+    await Promise.all([older, tail]);
+  });
+  expect(cursors).toEqual(["older", null]);
+  expect(chatSnapshot().agentTraceItems.at(-1)?.text).toBe("fresh tail");
+});
+
 test("scrolling up during a tail request preserves the latest reading position", async () => {
   let finish!: (value: ReturnType<typeof page>) => void;
   withLive({ agentTrace: async () => await new Promise((resolve) => { finish = resolve; }) });
@@ -354,7 +444,47 @@ test("a trace subscriber switching pane cannot cache its new pane transcript und
   expect(chatSnapshot().agentTraceItems.some((item) => item.text === "private p2 transcript")).toBeTrue();
 });
 
-test("owner switch during nested follow publication preserves the new pane reading position", async () => {
+test("view cleanup saves the retired owner's reading posture", async () => {
+  await act(async () => mount());
+  await act(async () => { await refreshAgentTrace(); });
+  const ownerKey = currentAgentTraceOwnerKey();
+  const oldStream = appRoot().querySelector<HTMLElement>(".agent-stream")!;
+  setStreamSize(oldStream, 1000, 120);
+  await act(async () => {
+    applyTrace({ agentTraceFollow: false, agentTraceUnread: true });
+    patchAgentChat({ follow: false });
+  });
+  await act(async () => {
+    switchComposeView(() => { selectPane("p2"); setAgentChat(true); });
+    applyTrace({ agentTraceFollow: true, agentTraceUnread: false });
+    mount();
+  });
+  expect(cachedAgentTrace("p1", ownerKey)?.viewport).toMatchObject({
+    scrollTop: 120,
+    follow: false,
+    unread: true,
+  });
+});
+
+test("same daemon session and occupant restore cached reading position after transport replacement", async () => {
+  await act(async () => mount());
+  await act(async () => { await refreshAgentTrace(); });
+  const ownerKey = currentAgentTraceOwnerKey();
+  const oldStream = appRoot().querySelector<HTMLElement>(".agent-stream")!;
+  setStreamSize(oldStream, 1000, 135);
+  await act(async () => oldStream.dispatchEvent(new window.Event("scroll", { bubbles: true })));
+
+  withLive({});
+  expect(currentAgentTraceOwnerKey()).toBe(ownerKey);
+  applyTrace({ agentTraceItems: [], agentTraceLoadState: "cold", agentTraceFollow: true, agentTraceUnread: false });
+  expect(restoreAgentTrace("p1")).toBeTrue();
+  await act(async () => mount());
+  const restored = appRoot().querySelector<HTMLElement>(".agent-stream")!;
+  expect(restored.scrollTop).toBe(135);
+  expect(chatSnapshot().agentTraceFollow).toBeFalse();
+});
+
+test("view cleanup saves the retired owner's reading posture", async () => {
   withLive({ agentTrace: () => new Promise((resolve) => { release = resolve; }) });
   applyTrace({ agentTraceFollow: false, agentTraceUnread: true });
   await act(async () => mount());

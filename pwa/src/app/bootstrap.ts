@@ -9,7 +9,7 @@ import { registerSessionView } from "../features/session/register";
 import { preloadFullTerminalXterm } from "../features/session/full-terminal/full-terminal-loader";
 import { handleFullTerminalVisibility } from "../features/session/full-terminal/full-terminal";
 import { initSwipeBack } from "../features/session/pane-actions";
-import { stickAgentStream } from "../features/session/chat/agent-chat-controller";
+import { restoreAgentReadingPosition } from "../features/session/chat/agent-chat-controller";
 import { handlePaneKey } from "../features/session/guided/compose";
 import { revealCaretRow, stickBottom } from "../features/session/guided/term";
 import { resumeComputer } from "../features/computers/actions";
@@ -145,7 +145,7 @@ export function startApplication(): () => void {
       if (currentPhase() === "live" && currentScreen() === "pane" && !isFullTerminal()) {
         schedulePageRaf(() => {
           if (isAgentChat()) {
-            stickAgentStream();
+            restoreAgentReadingPosition();
             return;
           }
           if (paneFollow()) stickBottom();

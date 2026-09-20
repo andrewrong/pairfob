@@ -23,6 +23,7 @@ export function captureTraceViewport(
   stream: HTMLElement,
   follow: boolean,
   unread: boolean,
+  edge: "start" | "end" = "start",
 ): AgentTraceViewport {
   const nodes = anchorNodes(stream);
   let anchor = "";
@@ -36,7 +37,18 @@ export function captureTraceViewport(
     if (top + height > 0 || node === nodes[nodes.length - 1]) {
       anchor = node.dataset.traceAnchor || "";
       offset = bounded(top);
-      break;
+      const ordinal = Number(node.dataset.traceOrdinal);
+      const ordinalFromEnd = Number(node.dataset.traceOrdinalEnd);
+      return {
+        anchor: anchor.slice(0, 512),
+        offset,
+        scrollTop: bounded(stream.scrollTop),
+        follow,
+        unread,
+        edge,
+        ...(Number.isSafeInteger(ordinal) ? { ordinal } : {}),
+        ...(Number.isSafeInteger(ordinalFromEnd) ? { ordinalFromEnd } : {}),
+      };
     }
   }
   return {
@@ -45,6 +57,7 @@ export function captureTraceViewport(
     scrollTop: bounded(stream.scrollTop),
     follow,
     unread,
+    edge,
   };
 }
 
@@ -54,9 +67,15 @@ export function restoreTraceViewport(stream: HTMLElement, viewport: AgentTraceVi
     stream.scrollTop = stream.scrollHeight;
     return true;
   }
-  const anchor = viewport.anchor
-    ? anchorNodes(stream).find((node) => node.dataset.traceAnchor === viewport.anchor)
-    : undefined;
+  const matches = viewport.anchor
+    ? anchorNodes(stream).filter((node) => node.dataset.traceAnchor === viewport.anchor)
+    : [];
+  const ordinal = viewport.edge === "end" ? viewport.ordinalFromEnd : viewport.ordinal;
+  const anchor = ordinal === undefined
+    ? matches[0]
+    : matches.find((node) => Number(
+      viewport.edge === "end" ? node.dataset.traceOrdinalEnd : node.dataset.traceOrdinal,
+    ) === ordinal);
   if (!anchor) {
     stream.scrollTop = bounded(viewport.scrollTop);
     return false;

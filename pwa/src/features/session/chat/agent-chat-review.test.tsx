@@ -289,6 +289,39 @@ test("the detached composer releases every input/composition/key listener", () =
   expect(submits).toBe(0);
 });
 
+test("late tool detail growth preserves the first visible message anchor", async () => {
+  const detail = deferred<{ detailRef: string; output: string; truncated: false }>();
+  setSession({ agentTraceDetail: () => detail.promise });
+  applyTrace({ agentTraceItems: [
+    { type: "user", text: "Earlier" },
+    { type: "tool", name: "Read", toolState: "done", detailRef: "detail-grow" },
+    { type: "user", text: "Visible" },
+    { type: "assistant", text: "Answer" },
+  ], agentTraceFollow: false });
+  act(mount);
+  const viewport = stream();
+  const visible = [...viewport.querySelectorAll<HTMLElement>("[data-trace-anchor]")]
+    .find((node) => node.textContent === "Visible")!;
+  viewport.getBoundingClientRect = () => ({ top: 100, bottom: 500, left: 0, right: 300,
+    width: 300, height: 400, x: 0, y: 100, toJSON() {} });
+  for (const node of viewport.querySelectorAll<HTMLElement>("[data-trace-anchor]")) {
+    node.getBoundingClientRect = () => {
+      const top = node === visible ? (appRoot().textContent?.includes("expanded detail") ? 330 : 130) : 20;
+      return { top, bottom: top + 60, left: 0, right: 300, width: 300, height: 60, x: 0, y: top, toJSON() {} };
+    };
+  }
+  viewport.scrollTop = 400;
+  const tool = viewport.querySelector<HTMLDetailsElement>(".agent-tool")!;
+  await act(async () => { tool.open = true; tool.dispatchEvent(new happy.Event("toggle")); });
+  await act(async () => {
+    detail.resolve({ detailRef: "detail-grow", output: "expanded detail", truncated: false });
+    await detail.promise;
+    await Promise.resolve();
+  });
+  expect(viewport.scrollTop).toBe(600);
+  expect(chatSnapshot().agentTraceFollow).toBeFalse();
+});
+
 test("an old prompt failure restores only its saved draft and cannot release a newer prompt lock", async () => {
   const failure = deferred<unknown>();
   setSession({ promptAgent: () => failure.promise });

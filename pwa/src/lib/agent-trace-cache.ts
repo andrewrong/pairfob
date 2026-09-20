@@ -1,8 +1,13 @@
 import type { AgentTraceDetail, AgentTraceItem } from "./operations";
 
 export type AgentTraceViewport = {
-  /** Stable rendered-message key, never a DOM node. */
+  /** Stable rendered-message content key, never a DOM node. */
   anchor: string;
+  /** Duplicate occurrence from the leading and trailing edges. */
+  ordinal?: number;
+  ordinalFromEnd?: number;
+  /** Which edge stays stable for the update being applied. */
+  edge?: "start" | "end";
   /** Anchor top relative to the scrollport top. */
   offset: number;
   /** Fallback for old markup or an anchor no longer present. */

@@ -88,11 +88,32 @@ import { nextTransition, queuedKind, transitionFor } from "../../app/transition"
 
 export { retireAgentTraceRefreshes };
 
+type RecoveryLane = {
+  session: LiveSession;
+  viewVersion: number;
+  generation: number;
+  trailing: boolean;
+  promise: Promise<void>;
+};
+
+let recoveryGeneration = 0;
+let recoveryLane: RecoveryLane | null = null;
+
+function recoveryOwnerIsCurrent(lane: RecoveryLane): boolean {
+  return lane.generation === recoveryGeneration && liveViewIsCurrent(lane.session, lane.viewVersion, liveSession());
+}
+
+function recoveryBlocksPolling(): boolean {
+  return Boolean(recoveryLane && recoveryOwnerIsCurrent(recoveryLane));
+}
+
 const livePolling = createLivePolling({
-  canRun: () => networkOnline() && document.visibilityState === "visible" && connectionStore.get().phase === "live" && liveSession()?.isConnected() === true,
-  canReadPane: () =>
+  canRun: () => !recoveryBlocksPolling() && networkOnline() && document.visibilityState === "visible" &&
+    connectionStore.get().phase === "live" && liveSession()?.isConnected() === true,
+  canReadPane: () => !recoveryBlocksPolling() && (
     (currentScreen() === "pane" && Boolean(openPaneId()) && !isFullTerminal()) ||
-    currentScreen() === "board",
+    currentScreen() === "board"
+  ),
   paneDelayMs: () => panePollDelayMs(isAgentChat(), selectedAgent()?.status === "working"),
   refreshSnapshot: () => refreshSnapshot(),
   refreshPane: async () => {
@@ -151,7 +172,7 @@ const lifecyclePorts: LifecyclePorts = {
   saveCredential,
   deleteCredential,
   startPolling: () => livePolling.start(),
-  stopPolling: () => livePolling.stop(),
+  stopPolling: () => stopPolling(),
   refreshRuntime: () => recoverVisibleSession(),
   resetPaneReads: resetPaneReadRequests,
   setRefreshIdle: () => setRefreshBusy(false),
@@ -255,9 +276,46 @@ export async function refreshRuntimeState(): Promise<void> {
 }
 
 /** Foreground/reconnect reconciliation: retire old reads, then config → snapshot → tail. */
-export async function recoverVisibleSession(): Promise<void> {
+export function recoverVisibleSession(): Promise<void> {
+  const session = liveSession();
+  const viewVersion = liveView();
+  if (!session) return Promise.resolve();
+  const current = recoveryLane;
+  if (current && current.session === session && current.viewVersion === viewVersion && recoveryOwnerIsCurrent(current)) {
+    current.trailing = true;
+    return current.promise;
+  }
+  recoveryGeneration += 1;
   retireAgentTraceRefreshes();
-  await refreshRuntimeState();
+  const lane: RecoveryLane = {
+    session,
+    viewVersion,
+    generation: recoveryGeneration,
+    trailing: false,
+    promise: Promise.resolve(),
+  };
+  let finish!: () => void;
+  lane.promise = new Promise<void>((resolve) => { finish = resolve; });
+  recoveryLane = lane;
+  void (async () => {
+    try {
+      await refreshRuntimeState();
+      if (lane.trailing && recoveryOwnerIsCurrent(lane) && document.visibilityState === "visible") {
+        lane.trailing = false;
+        await refreshRuntimeState();
+      }
+    } catch {
+      // Observation functions report expected failures; never strand the gate
+      // if an unexpected adapter exception escapes.
+    } finally {
+      finish();
+      if (recoveryLane === lane) {
+        recoveryLane = null;
+        livePolling.deferPane();
+      }
+    }
+  })();
+  return lane.promise;
 }
 
 async function handleTerminal(event: SessionEvent): Promise<void> {
@@ -461,5 +519,8 @@ export function startPolling(): void {
 }
 
 export function stopPolling(): void {
+  recoveryGeneration += 1;
+  if (recoveryLane) recoveryLane.trailing = false;
+  recoveryLane = null;
   livePolling.stop();
 }

@@ -94,6 +94,10 @@ test("duplicate prompts remain separate turns and unsafe Markdown cannot introdu
   act(() => renderReact(<AgentStream items={turns} working={false} empty={empty} />));
   expect(appRoot().querySelectorAll(".agent-user")).toHaveLength(2);
   expect(appRoot().querySelectorAll(".agent-assistant-final")).toHaveLength(2);
+  const repeated = [...appRoot().querySelectorAll<HTMLElement>(".agent-user")];
+  expect(repeated.map((node) => node.dataset.traceOrdinal)).toEqual(["0", "1"]);
+  expect(repeated.map((node) => node.dataset.traceOrdinalEnd)).toEqual(["1", "0"]);
+  expect(repeated[0].dataset.traceAnchor).toBe(repeated[1].dataset.traceAnchor);
   expect(appRoot().querySelector("script")).toBeNull();
   expect(appRoot().querySelector('.agent-md a[href^="javascript:"]')).toBeNull();
 });
