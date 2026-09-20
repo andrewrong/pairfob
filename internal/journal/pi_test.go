@@ -3,6 +3,7 @@ package journal
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,10 +123,14 @@ func TestPiRejectsEscapesMalformedTreesAndStaleDetails(t *testing.T) {
 	if len(replaced) != len(original) {
 		t.Fatal("fixture replacement size changed")
 	}
-	if err := os.WriteFile(path, replaced, 0600); err != nil {
+	replacement := path + ".replacement"
+	if err := os.WriteFile(replacement, replaced, 0600); err != nil {
 		t.Fatal(err)
 	}
-	_ = os.Chtimes(path, info.ModTime(), info.ModTime())
+	_ = os.Chtimes(replacement, info.ModTime(), info.ModTime())
+	if err := os.Rename(replacement, path); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := reader.ReadTraceDetail(ref, detail); !errors.Is(err, ErrCursorConflict) {
 		t.Fatalf("stale detail err=%v", err)
 	}
@@ -249,6 +254,25 @@ func TestPiDetailSurvivesAppendButNotReplacementOrBranchRemoval(t *testing.T) {
 	}
 	if _, err := reader.ReadTraceDetail(ref, detail); !errors.Is(err, ErrCursorConflict) {
 		t.Fatalf("replacement detail err=%v", err)
+	}
+}
+
+func TestPiLongLinearTreeUsesSinglePassValidation(t *testing.T) {
+	const count = 20_000
+	lines := make([]any, 0, count)
+	var parent any = nil
+	for index := 0; index < count; index++ {
+		id := fmt.Sprintf("entry%08d", index)
+		lines = append(lines, msg(id, parent, "user", "x"))
+		parent = id
+	}
+	reader, ref, _ := piFixture(t, lines...)
+	page, err := reader.ReadTrace(ref, nil, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 1 || page.Items[0].Text != "x" {
+		t.Fatalf("unexpected long-tree tail: %#v", page)
 	}
 }
 

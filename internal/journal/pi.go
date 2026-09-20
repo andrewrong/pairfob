@@ -99,11 +99,7 @@ func piPathSyntax(root, value string) bool {
 }
 
 func (r *Reader) findPiTranscript(ref Ref, refresh bool) (string, error) {
-	rootPath, err := filepath.Abs(filepath.Join(r.PiRoot, "sessions"))
-	if err != nil {
-		return "", ErrUnavailable
-	}
-	root, err := filepath.EvalSymlinks(rootPath)
+	root, err := filepath.Abs(filepath.Join(r.PiRoot, "sessions"))
 	if err != nil {
 		return "", ErrUnavailable
 	}
@@ -115,27 +111,16 @@ func (r *Reader) findPiTranscript(ref Ref, refresh bool) (string, error) {
 		if err != nil {
 			return "", ErrUnavailable
 		}
-		lexicalRel, err := filepath.Rel(rootPath, absolute)
+		lexicalRel, err := filepath.Rel(root, absolute)
 		if err != nil || lexicalRel == "." || lexicalRel == ".." || strings.HasPrefix(lexicalRel, ".."+string(filepath.Separator)) {
 			return "", ErrUnavailable
 		}
-		expected := filepath.Join(root, lexicalRel)
-		path, err := filepath.EvalSymlinks(absolute)
-		if err != nil || path != expected {
+		file, err := openPiRegular(root, lexicalRel)
+		if err != nil {
 			return "", ErrUnavailable
 		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return "", ErrUnavailable
-		}
-		if !piComponentsRegular(root, path) {
-			return "", ErrUnavailable
-		}
-		info, err := os.Stat(path)
-		if err != nil || !info.Mode().IsRegular() {
-			return "", ErrUnavailable
-		}
-		return path, nil
+		_ = file.Close()
+		return absolute, nil
 	}
 	if ref.Kind != "id" || !sessionID.MatchString(ref.Value) {
 		return "", ErrUnavailable
@@ -170,7 +155,11 @@ func (r *Reader) findPiTranscript(ref Ref, refresh bool) (string, error) {
 			if infoErr != nil || !info.Mode().IsRegular() {
 				return nil
 			}
-			header, e := readPiHeader(path)
+			rel, relErr := filepath.Rel(root, path)
+			if relErr != nil {
+				return nil
+			}
+			header, e := readPiHeaderRoot(root, rel)
 			if e == nil {
 				matches[header.ID] = append(matches[header.ID], path)
 			}
@@ -188,25 +177,37 @@ func (r *Reader) findPiTranscript(ref Ref, refresh bool) (string, error) {
 	return paths[0], nil
 }
 
-func piComponentsRegular(root, path string) bool {
-	rel, err := filepath.Rel(root, path)
-	if err != nil {
-		return false
+func openPiRegular(rootPath, relative string) (*os.File, error) {
+	if relative == "" || filepath.IsAbs(relative) || filepath.Clean(relative) != relative || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return nil, ErrUnavailable
 	}
-	current := root
-	for _, part := range strings.Split(rel, string(filepath.Separator)) {
-		current = filepath.Join(current, part)
-		info, err := os.Lstat(current)
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	parts := strings.Split(relative, string(filepath.Separator))
+	for index := range parts {
+		name := filepath.Join(parts[:index+1]...)
+		info, err := root.Lstat(name)
 		if err != nil || info.Mode()&os.ModeSymlink != 0 {
-			return false
+			return nil, ErrUnavailable
 		}
 	}
-	info, err := os.Lstat(path)
-	return err == nil && info.Mode().IsRegular()
+	file, err := root.Open(relative)
+	if err != nil {
+		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		file.Close()
+		return nil, ErrUnavailable
+	}
+	return file, nil
 }
 
-func readPiHeader(path string) (piHeader, error) {
-	file, err := os.Open(path)
+func readPiHeaderRoot(root, relative string) (piHeader, error) {
+	file, err := openPiRegular(root, relative)
 	if err != nil {
 		return piHeader{}, err
 	}
@@ -228,7 +229,15 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.Open(path)
+	root, err := filepath.Abs(filepath.Join(r.PiRoot, "sessions"))
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	relative, err := filepath.Rel(root, path)
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	file, err := openPiRegular(root, relative)
 	if err != nil {
 		return nil, err
 	}
@@ -357,24 +366,6 @@ func parsePiSession(path string, data []byte, ref Ref) (*piSession, error) {
 	}
 	if len(s.order) == 0 {
 		return s, nil
-	}
-	for _, origin := range s.order {
-		seen := map[string]bool{}
-		id := origin
-		for id != "" {
-			if seen[id] {
-				return nil, ErrUnavailable
-			}
-			seen[id] = true
-			entry, ok := s.entries[id]
-			if !ok {
-				return nil, ErrUnavailable
-			}
-			if entry.ParentID == nil {
-				break
-			}
-			id = *entry.ParentID
-		}
 	}
 	seen := map[string]bool{}
 	id := s.order[len(s.order)-1]
