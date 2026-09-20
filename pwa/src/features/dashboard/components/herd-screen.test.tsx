@@ -221,6 +221,23 @@ describe("herd screen presentation", () => {
     expect(document.activeElement).toBe(controls()[4]);
   });
 
+  test("completion count leaves checking, expands results, and focuses a completed card", () => {
+    const checking = { ...agent("check", "alpha", "idle"), interactiveReady: false };
+    paint(model({
+      listGroup: "space",
+      agents: [checking, agent("done", "beta", "done")],
+      groupCollapsed: { alpha: true, beta: true },
+    }));
+    const filters = [...app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')];
+    act(() => filters[4]!.click());
+    expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent)).toEqual(["check"]);
+    act(() => app().querySelector<HTMLButtonElement>(".done-count")!.click());
+    expect(filters[2]!.getAttribute("aria-checked")).toBe("true");
+    expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent)).toEqual(["done"]);
+    expect(app().querySelector(".herd-group")?.classList.contains("collapsed")).toBe(false);
+    expect(document.activeElement).toBe(app().querySelector(".card.status-done .card-main"));
+  });
+
   test("the status line keeps its tone, text and completion count", () => {
     paint(model({ agents: [agent("p1", "alpha", "done"), agent("p2", "beta", "done")], status: { tone: "warn", text: t("chrome.unverifiable") } }));
     expect(app().querySelector(".statusline .dot-warn")).not.toBeNull();

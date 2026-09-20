@@ -69,18 +69,22 @@ export function ListGroupControl() {
 }
 
 /** How many cards still wait to be read; tapping scrolls to the first one. */
-export function CompletionCount({ count }: { count: number }) {
+export function CompletionCount({ count, onActivate }: { count: number; onActivate?: () => void }) {
   if (count <= 0) return null;
   return (
     <Button
       className="text-link done-count"
       aria-label={t("home.doneCountAria", { count: String(count) })}
-      onClick={() =>
+      onClick={() => {
+        if (onActivate) {
+          onActivate();
+          return;
+        }
         document.querySelector(".card.status-done")?.scrollIntoView({
           behavior: prefersReducedMotion() ? "auto" : "smooth",
           block: "center",
-        })
-      }
+        });
+      }}
     >
       {t("home.doneCount", { count: String(count) })}
     </Button>

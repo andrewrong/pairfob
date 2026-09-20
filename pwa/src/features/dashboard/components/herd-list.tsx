@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo } from "react";
 import { EmptyState } from "../../../shared/ui/primitives";
 import { WorktreeProgressList } from "../../operations/worktree-progress";
 // Not this slice: the daemon update banner stays with its own owner.
@@ -31,8 +31,12 @@ function emptySpec(view: HerdViewModel, actions: HerdActions) {
  * The herd list: daemon update, pending worktree jobs, the grouping control and
  * then either the empty state or the projected sections.
  */
-export function HerdList({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
-  const [filter, setFilter] = useState<AttentionFilter>("all");
+export function HerdList({ view, actions, filter, onFilter }: {
+  view: HerdViewModel;
+  actions: HerdActions;
+  filter: AttentionFilter;
+  onFilter: (filter: AttentionFilter) => void;
+}) {
   const allAgents = useMemo(() => view.groups.flatMap((group) => group.cards.map((card) => card.agent)), [view.groups]);
   const counts = useMemo(() => attentionCounts(allAgents), [allAgents]);
   const groups = useMemo(() => view.groups.map((group) => {
@@ -42,7 +46,7 @@ export function HerdList({ view, actions }: { view: HerdViewModel; actions: Herd
       const order = new Map(ordered.map((agent, index) => [agent.paneId, index]));
       cards = [...cards].sort((left, right) => order.get(left.paneId)! - order.get(right.paneId)!);
     }
-    return { ...group, count: cards.length, cards };
+    return { ...group, collapsed: filter === "all" ? group.collapsed : false, count: cards.length, cards };
   }).filter((group) => group.cards.length), [filter, view.groups]);
   const empty = emptySpec(view, actions);
   const filteredEmpty = !empty && filter !== "all" && groups.length === 0;
@@ -51,10 +55,10 @@ export function HerdList({ view, actions }: { view: HerdViewModel; actions: Herd
       <DaemonUpdate compact />
       <WorktreeProgressList />
       <ListGroupControl />
-      {!empty && <AttentionFilterControl selected={filter} counts={counts} onSelect={setFilter} />}
+      {!empty && <AttentionFilterControl selected={filter} counts={counts} onSelect={onFilter} />}
       {empty ? <EmptyState spec={empty} /> : filteredEmpty ? (
         <div className="attention-empty"><p>{t("filter.empty")}</p>
-          <button className="btn btn-small" type="button" onClick={() => setFilter("all")}>{t("filter.reset")}</button></div>
+          <button className="btn btn-small" type="button" onClick={() => onFilter("all")}>{t("filter.reset")}</button></div>
       ) : (
         <div className={`herd-list${view.stagger ? " enter" : ""}`}>
           {groups.map((group) => view.grouped ? (

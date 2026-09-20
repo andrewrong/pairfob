@@ -1,4 +1,6 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { Brand, Button, StatusDot } from "../../../shared/ui/primitives";
+import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
 // AppNotice is the connected App notice (chrome barrel seam); HerdBanners is the
 // connection feature's own pure banner component.
 import { AppNotice } from "../../../app/notice";
@@ -7,6 +9,7 @@ import { CompletionCount } from "./herd-controls";
 import type { HerdActions } from "../actions";
 import type { HerdViewModel } from "../model/herd-view";
 import { HerdList } from "./herd-list";
+import type { AttentionFilter } from "../attention-filter";
 
 function HerdTopActions({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
   return (
@@ -46,6 +49,20 @@ export function HerdScreen({
   actions: HerdActions;
   variant: "page" | "rail";
 }) {
+  const [filter, setFilter] = useState<AttentionFilter>("all");
+  const root = useRef<HTMLElement>(null);
+  const revealFinished = useRef(false);
+  useLayoutEffect(() => {
+    if (!revealFinished.current || filter !== "finished") return;
+    revealFinished.current = false;
+    const target = root.current?.querySelector<HTMLElement>(".card.status-done .card-main");
+    target?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    target?.focus({ preventScroll: true });
+  }, [filter, view]);
+  const showFinished = () => {
+    revealFinished.current = true;
+    setFilter("finished");
+  };
   const chrome = (
     <>
       <div className="topbar">
@@ -55,12 +72,13 @@ export function HerdScreen({
       <p className="statusline">
         <StatusDot tone={view.status.tone} />
         <span className="statusline-text">{view.status.text}</span>
-        <CompletionCount count={view.doneCount} />
+        <CompletionCount count={view.doneCount} onActivate={showFinished} />
       </p>
       <HerdBanners tone={view.status.tone} />
       {variant === "page" ? <AppNotice /> : null}
-      <HerdList view={view} actions={actions} />
+      <HerdList view={view} actions={actions} filter={filter} onFilter={setFilter} />
     </>
   );
-  return variant === "rail" ? <aside className="rail">{chrome}</aside> : <div className="page">{chrome}</div>;
+  const bindRoot = (node: HTMLElement | null) => { root.current = node; };
+  return variant === "rail" ? <aside ref={bindRoot} className="rail">{chrome}</aside> : <div ref={bindRoot} className="page">{chrome}</div>;
 }
