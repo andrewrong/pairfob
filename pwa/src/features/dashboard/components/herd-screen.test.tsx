@@ -201,6 +201,26 @@ describe("herd screen presentation", () => {
     expect([...app().querySelectorAll(".card-name")]).toHaveLength(3);
   });
 
+  test("filter radios use roving focus and standard keyboard selection", () => {
+    paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("run", "alpha", "working")] }));
+    const controls = () => [...app().querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    controls()[0]!.focus();
+    act(() => controls()[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+    expect(controls()[1]!.getAttribute("aria-checked")).toBe("true");
+    expect(controls()[1]!.tabIndex).toBe(0);
+    expect(document.activeElement).toBe(controls()[1]);
+    act(() => controls()[1]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })));
+    expect(document.activeElement).toBe(controls()[4]);
+    act(() => controls()[4]!.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true })));
+    expect(controls()[0]!.getAttribute("aria-checked")).toBe("true");
+    act(() => controls()[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })));
+    expect(document.activeElement).toBe(controls()[4]);
+    act(() => controls()[4]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })));
+    expect(document.activeElement).toBe(controls()[3]);
+    act(() => controls()[3]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })));
+    expect(document.activeElement).toBe(controls()[4]);
+  });
+
   test("the status line keeps its tone, text and completion count", () => {
     paint(model({ agents: [agent("p1", "alpha", "done"), agent("p2", "beta", "done")], status: { tone: "warn", text: t("chrome.unverifiable") } }));
     expect(app().querySelector(".statusline .dot-warn")).not.toBeNull();

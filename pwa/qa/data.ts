@@ -77,16 +77,31 @@ export function snapshot(): SnapshotWire {
   };
 }
 
-export function attentionSnapshot(): SnapshotWire {
+export function attentionSnapshot(updated = false): SnapshotWire {
   const base = snapshot();
-  return { ...base, panes: (base.panes ?? []).map((pane, index) => ({
-    ...pane,
+  const seed = base.panes?.[0]!;
+  const facts = [
+    ["attention-blocked", "blocked", false, true, 31],
+    ["attention-done-old", "done", false, true, 40],
+    ["attention-done-new", "done", false, true, updated ? 99 : 80],
+    ["attention-working", "working", false, true, 50],
+    ["attention-launching", "idle", true, false, 60],
+    ["attention-not-ready", "idle", false, false, 61],
+    ["attention-unknown", "unknown", false, undefined, 62],
+    ["attention-ready", "idle", false, true, 63],
+  ] as const;
+  return { ...base, panes: facts.map(([paneId, status, launchPending, interactiveReady, sequence], index) => ({
+    ...seed,
+    pane_id: paneId,
+    label: paneId.replace("attention-", ""),
+    agent: "pi",
+    agent_status: status,
     terminal_id: `terminal-${index}`,
-    agent_instance_id: `agent-${index}`,
-    revision: 20 + index,
-    state_change_seq: pane.agent_status === "done" ? 90 : 30 + index,
-    interactive_ready: pane.agent_status === "idle" ? false : true,
-    launch_pending: pane.pane_id === PANE,
+    agent_instance_id: updated && paneId === "attention-ready" ? "agent-ready-replaced" : `agent-${index}`,
+    revision: (updated ? 40 : 20) + index,
+    state_change_seq: sequence,
+    interactive_ready: interactiveReady,
+    launch_pending: launchPending,
   })) };
 }
 

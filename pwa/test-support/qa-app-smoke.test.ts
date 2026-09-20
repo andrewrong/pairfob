@@ -178,7 +178,7 @@ function assertPaneRoot(expectedPane: string): void {
 }
 
 test("every QA scene id + untitled built", () => {
-  expect(scenes.length).toBe(56);
+  expect(scenes.length).toBe(60);
   const seen = new Set<string>();
   for (const scene of scenes) {
     expect(seen.has(scene.name)).toBeFalse();
@@ -241,9 +241,33 @@ test("every scene renders: 54 through the stable App (incl. mock-engine terminal
   }
   expect(failures).toEqual([]);
   expect(shellRendered).toEqual(["terminal-loading", "terminal-error"]);
-  expect(appRendered).toHaveLength(54);
-  expect(appRendered.length + shellRendered.length).toBe(56);
+  expect(appRendered).toHaveLength(58);
+  expect(appRendered.length + shellRendered.length).toBe(60);
 }, 180_000);
+
+test("attention QA scenes drive rich labels, ordering, and runtime replacement through App", async () => {
+  const first = await prepareScene("attention-rich");
+  try {
+    const copy = document.querySelector("#app")?.textContent ?? "";
+    expect(copy).toContain(t("status.starting"));
+    expect(copy).toContain(t("status.notReady"));
+    expect(copy).toContain(t("status.ready"));
+    const finished = [...document.querySelectorAll<HTMLButtonElement>('[role="radio"]')]
+      .find((button) => button.textContent?.includes(t("filter.finished")))!;
+    await act(async () => { finished.click(); await Promise.resolve(); });
+    expect([...document.querySelectorAll(".card-name")].map((node) => node.textContent))
+      .toEqual(["done-new", "done-old"]);
+  } finally {
+    await teardownScene(first, false);
+  }
+  const updated = await prepareScene("attention-rich-updated");
+  try {
+    expect(document.querySelector("#app")?.textContent).toContain("ready");
+    expect(document.querySelectorAll(".card")).toHaveLength(8);
+  } finally {
+    await teardownScene(updated, false);
+  }
+});
 
 test("an input-bearing scene keeps the compose field through a later real commit", async () => {
   expect(domReady).toBeTrue();
@@ -300,6 +324,6 @@ test("scene names and descriptions are documented for the window.qa surface", ()
   const names = scenes.map((scene) => scene.name);
   expect(names).toContain("terminal-loading");
   expect(names).toContain("terminal-error");
-  expect(names.length).toBe(56);
+  expect(names.length).toBe(60);
   for (const scene of scenes) expect(scene.description).toBeTruthy();
 });

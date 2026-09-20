@@ -9,16 +9,15 @@
 
   .attention-filters {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin: 12px 0 4px;
-    overflow-x: auto;
     padding: 2px 1px 6px;
-    scrollbar-width: none;
   }
 
   .attention-filter {
     min-height: 44px;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     display: inline-flex;
     align-items: center;
     gap: 6px;

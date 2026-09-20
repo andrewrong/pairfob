@@ -64,6 +64,7 @@ export const scenes: FixtureScene[] = [
   { name: "home-empty", description: "No session yet" },
   { name: "home-populated", description: "Flat session list" },
   { name: "attention-rich", description: "Rich task readiness and completion facts" },
+  { name: "attention-rich-updated", description: "Runtime occupant replacement and newer completion sequence" },
   { name: "attention-empty", description: "Attention filters with no matching checking tasks" },
   { name: "attention-legacy", description: "Legacy agents without readiness facts" },
   { name: "home-grouped", description: "Grouped workspace list" },
@@ -253,7 +254,8 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     return;
   }
   if (name === "home-empty" || name === "board-empty") replaceAgentsFromSnapshot({ panes: [] });
-  if (name === "attention-rich") replaceAgentsFromSnapshot(data.attentionSnapshot());
+  if (name === "attention-rich" || name === "attention-rich-updated")
+    replaceAgentsFromSnapshot(data.attentionSnapshot(name === "attention-rich-updated"));
   if (name === "attention-empty") replaceAgentsFromSnapshot({ ...data.snapshot(), panes: data.snapshot().panes?.filter((pane) => pane.agent_status !== "unknown") });
   if (name === "attention-legacy") replaceAgentsFromSnapshot(data.snapshot());
   if (name === "home-grouped") { setListGroup("space"); togglePanePin("w1:p3"); }
