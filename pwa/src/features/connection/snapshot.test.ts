@@ -171,9 +171,9 @@ describe("snapshot observation ownership", () => {
     cacheAgentTrace("p1", cached);
     cacheAgentTrace("p2", cached);
     let finishTrace!: (page: { items: Array<{ type: "assistant"; text: string }>; nextCursor: null; truncated: false }) => void;
-    let finishDetail!: (detail: { title: string; body: string }) => void;
+    const finishDetails: Array<(detail: { title: string; body: string }) => void> = [];
     session.agentTrace = () => new Promise((resolve) => { finishTrace = resolve; });
-    session.agentTraceDetail = () => new Promise((resolve) => { finishDetail = resolve; });
+    session.agentTraceDetail = () => new Promise((resolve) => { finishDetails.push(resolve); });
     session.snapshot = async () => observed("a2", "b2");
     void refreshAgentTrace();
     loadToolDetail("p2", "detail", () => undefined);
@@ -184,12 +184,17 @@ describe("snapshot observation ownership", () => {
     expect(cachedAgentTrace("p2")).toBeNull();
     expect(chatSnapshot().agentTraceItems).toEqual([]);
     expect(composeDraft()).toBe("keep this draft");
+    loadToolDetail("p2", "detail", () => undefined);
+    expect(toolDetailView("p2", "detail").status).toBe("loading");
     finishTrace({ items: [{ type: "assistant", text: "stale" }], nextCursor: null, truncated: false });
-    finishDetail({ title: "stale", body: "stale" });
+    finishDetails[0]({ title: "stale", body: "stale" });
     await Promise.resolve();
     await Promise.resolve();
     expect(chatSnapshot().agentTraceItems).toEqual([]);
-    expect(toolDetailView("p2", "detail").status).toBe("idle");
+    expect(toolDetailView("p2", "detail").status).toBe("loading");
+    finishDetails[1]({ title: "fresh", body: "fresh" });
+    await Promise.resolve();
+    expect(toolDetailView("p2", "detail")).toMatchObject({ status: "ready", detail: { title: "fresh" } });
   });
 
   test("a catalog-publication owner retirement cannot persist a false status touch under the replacement daemon", async () => {

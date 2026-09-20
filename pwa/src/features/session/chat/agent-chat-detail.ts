@@ -6,7 +6,6 @@ import {
   type AgentTraceDetailState,
 } from "../../../lib/agent-trace-cache";
 import { messageOf } from "../../../lib/notices";
-import { paneTraceOwnerVersion } from "./trace-store";
 
 export function toolDetailView(paneId: string, detailRef: string): AgentTraceDetailState {
   return agentTraceDetailState(paneId, detailRef);
@@ -15,16 +14,16 @@ export function toolDetailView(paneId: string, detailRef: string): AgentTraceDet
 export function loadToolDetail(paneId: string, detailRef: string, changed: () => void): void {
   const session = liveSession();
   const current = agentTraceDetailState(paneId, detailRef);
-  const ownerVersion = paneTraceOwnerVersion(paneId);
   if (!session || !detailRef || current.status === "loading" || current.status === "ready") return;
-  setAgentTraceDetailState(paneId, detailRef, { status: "loading" });
+  const loading = Object.freeze({ status: "loading" as const });
+  setAgentTraceDetailState(paneId, detailRef, loading);
   changed();
   void session.agentTraceDetail(paneId, detailRef).then((detail) => {
-    if (liveSession() !== session || ownerVersion !== paneTraceOwnerVersion(paneId) || agentTraceDetailState(paneId, detailRef).status !== "loading") return;
+    if (liveSession() !== session || agentTraceDetailState(paneId, detailRef) !== loading) return;
     setAgentTraceDetailState(paneId, detailRef, { status: "ready", detail });
     if (isAgentChat() && openPaneId() === paneId) changed();
   }).catch((error) => {
-    if (liveSession() !== session || ownerVersion !== paneTraceOwnerVersion(paneId) || agentTraceDetailState(paneId, detailRef).status !== "loading") return;
+    if (liveSession() !== session || agentTraceDetailState(paneId, detailRef) !== loading) return;
     setAgentTraceDetailState(paneId, detailRef, { status: "error", message: messageOf(error, "read") });
     if (isAgentChat() && openPaneId() === paneId) changed();
   });
