@@ -664,9 +664,6 @@ func (r *Reader) readPiTrace(ref Ref, cursor *string, limit int) (TracePage, err
 		pageBytes += size
 		start--
 	}
-	for start > 0 && start < len(events) && events[start-1].lineStart == events[start].lineStart {
-		start--
-	}
 	page := TracePage{Truncated: start > 0 && pageBytes == 0}
 	emittedBytes := 0
 	for _, parsed := range events[start:] {

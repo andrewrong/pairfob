@@ -193,6 +193,53 @@ func TestPiPaginationProgressesAcrossNonMessagesAndOneEntryBlocks(t *testing.T) 
 	}
 }
 
+func TestPiTracePaginationSplitsLargeSingleAssistantEntry(t *testing.T) {
+	const tools = 8
+	blocks := make([]any, 0, tools)
+	for index := 0; index < tools; index++ {
+		blocks = append(blocks, map[string]any{"type": "toolCall", "id": fmt.Sprintf("call:%d", index), "name": "Read", "arguments": map[string]any{"marker": fmt.Sprintf("input-%d", index), "padding": strings.Repeat("i", 20_000)}})
+	}
+	lines := []any{msg("user0001", nil, "user", "question"), msg("asst0001", "user0001", "assistant", blocks)}
+	parent := "asst0001"
+	for index := 0; index < tools; index++ {
+		id := fmt.Sprintf("result%03d", index)
+		lines = append(lines, map[string]any{"type": "message", "id": id, "parentId": parent, "message": map[string]any{"role": "toolResult", "toolCallId": fmt.Sprintf("call:%d", index), "toolName": "Read", "content": []any{map[string]any{"type": "text", "text": fmt.Sprintf("output-%d:", index) + strings.Repeat("o", 20_000)}}, "isError": false}})
+		parent = id
+	}
+	reader, ref, _ := piFixture(t, lines...)
+	for _, limit := range []int{1, 200} {
+		seen := map[string]bool{}
+		var cursor *string
+		for pages := 0; pages < tools+2; pages++ {
+			page, err := reader.ReadTrace(ref, cursor, limit)
+			if err != nil {
+				t.Fatalf("limit %d: %v", limit, err)
+			}
+			for _, item := range page.Items {
+				if item.Type != "tool" {
+					continue
+				}
+				marker := item.Input[:strings.Index(item.Input, ",")]
+				if seen[marker] {
+					t.Fatalf("limit %d duplicate %q", limit, marker)
+				}
+				seen[marker] = true
+				detail, err := reader.ReadTraceDetail(ref, item.DetailRef)
+				if err != nil || !strings.Contains(detail.Output, "output-") {
+					t.Fatalf("limit %d detail=%#v err=%v", limit, detail, err)
+				}
+			}
+			cursor = page.NextCursor
+			if cursor == nil {
+				break
+			}
+		}
+		if len(seen) != tools {
+			t.Fatalf("limit %d visited %d/%d tools", limit, len(seen), tools)
+		}
+	}
+}
+
 func TestPiDetailOutputRevisionChangesWithoutInvalidatingOldLocator(t *testing.T) {
 	reader, ref, path := piFixture(t, msg("user0001", nil, "user", "q"), msg("asst0001", "user0001", "assistant", []any{map[string]any{"type": "toolCall", "id": "call-one", "name": "Read", "arguments": map[string]any{"path": "a"}}}))
 	before, err := reader.ReadTrace(ref, nil, 20)
