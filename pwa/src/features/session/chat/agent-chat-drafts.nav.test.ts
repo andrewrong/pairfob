@@ -561,6 +561,42 @@ describe("async prompt results stay on the originating request", () => {
     expect(readStoredDraft({ daemonId: "daemon-a", paneId: "p1", mode: "agent" }).text).toBe("newer attempt");
   }));
 
+  test("prompt success cannot mutate a replacement occupant on the same pane", async () => await act(async () => {
+    boot();
+    let resolvePrompt!: () => void;
+    setLive({ ...live(), promptAgent: () => new Promise((resolve) => { resolvePrompt = () => resolve({ outcome: "applied" }); }) });
+    applySnapshot({ session: "named", panes: [{ pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "idle", terminal_id: "t1", agent_instance_id: "a1" }] });
+    typeDraft("old prompt");
+    clickSend();
+    await Promise.resolve();
+    applySnapshot({ session: "named", panes: [{ pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "idle", terminal_id: "t1", agent_instance_id: "a2" }] });
+    typeDraft("new occupant draft");
+    resolvePrompt();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(liveAgents()[0]?.status).toBe("idle");
+    expect(composeDraft()).toBe("new occupant draft");
+    expect(trace().agentTraceNote).toBe("");
+  }));
+
+  test("prompt failure cannot restore errors or text onto a replacement occupant", async () => await act(async () => {
+    boot();
+    let rejectPrompt!: (error: Error) => void;
+    setLive({ ...live(), promptAgent: () => new Promise((_, reject) => { rejectPrompt = reject; }) });
+    applySnapshot({ session: "named", panes: [{ pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "idle", terminal_id: "t1", agent_instance_id: "a1" }] });
+    typeDraft("old prompt");
+    clickSend();
+    await Promise.resolve();
+    applySnapshot({ session: "named", panes: [{ pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "idle", terminal_id: "t2", agent_instance_id: "a2" }] });
+    typeDraft("replacement draft");
+    rejectPrompt(new Error("old occupant failed"));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(composeDraft()).toBe("replacement draft");
+    expect(trace().agentTraceNote).toBe("");
+    expect(visibleNotice()).toBeNull();
+  }));
+
   test("success after switching computers does not mark the new computer's same pane id", async () => await act(async () => {
     // Capture and restore both completion-seen keys so this case can never
     // overwrite a distinct legitimate value (or leave a seeded key behind).

@@ -20,7 +20,7 @@ import { liveSession } from "../../computers/catalog-store";
 import { phase } from "../../connection/connection-store";
 import { batch } from "../../../app/domain-publication";
 import { isAgentChat, isFullTerminal, openPaneId, setAgentChat, setFullTerminal } from "../session-store";
-import { markPaneSubmitted, selectedAgent } from "../../dashboard/catalog-store";
+import { liveAgents, markPaneSubmitted, selectedAgent } from "../../dashboard/catalog-store";
 import { setPaneTermMode } from "../../settings/preferences-store";
 import { commitView } from "../../../app/host";
 import { appRoot } from "../../../app/dom-root";
@@ -449,6 +449,24 @@ function restoreOwnerComposeField(): void {
   sizeChatCompose(restore);
 }
 
+type PromptOccupant = Pick<NonNullable<ReturnType<typeof selectedAgent>>, "runtimeSession" | "terminalId" | "agentInstanceId">;
+
+function promptOccupant(agent: PromptOccupant): PromptOccupant {
+  return { runtimeSession: agent.runtimeSession, terminalId: agent.terminalId, agentInstanceId: agent.agentInstanceId };
+}
+
+function promptOccupantIsCurrent(paneId: string, captured: PromptOccupant): boolean {
+  const current = liveAgents().find((agent) => agent.paneId === paneId);
+  if (!current) return false;
+  const now = promptOccupant(current);
+  const capturedRich = Boolean(captured.runtimeSession || captured.terminalId || captured.agentInstanceId);
+  const currentRich = Boolean(now.runtimeSession || now.terminalId || now.agentInstanceId);
+  if (!capturedRich && !currentRich) return true;
+  return captured.runtimeSession === now.runtimeSession &&
+    captured.terminalId === now.terminalId &&
+    captured.agentInstanceId === now.agentInstanceId;
+}
+
 function releasePromptOwner(owner: { lockId: number }, live: boolean): void {
   const released = releasePromptLock(owner.lockId);
   if (!released || !live) return;
@@ -465,6 +483,7 @@ export async function submitAgentPrompt(): Promise<void> {
   if (!session || !selected || !text || !canSend(selected) || operationBusy()) return;
   const owner = capturePromptRequest(session, selected.paneId, text);
   if (!owner) return;
+  const occupant = promptOccupant(selected);
   const notice = visibleNotice();
   batch(() => {
     setComposeDraft("");
@@ -475,6 +494,7 @@ export async function submitAgentPrompt(): Promise<void> {
   paintPromptOwner();
   try {
     await session.promptAgent({ pane_id: owner.draftScope.paneId, text: owner.text });
+    if (!promptOccupantIsCurrent(owner.draftScope.paneId, occupant)) return;
     if (promptRequestOwnsComputer(owner)) markPaneSubmitted(owner.draftScope.paneId);
     settlePromptSuccess(owner);
     if (promptRequestIsLive(owner)) {
@@ -484,6 +504,7 @@ export async function submitAgentPrompt(): Promise<void> {
       await refreshAgentTrace();
     }
   } catch (error) {
+    if (!promptOccupantIsCurrent(owner.draftScope.paneId, occupant)) return;
     const { unknownOutcome, message, restoredVisible } = settlePromptFailure(owner, error);
     if (promptRequestIsLive(owner)) {
       batch(() => {
@@ -503,6 +524,6 @@ export async function submitAgentPrompt(): Promise<void> {
       restoreOwnerComposeField();
     }
   } finally {
-    releasePromptOwner(owner, promptRequestIsLive(owner));
+    releasePromptOwner(owner, promptOccupantIsCurrent(owner.draftScope.paneId, occupant) && promptRequestIsLive(owner));
   }
 }
