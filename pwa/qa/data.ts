@@ -130,6 +130,21 @@ export function quotas(): AgentQuota[] {
   ];
 }
 
+export function phase2ConversationTrace(): AgentTraceItem[] {
+  const turns: AgentTraceItem[] = [];
+  for (let turn = 1; turn <= 12; turn++) {
+    turns.push(
+      { type: "user", text: `Turn ${turn}: inspect the conversation recovery path without replaying any mutation.` },
+      { type: "thinking", text: `Checking owner generation, scroll position, and transcript tail for turn ${turn}.` },
+      { type: "tool", name: "Read", input: `{"path":"src/chat/turn-${turn}.ts"}`, output: `Read ${20 + turn} lines. Owner and revision are stable.`, toolState: "done", detailRef: `qa-read-${turn}` },
+    );
+    if (turn === 4) turns.push({ type: "tool", name: "Bash", input: "bun test chat", output: "error: expected one refresh, received zero", toolState: "error", detailRef: "qa-tool-error" });
+    if (turn === 7) turns.push({ type: "tool", name: "Read", input: "{\"path\":\"empty.txt\"}", output: "", toolState: "done", detailRef: "qa-empty-output" });
+    turns.push({ type: "assistant", text: `Turn ${turn} complete. The transcript remains attached to the same Pi session${turn === 12 ? ".\n\nFinal check: foreground recovery refreshes reads only and does not resend the prompt." : "."}` });
+  }
+  return turns;
+}
+
 export function trace(): AgentTraceItem[] {
   return [
     { type: "user", text: "Check the mobile workspace layout and preserve the existing interactions." },

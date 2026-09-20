@@ -38,7 +38,7 @@ import { FIXED_NOW } from "./environment";
 import * as data from "./data";
 
 /**
- * Named-domain fixture setup for the 56 QA scenes.
+ * Named-domain fixture setup for deterministic QA scenes.
  *
  * Every scene is expressed as typed, named actions on the ownership domains the
  * stable App reads — never the compatibility `state` facade and never a writable
@@ -106,6 +106,10 @@ export const scenes: FixtureScene[] = [
   { name: "chat-loading", description: "Pending agent history" },
   { name: "chat-error", description: "Failed history with retry" },
   { name: "chat-older", description: "Older-history control and truncation notice" },
+  { name: "chat-pi-long", description: "Long Pi transcript with tool success, error, and empty output" },
+  { name: "chat-pi-unread", description: "Long Pi transcript scrolled away from the tail with unread updates" },
+  { name: "chat-pi-recovery", description: "Long Pi transcript ready for disconnect, reconnect, and foreground actions" },
+  { name: "chat-pi-compose", description: "Focused multiline compose at a narrow phone viewport" },
   { name: "terminal-live", description: "Real xterm/WebGL with local terminal RPC and injectable frames" },
   { name: "terminal-open-error", description: "Real renderer with a rejected local TerminalOpen" },
   { name: "terminal-loading", description: "Full terminal shell before renderer mount", shellOnly: true },
@@ -313,6 +317,12 @@ export async function applyScene(name: string, session: FixtureSession): Promise
   }
   if (name.startsWith("chat") || name === "desktop-chat") {
     chatPane();
+    if (name.startsWith("chat-pi-")) applyTrace({
+      agentTraceItems: data.phase2ConversationTrace(), agentTraceTail: data.phase2ConversationTrace().length,
+      agentTraceLoadState: "ready", agentTraceSig: `qa-${name}`,
+    });
+    if (name === "chat-pi-unread") applyTrace({ agentTraceFollow: false, agentTraceUnread: true });
+    if (name === "chat-pi-compose") setComposeDraft("First line stays intact.\n第二行正在使用输入法组合。\nThird line verifies the narrow compose area.");
     if (name === "chat-draft") setComposeDraft("Review the interaction changes.\nKeep focus and selection stable.\nThen run the checks.");
     if (name === "chat-complete") {
       replaceAgentsFromSnapshot(idleFocusedSnapshot());
@@ -334,10 +344,11 @@ export async function applyScene(name: string, session: FixtureSession): Promise
 const pendingReveal = () => new Promise<void>((resolve) => setTimeout(resolve, WORKSPACE_PENDING_DELAY_MS + 40));
 
 export function afterScenePaint(name: string): void {
-  if (name !== "guided-ime") return;
-  const input = document.querySelector<HTMLTextAreaElement>(".dock textarea");
-  if (!input) throw new Error("QA guided IME fixture has no compose field");
+  if (name !== "guided-ime" && name !== "chat-pi-compose") return;
+  const input = document.querySelector<HTMLTextAreaElement>(".dock textarea, .agent-dock textarea");
+  if (!input) throw new Error(`QA ${name} fixture has no compose field`);
   input.focus({ preventScroll: true });
-  input.setSelectionRange(1, 4);
+  const selection = name === "guided-ime" ? [1, 4] : [22, 25];
+  input.setSelectionRange(selection[0], selection[1]);
   input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "正在" }));
 }
