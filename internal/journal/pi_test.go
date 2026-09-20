@@ -257,6 +257,34 @@ func TestPiDetailSurvivesAppendButNotReplacementOrBranchRemoval(t *testing.T) {
 	}
 }
 
+func TestPiManySmallRecordsExceedStructuralCacheBudget(t *testing.T) {
+	const count = 33_000
+	lines := make([]any, 0, count)
+	var parent any = nil
+	for index := 0; index < count; index++ {
+		id := fmt.Sprintf("small%08d", index)
+		lines = append(lines, map[string]any{"type": "custom", "id": id, "parentId": parent, "customType": "x", "data": 0})
+		parent = id
+	}
+	reader, ref, _ := piFixture(t, lines...)
+	if _, err := reader.ReadTrace(ref, nil, 1); err != nil {
+		t.Fatal(err)
+	}
+	reader.piMu.Lock()
+	cached := append([]piCacheEntry(nil), reader.piCache...)
+	reader.piMu.Unlock()
+	if len(cached) != 1 || cached[0].session != nil || cached[0].bytes > maxPiCacheBytes {
+		t.Fatalf("oversized parsed tree entered cache: %#v", cached)
+	}
+	page, err := reader.ReadTrace(ref, nil, 1)
+	if err != nil || len(page.Items) != 0 {
+		t.Fatalf("uncached tree unreadable: %#v err=%v", page, err)
+	}
+	if charge := piCacheCharge(1, count); charge <= maxPiCacheBytes {
+		t.Fatalf("structural charge undercounted: %d", charge)
+	}
+}
+
 func TestPiLongLinearTreeUsesSinglePassValidation(t *testing.T) {
 	const count = 20_000
 	lines := make([]any, 0, count)

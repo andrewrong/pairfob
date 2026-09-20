@@ -16,7 +16,14 @@ import (
 	"time"
 )
 
-const maxPiCacheBytes = 32 << 20
+const (
+	maxPiCacheBytes = 32 << 20
+	// Each parsed entry owns map-bucket/slice slots, a piEntry value, strings,
+	// RawMessage copies, and branch membership. Charging 1 KiB per entry in
+	// addition to twice the JSONL bytes deliberately overestimates those fixed
+	// structures, including allocator and map overhead, for cache admission.
+	piCacheEntryOverhead = 1024
+)
 
 type piFileIndex struct {
 	root      string
@@ -32,6 +39,8 @@ type piCacheEntry struct {
 	sourceBytes int
 	tick        uint64
 	session     *piSession
+	sessionID   string
+	incarnation string
 }
 
 type piSession struct {
@@ -275,7 +284,7 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 	r.piMu.Lock()
 	for i := range r.piCache {
 		entry := &r.piCache[i]
-		if entry.path == path && os.SameFile(entry.info, info) && entry.info.Size() == info.Size() && entry.info.ModTime() == info.ModTime() && entry.digest == digest && (ref.Kind != "id" || entry.session.id == ref.Value) {
+		if entry.path == path && os.SameFile(entry.info, info) && entry.info.Size() == info.Size() && entry.info.ModTime() == info.ModTime() && entry.digest == digest && entry.session != nil && (ref.Kind != "id" || entry.sessionID == ref.Value) {
 			r.piCacheTick++
 			entry.tick = r.piCacheTick
 			session := entry.session
@@ -290,8 +299,8 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 	}
 	r.piMu.Lock()
 	for _, entry := range r.piCache {
-		if entry.path == path && os.SameFile(entry.info, info) && entry.session.id == session.id && len(data) >= entry.sourceBytes && sha256.Sum256(data[:entry.sourceBytes]) == entry.digest {
-			session.incarnation = entry.session.incarnation
+		if entry.path == path && os.SameFile(entry.info, info) && entry.sessionID == session.id && len(data) >= entry.sourceBytes && sha256.Sum256(data[:entry.sourceBytes]) == entry.digest {
+			session.incarnation = entry.incarnation
 			break
 		}
 	}
@@ -301,8 +310,8 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 	defer r.piMu.Unlock()
 	r.piCacheTick++
 	kept := r.piCache[:0]
-	// Charge both source bytes and a conservative equal-sized parsed-tree budget.
-	total := len(data) * 2
+	charge := piCacheCharge(len(data), len(session.entries))
+	total := charge
 	for _, entry := range r.piCache {
 		if entry.path != path {
 			kept = append(kept, entry)
@@ -320,10 +329,28 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 		total -= r.piCache[oldest].bytes
 		r.piCache = append(r.piCache[:oldest], r.piCache[oldest+1:]...)
 	}
-	if len(data)*2 <= maxPiCacheBytes {
-		r.piCache = append(r.piCache, piCacheEntry{path: path, info: info, digest: digest, bytes: len(data) * 2, sourceBytes: len(data), tick: r.piCacheTick, session: session})
+	if charge <= maxPiCacheBytes {
+		r.piCache = append(r.piCache, piCacheEntry{path: path, info: info, digest: digest, bytes: charge, sourceBytes: len(data), tick: r.piCacheTick, session: session, sessionID: session.id, incarnation: session.incarnation})
+	} else {
+		// Keep only bounded identity so uncached trees retain cursor/detail
+		// continuity across append without retaining parsed allocations.
+		const identityCharge = 512
+		r.piCache = append(r.piCache, piCacheEntry{path: path, info: info, digest: digest, bytes: identityCharge, sourceBytes: len(data), tick: r.piCacheTick, sessionID: session.id, incarnation: session.incarnation})
 	}
 	return session, nil
+}
+
+func piCacheCharge(sourceBytes, entries int) int {
+	if entries > (maxPiCacheBytes-sourceBytes)/piCacheEntryOverhead {
+		return maxPiCacheBytes + 1
+	}
+	// The second sourceBytes covers RawMessage/string payload copies retained by
+	// encoding/json; the per-entry charge covers the structural containers.
+	charge := sourceBytes*2 + entries*piCacheEntryOverhead
+	if charge < sourceBytes {
+		return maxPiCacheBytes + 1
+	}
+	return charge
 }
 
 func newPiIncarnation() string {
