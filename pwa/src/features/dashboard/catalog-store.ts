@@ -154,6 +154,7 @@ export function acknowledgePaneCompletion(paneId: string): boolean {
     read().completionSeen,
     read().runtimeAgentStatuses,
     paneId,
+    read().agents,
   );
   if (seen === read().completionSeen) return false;
   noteCompletionAcknowledged(paneId);

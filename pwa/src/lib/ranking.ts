@@ -15,6 +15,13 @@ export interface AgentCard {
   cwd: string;
   viewportRows?: number;
   historyAvailable?: boolean;
+  terminalId?: string;
+  agentInstanceId?: string;
+  revision?: number;
+  stateChangeSeq?: number;
+  interactiveReady?: boolean;
+  launchPending?: boolean;
+  runtimeSession?: string;
 }
 
 export type TouchedAt = Record<string, number>;

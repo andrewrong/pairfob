@@ -7,6 +7,7 @@ export type DashboardAgentCard = AgentCard & {
 };
 
 export type SnapshotWire = {
+  session?: unknown;
   focused?: { pane_id?: string; tab_id?: string; workspace_id?: string };
   layouts?: unknown;
   workspaces?: Array<{ workspace_id: string; label?: string; cwd?: string }>;
@@ -21,6 +22,12 @@ export type SnapshotWire = {
     label?: string | null;
     terminal_title?: string | null;
     history_available?: boolean;
+    terminal_id?: unknown;
+    agent_instance_id?: unknown;
+    revision?: unknown;
+    state_change_seq?: unknown;
+    interactive_ready?: unknown;
+    launch_pending?: unknown;
     scroll?: { viewport_rows?: number };
   }>;
 };
@@ -37,6 +44,20 @@ function snapshotAgentStatus(hasAgent: boolean, wire: string | undefined): Agent
     default:
       return "unknown";
   }
+}
+
+function boundedString(value: unknown, limit = 256): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const text = value.trim();
+  return text && text.length <= limit ? text : undefined;
+}
+
+function safeCounter(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
+function wireBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 export function mapSnapshotAgents(snapshot: SnapshotWire): DashboardAgentCard[] {
@@ -62,6 +83,13 @@ export function mapSnapshotAgents(snapshot: SnapshotWire): DashboardAgentCard[] 
         cwd: pane.cwd || ws?.cwd || "",
         viewportRows: pane.scroll?.viewport_rows,
         historyAvailable: pane.history_available === true,
+        terminalId: boundedString(pane.terminal_id),
+        agentInstanceId: boundedString(pane.agent_instance_id),
+        revision: safeCounter(pane.revision),
+        stateChangeSeq: safeCounter(pane.state_change_seq),
+        interactiveReady: wireBoolean(pane.interactive_ready),
+        launchPending: wireBoolean(pane.launch_pending),
+        runtimeSession: boundedString(snapshot.session),
       };
     });
 }
@@ -274,6 +302,13 @@ export function herdSignature(agents: DashboardAgentCard[]): string {
       agent.cwd,
       agent.viewportRows ?? null,
       agent.historyAvailable === true,
+      agent.terminalId ?? null,
+      agent.agentInstanceId ?? null,
+      agent.revision ?? null,
+      agent.stateChangeSeq ?? null,
+      agent.interactiveReady ?? null,
+      agent.launchPending ?? null,
+      agent.runtimeSession ?? null,
     ]),
   );
 }
@@ -308,7 +343,15 @@ export function paneFillCopy(
 }
 
 export function canPromptAgent(agent: DashboardAgentCard | undefined): agent is DashboardAgentCard {
-  return agent?.hasAgent === true;
+  return agent?.hasAgent === true && agent.launchPending !== true && agent.interactiveReady !== false;
+}
+
+export function agentStatusLabel(agent: AgentCard): string {
+  if (agent.status === "blocked" || agent.status === "working" || agent.status === "done") return statusLabel(agent.status);
+  if (agent.launchPending === true) return t("status.starting");
+  if (agent.interactiveReady === false) return t("status.notReady");
+  if (agent.status === "idle" && agent.interactiveReady === true) return t("status.ready");
+  return statusLabel(agent.status);
 }
 
 export function statusLabel(status: AgentCard["status"]): string {

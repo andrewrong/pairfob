@@ -52,10 +52,20 @@ describe("completion attention", () => {
     expect(completed.agents[0].status).toBe("done");
   });
 
+  test("rich acknowledgements are scoped to session, occupant, and sequence", () => {
+    const rich = { ...agent("p1", "done"), runtimeSession: "named", terminalId: "t1", agentInstanceId: "a1", stateChangeSeq: 7 };
+    const seen = markCompletionSeen({}, { p1: "done" }, "p1", [rich]);
+    expect(seen.p1).toBe('["named","t1","a1",7]');
+    expect(projectCompletionAttention([rich], { p1: "done" }, seen).agents[0].status).toBe("idle");
+    expect(projectCompletionAttention([{ ...rich, stateChangeSeq: 8 }], { p1: "done" }, seen).agents[0].status).toBe("done");
+    expect(projectCompletionAttention([{ ...rich, agentInstanceId: "a2" }], { p1: "done" }, seen).seen).toEqual({});
+    expect(projectCompletionAttention([{ ...agent("p1", "done"), runtimeSession: "other" }], { p1: "done" }, { p1: true }).agents[0].status).toBe("done");
+  });
+
   test("removed panes and malformed stored entries are discarded", () => {
     const projected = projectCompletionAttention([agent("p2", "done")], { p1: "done" }, { p1: true, p2: true });
     expect(projected.seen).toEqual({ p2: true });
-    expect(parseSeenCompletions('{"p1":true,"p2":false,"":true}')).toEqual({ p1: true });
+    expect(parseSeenCompletions('{"p1":true,"p2":false,"p3":"token","":true}')).toEqual({ p1: true, p3: "token" });
     expect(parseSeenCompletions("not json")).toEqual({});
   });
 

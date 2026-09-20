@@ -1,6 +1,6 @@
 import type { TabLayout } from "./layout";
 import { describe, expect, test } from "bun:test";
-import { agentDetailRows, agentMeta, agentTitle, canPromptAgent, choosePane, chromeName, herdSignature, mapSnapshotAgents, paneFillCopy, statusLabel, tabIsSplit, visibleTabLabel } from "./dashboard.ts";
+import { agentDetailRows, agentMeta, agentStatusLabel, agentTitle, canPromptAgent, choosePane, chromeName, herdSignature, mapSnapshotAgents, paneFillCopy, statusLabel, tabIsSplit, visibleTabLabel } from "./dashboard.ts";
 
 describe("dashboard mapping", () => {
   const snapshot = {
@@ -262,10 +262,26 @@ describe("dashboard mapping", () => {
     }
   });
 
-  test("only panes with an explicit runtime agent binding can be prompted", () => {
-    const agents = mapSnapshotAgents(snapshot);
-    expect(canPromptAgent(agents[0])).toBe(true);
-    expect(canPromptAgent(agents[1])).toBe(true);
+  test("decodes bounded rich observations and gates prompt readiness", () => {
+    const [ready, invalid] = mapSnapshotAgents({
+      session: "named",
+      panes: [
+        { pane_id: "p1", workspace_id: "w", agent: "codex", agent_status: "idle", terminal_id: "term", agent_instance_id: "instance", revision: 0, state_change_seq: 12, interactive_ready: true, launch_pending: false },
+        { pane_id: "p2", workspace_id: "w", agent: "codex", agent_status: "idle", terminal_id: "x".repeat(257), revision: -1, state_change_seq: 1.5, interactive_ready: "yes", launch_pending: 1 },
+      ],
+    });
+    expect(ready).toMatchObject({ runtimeSession: "named", terminalId: "term", agentInstanceId: "instance", revision: 0, stateChangeSeq: 12, interactiveReady: true, launchPending: false });
+    expect(canPromptAgent(ready)).toBe(true);
+    expect(canPromptAgent({ ...ready, launchPending: true })).toBe(false);
+    expect(canPromptAgent({ ...ready, interactiveReady: false })).toBe(false);
+    expect(invalid).toMatchObject({ terminalId: undefined, revision: undefined, stateChangeSeq: undefined, interactiveReady: undefined, launchPending: undefined });
+  });
+
+  test("rich readiness labels preserve active status priority", () => {
+    const card = { ...mapSnapshotAgents(snapshot)[0], status: "idle" as const };
+    expect(agentStatusLabel({ ...card, status: "blocked", launchPending: true })).toBe(statusLabel("blocked"));
+    expect(agentStatusLabel({ ...card, status: "working", interactiveReady: false })).toBe(statusLabel("working"));
+    expect(agentStatusLabel({ ...card, status: "done", launchPending: true })).toBe(statusLabel("done"));
   });
 
   test("OSC status crumbs and trailing agent names never become the card title", () => {
