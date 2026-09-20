@@ -11,7 +11,7 @@ const { mountApp, unmountApp } = await import("../../../app/mount.tsx");
 const { registerSessionOwnerPreparer } = await import("../../../app/frame.ts");
 const { registerSessionView } = await import("../register.ts");
 const { resetTransitionState } = await import("../../../app/transition.ts");
-const { resetComposeDrafts, bumpViewIncarnation, currentViewIncarnation, promptRequestIsLive } = await import("../drafts/compose-drafts.ts");
+const { resetComposeDrafts, bumpViewIncarnation, currentViewIncarnation, promptRequestIsLive, switchComposeView } = await import("../drafts/compose-drafts.ts");
 const { readStoredDraft } = await import("../drafts/state-drafts.ts");
 const { clearAgentTraceCache } = await import("../../../lib/agent-trace-cache.ts");
 const { messageOf } = await import("../../../lib/notices.ts");
@@ -473,26 +473,27 @@ describe("async prompt results stay on the originating request", () => {
     expect(operationBusy()).toBe(false);
   }));
 
-  test("the same pane id on another computer does not take the original result", async () => await act(async () => {
+  test("a rich failure on another computer restores only the original computer draft", async () => await act(async () => {
     boot();
     let reject!: (error: Error) => void;
-    const sessionA = liveSession();
-    setLive({
-      ...live(),
-      promptAgent: async () =>
-        await new Promise((_, fail) => {
-          reject = fail;
-        }),
-    });
+    const sessionA = { ...live(), promptAgent: async () => await new Promise((_, fail) => { reject = fail; }) };
+    setLive(sessionA);
+    applySnapshot({ session: "alpha", panes: [
+      { pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "working", terminal_id: "ta", agent_instance_id: "ia" },
+    ] });
     typeDraft("computer A prompt");
     clickSend();
     await Promise.resolve();
 
-    bumpViewIncarnation();
-    setOperationBusy(false);
-    setCredential(credential("daemon-b"));
-    setLive({ ...live(), promptAgent: async () => ({ outcome: "applied" }) });
-    setComposeDraft("computer B draft");
+    const sessionB = live();
+    switchComposeView(() => {
+      setCredential(credential("daemon-b"));
+      setLive(sessionB);
+      applySnapshot({ session: "beta", panes: [
+        { pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "idle", terminal_id: "tb", agent_instance_id: "ib" },
+      ] });
+    });
+    typeDraft("computer B draft");
     commitView();
 
     reject(new ProtocolError("timeout", "computer A failed"));
@@ -502,9 +503,21 @@ describe("async prompt results stay on the originating request", () => {
 
     expect(composeDraft()).toBe("computer B draft");
     expect(field().value).toBe("computer B draft");
+    expect(liveAgents()[0]?.status).toBe("idle");
     expect(trace().agentTraceNote).not.toContain("computer A failed");
     expect(readStoredDraft({ daemonId: "daemon-a", paneId: "p1", mode: "agent" }).text).toBe("computer A prompt");
-    expect(sessionA).not.toBe(liveSession());
+
+    switchComposeView(() => {
+      setCredential(credential("daemon-a"));
+      setLive(sessionA);
+      applySnapshot({ session: "alpha", panes: [
+        { pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "working", terminal_id: "ta", agent_instance_id: "ia" },
+      ] });
+    });
+    commitView();
+    expect(readStoredDraft({ daemonId: "daemon-b", paneId: "p1", mode: "agent" })).toMatchObject({ text: "computer B draft", error: "" });
+    expect(composeDraft()).toBe("computer A prompt");
+    expect(field().value).toBe("computer A prompt");
   }));
 
   test("agent→guided→agent while pending does not treat the new chat as live", async () => await act(async () => {

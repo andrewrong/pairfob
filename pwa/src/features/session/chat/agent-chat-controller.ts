@@ -494,7 +494,7 @@ export async function submitAgentPrompt(): Promise<void> {
   paintPromptOwner();
   try {
     await session.promptAgent({ pane_id: owner.draftScope.paneId, text: owner.text });
-    if (!promptOccupantIsCurrent(owner.draftScope.paneId, occupant)) return;
+    if (promptRequestOwnsComputer(owner) && !promptOccupantIsCurrent(owner.draftScope.paneId, occupant)) return;
     if (promptRequestOwnsComputer(owner)) markPaneSubmitted(owner.draftScope.paneId);
     settlePromptSuccess(owner);
     if (promptRequestIsLive(owner)) {
@@ -504,7 +504,7 @@ export async function submitAgentPrompt(): Promise<void> {
       await refreshAgentTrace();
     }
   } catch (error) {
-    if (!promptOccupantIsCurrent(owner.draftScope.paneId, occupant)) return;
+    if (promptRequestOwnsComputer(owner) && !promptOccupantIsCurrent(owner.draftScope.paneId, occupant)) return;
     const { unknownOutcome, message, restoredVisible } = settlePromptFailure(owner, error);
     if (promptRequestIsLive(owner)) {
       batch(() => {
