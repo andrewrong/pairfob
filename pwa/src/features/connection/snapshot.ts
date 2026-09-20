@@ -20,7 +20,8 @@ import {
   takeQueuedSnapshot,
 } from "../session/session-store";
 import { t } from "../../lib/i18n";
-import { choosePane, type SnapshotWire } from "../../lib/dashboard";
+import { choosePane, type DashboardAgentCard, type SnapshotWire } from "../../lib/dashboard";
+import { invalidateAgentTraceOwner } from "../session/chat/trace-store";
 import { ProtocolError, type LiveSession } from "../../lib/protocol/client";
 import { liveView, liveViewIsCurrent } from "./generations";
 
@@ -50,6 +51,13 @@ function dropGonePane(): void {
   applyPaneRead("", "");
 }
 
+function occupantChanged(before: DashboardAgentCard | undefined, after: DashboardAgentCard | undefined): boolean {
+  if (!before || !after) return false;
+  return before.runtimeSession !== after.runtimeSession ||
+    before.terminalId !== after.terminalId ||
+    before.agentInstanceId !== after.agentInstanceId;
+}
+
 export async function refreshSnapshot(ports: SnapshotPorts): Promise<void> {
   const session = ports.currentLive();
   const viewVersion = liveView();
@@ -70,7 +78,10 @@ export async function refreshSnapshot(ports: SnapshotPorts): Promise<void> {
     // the old response must not apply onto it.
     if (!viewIsCurrent(session, viewVersion, ports)) return;
     const previousLayoutSig = boardStore.get().lastLayoutSig;
+    const paneBefore = dashboardStore.get().agents.find((agent) => agent.paneId === openPaneId());
     const { previous, unchanged } = applySnapshot(snapshot);
+    const paneAfter = dashboardStore.get().agents.find((agent) => agent.paneId === openPaneId());
+    if (occupantChanged(paneBefore, paneAfter)) invalidateAgentTraceOwner(openPaneId());
     // applySnapshot publishes the dashboard: a subscriber retiring this owner
     // there (a newer computer/session/view) must not let the old status touch
     // persist under the replacement daemon's key. Revalidate before the second

@@ -1,4 +1,5 @@
 import type { AgentTraceItem } from "../../../lib/operations";
+import { forgetAgentTrace } from "../../../lib/agent-trace-cache";
 import { createDomain, detach, type Immutable } from "../../../shared/model/domain-store";
 
 /**
@@ -29,6 +30,19 @@ export type ChatRecord = {
   /** True when the transcript advanced while the reader was scrolled up. */
   agentTraceUnread: boolean;
 };
+
+let traceOwnerVersion = 0;
+
+export function currentTraceOwnerVersion(): number {
+  return traceOwnerVersion;
+}
+
+/** Retire pane reads when a snapshot says the pane now belongs to another runtime occupant. */
+export function invalidateAgentTraceOwner(paneId: string): void {
+  traceOwnerVersion += 1;
+  forgetAgentTrace(paneId);
+  resetTrace();
+}
 
 const chatDomain = createDomain<ChatRecord>("chat", {
   agentTraceItems: [],

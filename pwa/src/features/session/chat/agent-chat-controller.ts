@@ -4,6 +4,7 @@ import {
   applyTracePage as adoptTracePage,
   chatSnapshot,
   clearPendingTurn,
+  currentTraceOwnerVersion,
   followTrace,
   setPendingTurn,
   setTraceBusy,
@@ -238,10 +239,11 @@ function ownerIsCurrent(session: NonNullable<ReturnType<typeof liveSession>>, pa
 
 function retiredTrace(
   request: number,
+  ownerVersion: number,
   session: NonNullable<ReturnType<typeof liveSession>>,
   paneId: string,
 ): boolean {
-  return request !== traceRequest || !ownerIsCurrent(session, paneId);
+  return request !== traceRequest || ownerVersion !== currentTraceOwnerVersion() || !ownerIsCurrent(session, paneId);
 }
 
 export async function refreshAgentTrace(older = false): Promise<boolean> {
@@ -251,6 +253,7 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
   if (chatSnapshot().agentTraceBusy) return false;
   if (older && !chatSnapshot().agentTraceNext) return false;
   const request = ++traceRequest;
+  const ownerVersion = currentTraceOwnerVersion();
   const measureColdLoad = !older && chatSnapshot().agentTraceLoadState === "cold" && !chatSnapshot().agentTraceItems.length;
   const startedAt = Date.now();
   let measured = false;
@@ -263,9 +266,9 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
     if (!older && !chatSnapshot().agentTraceItems.length && !chatSnapshot().agentTracePending) setTraceLoadState("loading");
     if (!older) applyTrace({ agentTraceNote: "", agentTraceTruncated: false });
   });
-  if (retiredTrace(request, session, paneId)) return false;
+  if (retiredTrace(request, ownerVersion, session, paneId)) return false;
   syncOlderButton();
-  if (retiredTrace(request, session, paneId)) return false;
+  if (retiredTrace(request, ownerVersion, session, paneId)) return false;
   let changed = false;
   try {
     let cursor: string | null = older ? chatSnapshot().agentTraceNext : null;
@@ -273,7 +276,7 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
     const filling = !older;
     while (pulls < (filling ? OLDER_FILL_MAX : 1)) {
       const page = await session.agentTrace(paneId, cursor, TRACE_PAGE);
-      if (retiredTrace(request, session, paneId)) return false;
+      if (retiredTrace(request, ownerVersion, session, paneId)) return false;
       if (measureColdLoad && !measured) {
         track("pwa_agent_trace", {
           result: page.items.length ? "content" : "empty",
@@ -289,7 +292,7 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
           ...(page.truncated ? { agentTraceTruncated: true } : {}),
         });
       });
-      if (retiredTrace(request, session, paneId)) return false;
+      if (retiredTrace(request, ownerVersion, session, paneId)) return false;
       changed = applied || changed;
       pulls += 1;
       rememberTrace(paneId);
@@ -298,20 +301,20 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
         const pageTop = cursor === null ? top : current?.scrollTop ?? top;
         const pageHeight = cursor === null ? height : current?.scrollHeight ?? height;
         if (!patchAgentChat({ follow, older: cursor !== null, top: pageTop, height: pageHeight })) commitView();
-        if (retiredTrace(request, session, paneId)) return false;
+        if (retiredTrace(request, ownerVersion, session, paneId)) return false;
       }
       if (cursor !== null && !applied) break;
       if (!filling || !firstTurnNeedsUser(chatSnapshot().agentTraceItems, chatSnapshot().agentTraceNext) || !chatSnapshot().agentTraceNext) break;
       cursor = chatSnapshot().agentTraceNext;
     }
     setTraceLoadState("ready");
-    if (retiredTrace(request, session, paneId)) return false;
+    if (retiredTrace(request, ownerVersion, session, paneId)) return false;
     rememberTrace(paneId);
     syncOlderButton();
-    if (retiredTrace(request, session, paneId)) return false;
+    if (retiredTrace(request, ownerVersion, session, paneId)) return false;
     return changed;
   } catch (error) {
-    if (retiredTrace(request, session, paneId)) return false;
+    if (retiredTrace(request, ownerVersion, session, paneId)) return false;
     const code = error instanceof ProtocolError ? error.code : "";
     if (measureColdLoad && !measured) {
       track("pwa_agent_trace", { result: code || "failed", extra: traceLatencyBucket(Date.now() - startedAt) });
@@ -327,16 +330,16 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
         agentTraceTruncated: false,
         agentTraceNote: traceUnavailableNote(),
       });
-      if (retiredTrace(request, session, paneId)) return false;
+      if (retiredTrace(request, ownerVersion, session, paneId)) return false;
       if (!patchAgentChat({ follow: true })) commitView();
       return false;
     }
     applyTrace({ agentTraceLoadState: "error", agentTraceNote: messageOf(error, "read") });
-    if (retiredTrace(request, session, paneId)) return false;
+    if (retiredTrace(request, ownerVersion, session, paneId)) return false;
     if (!patchAgentChat({ follow })) commitView();
     return false;
   } finally {
-    if (!retiredTrace(request, session, paneId)) {
+    if (!retiredTrace(request, ownerVersion, session, paneId)) {
       setTraceBusy(false);
       syncOlderButton();
     }

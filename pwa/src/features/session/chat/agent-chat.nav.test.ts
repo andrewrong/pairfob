@@ -6,7 +6,7 @@ import { ProtocolError } from "../../../lib/protocol/errors";
 import type { LiveSession } from "../../../lib/protocol/client";
 import type { SnapshotWire } from "../../../lib/dashboard";
 
-const { applyTrace, chatSnapshot } = await import("./trace-store.ts");
+const { applyTrace, chatSnapshot, invalidateAgentTraceOwner } = await import("./trace-store.ts");
 const { appRoot } = await import("../../../app/dom-root.ts");
 const { commitView } = await import("../../../app/host.ts");
 const { mountApp, unmountApp } = await import("../../../app/mount.tsx");
@@ -378,52 +378,21 @@ describe("agent-chat remembers its mode per pane", () => {
     expect(trace().agentTraceItems.at(-1)?.output).toBe("latest-new");
   }));
 
-  test("a stale pane request cannot replace or unlock the current conversation", async () => await act(async () => {
+  test("a stale trace result cannot install after same-pane occupant replacement", async () => await act(async () => {
     bootAgentChat();
-    let finishP1: ((page: { items: Array<{ type: "assistant"; text: string }>; nextCursor: null; truncated: false }) => void) | undefined;
-    let finishP2: ((page: { items: Array<{ type: "assistant"; text: string }>; nextCursor: null; truncated: false }) => void) | undefined;
-    const session = {
-      ...live(),
-      agentTrace: (paneId: string) => new Promise((resolve) => {
-        if (paneId === "p1") finishP1 = resolve;
-        else finishP2 = resolve;
-      }),
-    } as unknown as LiveSession;
-    setTrace({ agentTraceItems: [] });
-    setTrace({ agentTraceLoadState: "cold" });
-    setTrace({ agentTraceSig: "" });
-    setLive(session);
-    refreshAgentTrace();
-
-    paintPane();
+    let finishOld: ((page: { items: Array<{ type: "assistant"; text: string }>; nextCursor: null; truncated: false }) => void) | undefined;
+    setLive({ ...live(), agentTrace: () => new Promise((resolve) => { finishOld = resolve; }) } as unknown as LiveSession);
+    setTrace({ agentTraceItems: [], agentTraceLoadState: "cold", agentTraceSig: "" });
+    void refreshAgentTrace();
     await new Promise<void>(resolve => setTimeout(resolve, 0));
-    expect(trace().agentTraceBusy).toBe(true);
 
-    leaveAgentChat({ rememberGuided: false, paint: false });
-    setAgents([{ paneId: "p2", agent: "codex", status: "working" }]);
-    // The stale-p2 case explicitly re-enters agent chat on p2 (original set
-    // agentChat=true after the owner switch).
-    setPaneTermMode("p2", "agent");
-    showChatPane("p2", true);
-    setTrace({ agentTraceItems: [] });
-    setTrace({ agentTraceLoadState: "cold" });
-    setTrace({ agentTraceSig: "" });
-    refreshAgentTrace();
-    paintPane();
-    await new Promise<void>(resolve => setTimeout(resolve, 0));
-    expect(trace().agentTraceBusy).toBe(true);
-
-    finishP1?.({ items: [{ type: "assistant", text: "stale p1 reply" }], nextCursor: null, truncated: false });
+    invalidateAgentTraceOwner("p1");
+    expect(trace().agentTraceLoadState).toBe("cold");
+    finishOld?.({ items: [{ type: "assistant", text: "stale occupant reply" }], nextCursor: null, truncated: false });
     await Promise.resolve();
     await Promise.resolve();
-    expect(trace().agentTraceBusy).toBe(true);
-    expect(app.textContent).not.toContain("stale p1 reply");
-
-    finishP2?.({ items: [{ type: "assistant", text: "current p2 reply" }], nextCursor: null, truncated: false });
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(trace().agentTraceBusy).toBe(false);
-    expect(app.textContent).toContain("current p2 reply");
+    expect(trace().agentTraceItems).toEqual([]);
+    expect(app.textContent).not.toContain("stale occupant reply");
   }));
 
   test("every turn stays in the stream, including earlier user messages", async () => await act(async () => {

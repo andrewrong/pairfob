@@ -31,7 +31,7 @@ export function reconcileSeenCompletions(
   previous: RuntimeAgentStatuses,
   next: RuntimeAgentStatuses,
   current: SeenCompletions,
-  agents?: DashboardAgentCard[],
+  agents?: readonly DashboardAgentCard[],
 ): SeenCompletions {
   const byPane = new Map((agents || []).map((agent) => [agent.paneId, agent]));
   const seen: SeenCompletions = Object.create(null);
@@ -75,7 +75,7 @@ export function markCompletionSeen(
   current: SeenCompletions,
   runtimeStatuses: RuntimeAgentStatuses,
   paneId: string,
-  agents?: DashboardAgentCard[],
+  agents?: readonly DashboardAgentCard[],
 ): SeenCompletions {
   if (runtimeStatuses[paneId] !== "done") return current;
   const agent = agents?.find((item) => item.paneId === paneId);
