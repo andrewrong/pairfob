@@ -14,6 +14,7 @@ type Event struct {
 	Input            string `json:"input,omitempty"`
 	Output           string `json:"output,omitempty"`
 	DetailRef        string `json:"-"`
+	State            string `json:"-"`
 	DetailTruncated  bool   `json:"-"`
 	SummaryTruncated bool   `json:"-"`
 }

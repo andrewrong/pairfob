@@ -11,6 +11,9 @@ import (
 )
 
 func traceToolState(item Event) string {
+	if item.State == "done" || item.State == "error" {
+		return item.State
+	}
 	if item.Output == "" {
 		return "running"
 	}
@@ -81,6 +84,9 @@ func traceParserFor(ref Ref) traceParser {
 func (r *Reader) ReadTraceDetail(ref Ref, detailRef string) (TraceDetail, error) {
 	if !r.Supports(ref) {
 		return TraceDetail{}, ErrUnavailable
+	}
+	if ref.Agent == "pi" {
+		return r.readPiTraceDetail(ref, detailRef)
 	}
 	locator, err := decodeTraceDetailRef(ref, detailRef)
 	if err != nil {

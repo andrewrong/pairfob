@@ -63,12 +63,17 @@ type Reader struct {
 	CodexRoot  string
 	ClaudeRoot string
 	GrokRoot   string
+	PiRoot     string
 
 	indexMu     sync.Mutex
 	traceMu     sync.Mutex
+	piMu        sync.Mutex
 	traceCache  map[traceCacheKey]traceCacheEntry
+	piCache     []piCacheEntry
+	piCacheTick uint64
 	codexIndex  codexFileIndex
 	claudeIndex codexFileIndex
+	piIndex     piFileIndex
 	now         func() time.Time
 	walkDir     func(string, fs.WalkDirFunc) error
 }
@@ -100,10 +105,18 @@ func NewDefault() *Reader {
 	if claudeRoot == "" {
 		claudeRoot = filepath.Join(home, ".claude")
 	}
-	return &Reader{CodexRoot: codexRoot, ClaudeRoot: claudeRoot, GrokRoot: grokRoot}
+	piRoot := os.Getenv("PI_CODING_AGENT_DIR")
+	if piRoot == "" {
+		piRoot = filepath.Join(home, ".pi", "agent")
+	}
+	return &Reader{CodexRoot: codexRoot, ClaudeRoot: claudeRoot, GrokRoot: grokRoot, PiRoot: piRoot}
 }
 
 func (r *Reader) Supports(ref Ref) bool {
+	if ref.Source == "herdr:pi" && ref.Agent == "pi" && r.PiRoot != "" {
+		return (ref.Kind == "id" && sessionID.MatchString(ref.Value)) ||
+			(ref.Kind == "path" && piPathSyntax(r.PiRoot, ref.Value))
+	}
 	if ref.Kind != "id" || !sessionID.MatchString(ref.Value) {
 		return false
 	}
@@ -125,6 +138,10 @@ func (r *Reader) Available(ref Ref) bool {
 	if !r.Supports(ref) {
 		return false
 	}
+	if ref.Agent == "pi" {
+		_, err := r.loadPiSession(ref, false)
+		return err == nil
+	}
 	_, err := r.transcriptPath(ref, false)
 	return err == nil
 }
@@ -132,6 +149,9 @@ func (r *Reader) Available(ref Ref) bool {
 func (r *Reader) Read(ref Ref, cursor *string, limit int) (Page, error) {
 	if !r.Supports(ref) {
 		return Page{}, ErrUnavailable
+	}
+	if ref.Agent == "pi" {
+		return r.readPiHistory(ref, cursor, limit)
 	}
 	if limit == 0 {
 		limit = 50
@@ -168,6 +188,8 @@ func (r *Reader) transcriptPath(ref Ref, refreshMissing bool) (string, error) {
 		path, err = r.findCodexTranscript(ref.Value, refreshMissing)
 	case "claude":
 		path, err = r.findClaudeTranscript(ref.Value, refreshMissing)
+	case "pi":
+		path, err = r.findPiTranscript(ref, refreshMissing)
 	default:
 		path, err = findGrokTranscript(r.GrokRoot, ref.Value)
 	}
