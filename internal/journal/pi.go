@@ -309,7 +309,7 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 	}
 	defer r.piMu.Unlock()
 	r.piCacheTick++
-	kept := r.piCache[:0]
+	kept := make([]piCacheEntry, 0, min(len(r.piCache), 32))
 	charge := piCacheCharge(len(data), len(session.entries))
 	total := charge
 	for _, entry := range r.piCache {
@@ -327,7 +327,7 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 			}
 		}
 		total -= r.piCache[oldest].bytes
-		r.piCache = append(r.piCache[:oldest], r.piCache[oldest+1:]...)
+		r.piCache = removePiCacheEntry(r.piCache, oldest)
 	}
 	if charge <= maxPiCacheBytes {
 		r.piCache = append(r.piCache, piCacheEntry{path: path, info: info, digest: digest, bytes: charge, sourceBytes: len(data), tick: r.piCacheTick, session: session, sessionID: session.id, incarnation: session.incarnation})
@@ -338,6 +338,12 @@ func (r *Reader) loadPiSession(ref Ref, refresh bool) (*piSession, error) {
 		r.piCache = append(r.piCache, piCacheEntry{path: path, info: info, digest: digest, bytes: identityCharge, sourceBytes: len(data), tick: r.piCacheTick, sessionID: session.id, incarnation: session.incarnation})
 	}
 	return session, nil
+}
+
+func removePiCacheEntry(entries []piCacheEntry, index int) []piCacheEntry {
+	copy(entries[index:], entries[index+1:])
+	entries[len(entries)-1] = piCacheEntry{}
+	return entries[:len(entries)-1]
 }
 
 func piCacheCharge(sourceBytes, entries int) int {

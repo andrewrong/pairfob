@@ -257,18 +257,42 @@ func TestPiDetailSurvivesAppendButNotReplacementOrBranchRemoval(t *testing.T) {
 	}
 }
 
+func TestPiCacheEvictionClearsPointerBearingTail(t *testing.T) {
+	entries := make([]piCacheEntry, 3, 4)
+	for index := range entries {
+		entries[index].session = &piSession{id: fmt.Sprintf("session-%d", index)}
+	}
+	entries = removePiCacheEntry(entries, 1)
+	if len(entries) != 2 {
+		t.Fatalf("len=%d", len(entries))
+	}
+	backing := entries[:cap(entries)]
+	for index := len(entries); index < len(backing); index++ {
+		if backing[index].session != nil {
+			t.Fatalf("retained evicted session at backing index %d", index)
+		}
+	}
+}
+
 func TestPiManySmallRecordsExceedStructuralCacheBudget(t *testing.T) {
 	const count = 33_000
 	lines := make([]any, 0, count)
-	var parent any = nil
-	for index := 0; index < count; index++ {
+	lines = append(lines, msg("user0001", nil, "user", "old question"))
+	var parent any = "user0001"
+	for index := 1; index < count-2; index++ {
 		id := fmt.Sprintf("small%08d", index)
 		lines = append(lines, map[string]any{"type": "custom", "id": id, "parentId": parent, "customType": "x", "data": 0})
 		parent = id
 	}
+	lines = append(lines, msg("asst0001", parent, "assistant", []any{map[string]any{"type": "toolCall", "id": "large-call", "name": "Read", "arguments": map[string]any{"path": "large"}}}))
+	lines = append(lines, map[string]any{"type": "message", "id": "tool0001", "parentId": "asst0001", "message": map[string]any{"role": "toolResult", "toolCallId": "large-call", "toolName": "Read", "content": []any{map[string]any{"type": "text", "text": "ok"}}, "isError": false}})
 	reader, ref, _ := piFixture(t, lines...)
-	if _, err := reader.ReadTrace(ref, nil, 1); err != nil {
+	first, err := reader.ReadTrace(ref, nil, 1)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if len(first.Items) != 1 || first.NextCursor == nil || first.Items[0].DetailRef == "" {
+		t.Fatalf("bad uncached first page: %#v", first)
 	}
 	reader.piMu.Lock()
 	cached := append([]piCacheEntry(nil), reader.piCache...)
@@ -276,9 +300,13 @@ func TestPiManySmallRecordsExceedStructuralCacheBudget(t *testing.T) {
 	if len(cached) != 1 || cached[0].session != nil || cached[0].bytes > maxPiCacheBytes {
 		t.Fatalf("oversized parsed tree entered cache: %#v", cached)
 	}
-	page, err := reader.ReadTrace(ref, nil, 1)
-	if err != nil || len(page.Items) != 0 {
-		t.Fatalf("uncached tree unreadable: %#v err=%v", page, err)
+	detail, err := reader.ReadTraceDetail(ref, first.Items[0].DetailRef)
+	if err != nil || detail.Output != "ok" {
+		t.Fatalf("uncached detail=%#v err=%v", detail, err)
+	}
+	page, err := reader.ReadTrace(ref, first.NextCursor, 1)
+	if err != nil || len(page.Items) != 1 || page.Items[0].Text != "old question" {
+		t.Fatalf("uncached cursor page=%#v err=%v", page, err)
 	}
 	if charge := piCacheCharge(1, count); charge <= maxPiCacheBytes {
 		t.Fatalf("structural charge undercounted: %d", charge)
