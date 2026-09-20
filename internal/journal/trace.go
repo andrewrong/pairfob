@@ -86,14 +86,27 @@ func clipEventToLimit(ev Event, limit int, truncated bool) (Event, bool) {
 		if field == nil {
 			break
 		}
-		if len(*field) <= 4 {
+		before := eventSize(ev)
+		*field = shrinkEventField(*field)
+		// Keep the loop strictly decreasing even if JSON escaping rules change.
+		if eventSize(ev) >= before {
 			*field = ""
-		} else {
-			*field, _ = clip(*field, len(*field)/2, false)
 		}
 		truncated = true
 	}
 	return ev, truncated
+}
+
+func shrinkEventField(value string) string {
+	// clip's limit applies to the retained prefix, while its UTF-8 ellipsis costs
+	// three more bytes. Budget the complete replacement so five- and six-byte
+	// fields cannot reproduce their original encoded size forever.
+	target := len(value) / 2
+	if target < len("…") {
+		return ""
+	}
+	clipped, _ := clip(value, target-len("…"), false)
+	return clipped
 }
 
 func largestEventField(ev *Event) *string {
