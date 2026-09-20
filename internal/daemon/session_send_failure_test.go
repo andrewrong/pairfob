@@ -193,6 +193,11 @@ func TestTerminalPartialSendFailureDoesNotNotifyOnDeadLink(t *testing.T) {
 		t.Fatalf("prefix typ=%d", frames[0].Typ)
 	}
 	waitSessionGone(t, engine, session.routeID)
+	select {
+	case <-link.closeCh:
+	case <-time.After(time.Second):
+		t.Fatal("failed terminal epoch did not close the P2P link")
+	}
 	if engine.reply(session, "req_after", map[string]any{"t": 1}) {
 		t.Fatal("reply reused the failed terminal epoch")
 	}
