@@ -257,7 +257,7 @@ test("refresh and jump publish chat through domain actions, not facade assigns",
   expect(refresh).not.toMatch(/state\.agentTraceBusy\s*=/);
   expect(refresh).toContain("retiredTrace(");
   const afterApply = refresh.slice(refresh.indexOf("applyTracePage(page, cursor !== null)"));
-  const recheck = afterApply.indexOf("if (retiredTrace(request, session, paneId)) return false;");
+  const recheck = afterApply.indexOf("if (retiredTrace(request, ownerVersion, session, paneId)) return false;");
   expect(recheck).toBeGreaterThan(-1);
   expect(afterApply.indexOf("rememberTrace(paneId)")).toBeGreaterThan(recheck);
   expect(jump).toContain("followTrace()");
