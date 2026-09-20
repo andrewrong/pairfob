@@ -193,6 +193,14 @@ func openPiRegular(rootPath, relative string) (*os.File, error) {
 		if err != nil || info.Mode()&os.ModeSymlink != 0 {
 			return nil, ErrUnavailable
 		}
+		if index == len(parts)-1 {
+			// Reject FIFOs/devices/sockets before Open, which could otherwise block.
+			if !info.Mode().IsRegular() {
+				return nil, ErrUnavailable
+			}
+		} else if !info.IsDir() {
+			return nil, ErrUnavailable
+		}
 	}
 	file, err := root.Open(relative)
 	if err != nil {
