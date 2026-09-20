@@ -63,6 +63,9 @@ export const scenes: FixtureScene[] = [
   { name: "computers-many", description: "Saved computer picker" },
   { name: "home-empty", description: "No session yet" },
   { name: "home-populated", description: "Flat session list" },
+  { name: "attention-rich", description: "Rich task readiness and completion facts" },
+  { name: "attention-empty", description: "Attention filters with no matching checking tasks" },
+  { name: "attention-legacy", description: "Legacy agents without readiness facts" },
   { name: "home-grouped", description: "Grouped workspace list" },
   { name: "home-offline", description: "Unverifiable session status" },
   { name: "desktop-empty", description: "Responsive rail with no selected pane; supply desktop viewport" },
@@ -250,6 +253,9 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     return;
   }
   if (name === "home-empty" || name === "board-empty") replaceAgentsFromSnapshot({ panes: [] });
+  if (name === "attention-rich") replaceAgentsFromSnapshot(data.attentionSnapshot());
+  if (name === "attention-empty") replaceAgentsFromSnapshot({ ...data.snapshot(), panes: data.snapshot().panes?.filter((pane) => pane.agent_status !== "unknown") });
+  if (name === "attention-legacy") replaceAgentsFromSnapshot(data.snapshot());
   if (name === "home-grouped") { setListGroup("space"); togglePanePin("w1:p3"); }
   if (name === "home-offline" || name === "settings-offline") { setNetworkOnline(false); session.setConnected(false); }
   if (name.startsWith("settings")) {

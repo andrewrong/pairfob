@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { EmptyState } from "../../../shared/ui/primitives";
 import { WorktreeProgressList } from "../../operations/worktree-progress";
 // Not this slice: the daemon update banner stays with its own owner.
@@ -9,6 +9,9 @@ import type { HerdViewModel } from "../model/herd-view";
 import { AgentCard } from "./agent-card";
 import { HerdGroup } from "./herd-group";
 import { indexedStyle } from "./indexed";
+import { attentionCounts, matchesAttentionFilter, orderFinished, type AttentionFilter } from "../attention-filter";
+import { AttentionFilterControl } from "./attention-filter";
+import { t } from "../../../lib/i18n";
 
 function emptySpec(view: HerdViewModel, actions: HerdActions) {
   const empty = view.empty;
@@ -29,31 +32,41 @@ function emptySpec(view: HerdViewModel, actions: HerdActions) {
  * then either the empty state or the projected sections.
  */
 export function HerdList({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
+  const [filter, setFilter] = useState<AttentionFilter>("all");
+  const allAgents = useMemo(() => view.groups.flatMap((group) => group.cards.map((card) => card.agent)), [view.groups]);
+  const counts = useMemo(() => attentionCounts(allAgents), [allAgents]);
+  const groups = useMemo(() => view.groups.map((group) => {
+    let cards = group.cards.filter((card) => matchesAttentionFilter(card.agent, filter));
+    if (filter === "finished") {
+      const ordered = orderFinished(cards.map((card) => card.agent));
+      const order = new Map(ordered.map((agent, index) => [agent.paneId, index]));
+      cards = [...cards].sort((left, right) => order.get(left.paneId)! - order.get(right.paneId)!);
+    }
+    return { ...group, count: cards.length, cards };
+  }).filter((group) => group.cards.length), [filter, view.groups]);
   const empty = emptySpec(view, actions);
+  const filteredEmpty = !empty && filter !== "all" && groups.length === 0;
   return (
     <>
       <DaemonUpdate compact />
       <WorktreeProgressList />
       <ListGroupControl />
-      {empty ? (
-        <EmptyState spec={empty} />
+      {!empty && <AttentionFilterControl selected={filter} counts={counts} onSelect={setFilter} />}
+      {empty ? <EmptyState spec={empty} /> : filteredEmpty ? (
+        <div className="attention-empty"><p>{t("filter.empty")}</p>
+          <button className="btn btn-small" type="button" onClick={() => setFilter("all")}>{t("filter.reset")}</button></div>
       ) : (
         <div className={`herd-list${view.stagger ? " enter" : ""}`}>
-          {view.groups.map((group) =>
-            view.grouped ? (
-              <HerdGroup key={group.id} group={group} groupIds={view.groupIds} actions={actions} />
-            ) : (
-              <Fragment key={group.id}>
-                <h2 className="section-title" style={indexedStyle(group.index)}>
-                  {group.title}
-                  {group.count > 0 && <span className="section-count">{group.count}</span>}
-                </h2>
-                {group.cards.map((card) => (
-                  <AgentCard key={card.paneId} card={card} actions={actions} />
-                ))}
-              </Fragment>
-            ),
-          )}
+          {groups.map((group) => view.grouped ? (
+            <HerdGroup key={group.id} group={group} groupIds={groups.map((item) => item.id)} actions={actions} />
+          ) : (
+            <Fragment key={group.id}>
+              <h2 className="section-title" style={indexedStyle(group.index)}>{group.title}
+                {group.count > 0 && <span className="section-count">{group.count}</span>}
+              </h2>
+              {group.cards.map((card) => <AgentCard key={card.paneId} card={card} actions={actions} />)}
+            </Fragment>
+          ))}
         </div>
       )}
     </>

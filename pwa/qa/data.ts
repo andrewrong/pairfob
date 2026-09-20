@@ -77,6 +77,19 @@ export function snapshot(): SnapshotWire {
   };
 }
 
+export function attentionSnapshot(): SnapshotWire {
+  const base = snapshot();
+  return { ...base, panes: (base.panes ?? []).map((pane, index) => ({
+    ...pane,
+    terminal_id: `terminal-${index}`,
+    agent_instance_id: `agent-${index}`,
+    revision: 20 + index,
+    state_change_seq: pane.agent_status === "done" ? 90 : 30 + index,
+    interactive_ready: pane.agent_status === "idle" ? false : true,
+    launch_pending: pane.pane_id === PANE,
+  })) };
+}
+
 export function devices(): DeviceSummary[] {
   const sec = Math.floor(FIXED_NOW / 1000);
   return [

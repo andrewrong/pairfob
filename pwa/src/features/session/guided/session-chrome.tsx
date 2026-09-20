@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { agentMeta, agentTitle, chromeName, cwdName, statusLabel, tabIsSplit } from "../../../lib/dashboard";
+import { agentMeta, agentStatusLabel, agentTitle, chromeName, cwdName, tabIsSplit } from "../../../lib/dashboard";
 import { t } from "../../../lib/i18n";
 import type { AgentCard } from "../../../lib/ranking";
 import { useDashboard } from "../../dashboard/hooks";
@@ -31,7 +31,7 @@ export function SessionChrome({ selected, includeBack, handlers }: {
   const title = useRef<HTMLButtonElement>(null);
   const agents = useDashboard().agents;
   const stale = herdLiveness() === "unverifiable";
-  const status = selected ? (stale ? t("status.unverifiable") : statusLabel(selected.status)) : "";
+  const status = selected ? (stale ? t("status.unverifiable") : agentStatusLabel(selected)) : "";
   const fullLine = selected ? [status, agentMeta(selected)].filter(Boolean).join(" · ") : "";
   const meta = selected ? [status, cwdName(selected.cwd), tabIsSplit(selected, [...agents]) ? t("chrome.split") : ""]
     .filter(Boolean).join(" · ") : "";

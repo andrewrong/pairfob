@@ -186,6 +186,21 @@ describe("herd screen presentation", () => {
     expect([...app().querySelectorAll(".topbar-actions button")]).toHaveLength(2);
   });
 
+  test("filters remain accessible, reversible, and keep card actions", () => {
+    paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("run", "alpha", "working"), agent("done", "alpha", "done")] }));
+    const controls = [...app().querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    expect(app().querySelector('[role="radiogroup"]')?.getAttribute("aria-label")).toBe(t("filter.aria"));
+    expect(controls.map((node) => node.textContent)).toEqual(["全部3", "等你处理1", "刚完成1", "执行中1", "待检查0"]);
+    act(() => controls[1]!.click());
+    expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent)).toEqual(["wait"]);
+    act(() => cardMain("wait").click());
+    expect(calls).toEqual(["openPane:wait:card-title"]);
+    act(() => controls[4]!.click());
+    expect(app().querySelector(".attention-empty")?.textContent).toContain(t("filter.empty"));
+    act(() => app().querySelector<HTMLButtonElement>(".attention-empty button")!.click());
+    expect([...app().querySelectorAll(".card-name")]).toHaveLength(3);
+  });
+
   test("the status line keeps its tone, text and completion count", () => {
     paint(model({ agents: [agent("p1", "alpha", "done"), agent("p2", "beta", "done")], status: { tone: "warn", text: t("chrome.unverifiable") } }));
     expect(app().querySelector(".statusline .dot-warn")).not.toBeNull();

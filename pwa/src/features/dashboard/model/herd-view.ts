@@ -7,7 +7,7 @@
  * never touches the DOM, and never consumes attention memory: the caller
  * consumes attention once per paint and hands the resulting marks in.
  */
-import { agentMeta, agentTitle, statusLabel, type DashboardAgentCard } from "../../../lib/dashboard";
+import { agentMeta, agentStatusLabel, agentTitle, statusLabel, type DashboardAgentCard } from "../../../lib/dashboard";
 import type { HerdPaint, StatusMark } from "../../../lib/herd-attention";
 import { t } from "../../../lib/i18n";
 import {
@@ -53,7 +53,7 @@ export type HerdModelInput = {
 export type HerdCardView = {
   paneId: string;
   /** The card the menu actions operate on; refreshed with every projection. */
-  agent: AgentCard;
+  agent: DashboardAgentCard;
   className: string;
   index: number;
   title: string;
@@ -152,7 +152,7 @@ export function emptyActionSpec(
 }
 
 function cardView(
-  agent: AgentCard,
+  agent: DashboardAgentCard,
   input: HerdModelInput,
   index: number,
   stale: boolean,
@@ -172,7 +172,9 @@ function cardView(
     index,
     title: agentTitle(agent, input.listGroup),
     meta: agentMeta(agent, input.listGroup),
-    pill: herdCardPill(agent.status, stale),
+    pill: stale
+      ? herdCardPill(agent.status, true)
+      : { className: `pill pill-${agent.status}`, text: agentStatusLabel(agent) },
     pinned,
     pinnedLabel: t("home.pinned"),
     selected: agent.paneId === input.selectedPaneId,
@@ -198,6 +200,7 @@ export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
   const groups = groupAgents([...input.agents], input.listGroup, input.paneTouched, input.panePinned);
   const stale = input.liveness === "unverifiable";
   const grouped = input.listGroup !== "flat";
+  const richAgents = new Map(input.agents.map((agent) => [agent.paneId, agent]));
   let position = 0;
   const views = groups.map((group) => {
     const index = position;
@@ -210,7 +213,7 @@ export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
       collapsed: grouped && input.groupCollapsed[group.id] === true,
       hasMenu: groupHasMenu(input.listGroup, group),
       menuAgent: groupMenuAgent(group),
-      cards: group.items.map((agent, offset) => cardView(agent, input, index + offset + 1, stale)),
+      cards: group.items.map((agent, offset) => cardView(richAgents.get(agent.paneId)!, input, index + offset + 1, stale)),
     };
   });
   return {

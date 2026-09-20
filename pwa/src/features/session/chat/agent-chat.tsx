@@ -4,7 +4,7 @@ import { followTrace, setTraceFollow } from "./trace-store";
 import { computersStore } from "../../computers/catalog-store";
 import { useChat, useSession } from "../hooks";
 import { useDashboard } from "../../dashboard/hooks";
-import { chromeName, statusLabel } from "../../../lib/dashboard";
+import { agentStatusLabel, chromeName } from "../../../lib/dashboard";
 import { t } from "../../../lib/i18n";
 import { canInterruptAgent } from "../../connection/runtime-status";
 import { loadToolDetail, toolDetailView } from "./agent-chat-detail";
@@ -25,7 +25,7 @@ function AgentChatChrome({ includeBack, handlers }: { includeBack: boolean; hand
   const sessionSnap = useSession();
   const selected = agentFromDashboardSnapshot(useDashboard(), sessionSnap.paneId);
   const title = selected ? chromeName(selected) : t("mode.agent");
-  const line = selected ? statusLabel(selected.status) : "";
+  const line = selected ? agentStatusLabel(selected) : "";
   const aria = selected ? (line ? t("chrome.switchAriaMeta", { title, line }) : t("chrome.switchAria", { title })) : undefined;
   return <header className="chrome">
     {includeBack && <BackButton onBack={handlers.onBack} label={t("chrome.backList")} />}
