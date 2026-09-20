@@ -9,6 +9,7 @@ import { clearNotice } from "../../../app/notices-store";
 import { markPaneSubmitted } from "../../dashboard/catalog-store";
 import { tryAppRoot } from "../../../app/dom-root";
 import { haptic } from "../../../lib/dom";
+import { encodeTerminalKey, requiresTerminalText } from "../keypad/terminal-keys";
 import { withModifiers } from "../keypad/keypad";
 import { discard, predictKeys } from "./echo";
 import { flyKeyToCursor } from "./key-flight";
@@ -123,16 +124,22 @@ export async function flushKeys(): Promise<void> {
     dropQueuedKeys();
     return;
   }
-  const keys = pending.slice(0, MAX_BATCH);
+  const raw = requiresTerminalText(pending[0]);
+  let count = 1;
+  while (count < Math.min(pending.length, MAX_BATCH) && requiresTerminalText(pending[count]) === raw) count++;
+  const keys = pending.slice(0, count);
   pending = pending.slice(keys.length);
   flushing = true;
   try {
     const mutationStartedAt = nowMs();
-    // sendKeys writes its encrypted frame synchronously. Queueing PaneRead
+    // Each key batch writes one encrypted frame. Queueing PaneRead
     // immediately afterwards preserves daemon session order while avoiding a
     // second cross-region round trip after the mutation acknowledgement.
-    const mutation = session.sendKeys(paneId, keys, { intent: "pad" });
+    const mutation = raw
+      ? session.sendText(paneId, keys.map(key => encodeTerminalKey(key)).join(""))
+      : session.sendKeys(paneId, keys, { intent: "pad" });
     const read = requestPaneRefresh({ notBefore: mutationStartedAt, postponeFallback: true });
+    void read.catch(() => undefined);
     await mutation;
     if (keys.includes("enter")) markPaneSubmitted(paneId);
     clearNotice();

@@ -13,6 +13,7 @@ const { bindPaneRefresh } = await import("../../../features/connection/refresh-r
 const { setScreen } = await import("../../../app/navigation-store.ts");
 const { selectPane } = await import("../session-store.ts");
 const { attachLiveSession } = await import("../../computers/catalog-store.ts");
+const { clearModifiers, pressModifier, releaseModifier } = await import("../keypad/keypad.ts");
 const { dropQueuedKeys, queueKey } = await import("./keys.ts");
 import type { LiveSession } from "../../../lib/protocol/session-types";
 
@@ -23,6 +24,7 @@ function deferred<T>() {
 }
 
 afterEach(() => {
+  clearModifiers();
   dropQueuedKeys();
   bindPaneRefresh(async () => null);
   attachLiveSession(null);
@@ -54,4 +56,24 @@ describe("guided key latency", () => {
     mutation.resolve(undefined);
     await mutation.promise;
   });
+});
+
+test("modified keys are atomic PTY writes ordered between ordinary key batches", async () => {
+  const first = deferred<unknown>();
+  const received: Array<[string, unknown]> = [];
+  setScreen("pane"); selectPane("p1");
+  attachLiveSession({
+    isConnected: () => true,
+    sendKeys: (_pane: string, keys: string[]) => { received.push(["keys", keys]); return received.length === 1 ? first.promise : Promise.resolve(); },
+    sendText: async (_pane: string, text: string) => { received.push(["text", text]); },
+  } as unknown as LiveSession);
+  bindPaneRefresh(async () => null);
+  queueKey("left");
+  pressModifier("alt"); releaseModifier("alt"); queueKey("up");
+  pressModifier("shift"); releaseModifier("shift"); queueKey("tab");
+  queueKey("right");
+  expect(received).toEqual([["keys", ["left"]]]);
+  first.resolve(undefined);
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  expect(received).toEqual([["keys", ["left"]], ["text", "\x1b[1;3A\x1b[Z"], ["keys", ["right"]]]);
 });

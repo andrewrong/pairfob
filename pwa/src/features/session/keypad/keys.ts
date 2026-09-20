@@ -30,8 +30,8 @@ export const SECONDARY_KEYS: KeySpec[] = [
 ];
 
 /**
- * Extra row when expanded. Ctrl/Opt/Shift/Cmd are holds. Herdr only takes
- * ctrl+[a-z] plus named keys, so Opt/Shift remap onto that table.
+ * Extra row when expanded. Modifiers can be held or latched for the next key.
+ * Modified keys use terminal encoding; Cmd retains the pad’s Ctrl alias.
  */
 export const TERTIARY_KEYS: KeySpec[] = [
   { key: "ctrl", label: "Ctrl", aria: "Control", modifier: "ctrl" },

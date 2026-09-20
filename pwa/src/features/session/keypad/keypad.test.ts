@@ -29,7 +29,7 @@ describe("pad modifiers", () => {
     expect(TERTIARY_KEYS.map((key) => key.key)).toContain("ctrl+k");
   });
 
-  test("Ctrl or Cmd turns a letter into ctrl+letter and ignores illegal chords", () => {
+  test("Ctrl or Cmd turns a letter into ctrl+letter and preserves modified arrows", () => {
     pressModifier("ctrl");
     expect(withModifiers("c")).toEqual(["ctrl+c"]);
     clearModifiers();
@@ -40,18 +40,18 @@ describe("pad modifiers", () => {
     expect(withModifiers("k")).toEqual(["ctrl+k"]);
     clearModifiers();
     pressModifier("ctrl");
-    expect(withModifiers("up")).toEqual([]);
+    expect(withModifiers("up")).toEqual(["ctrl+up"]);
   });
 
-  test("Opt maps onto esc+letter / readline word kills, Shift uppercases", () => {
+  test("Opt preserves terminal chords, Shift uppercases", () => {
     pressModifier("alt");
-    expect(withModifiers("left")).toEqual(["esc", "b"]);
+    expect(withModifiers("left")).toEqual(["alt+left"]);
     clearModifiers();
     pressModifier("alt");
-    expect(withModifiers("right")).toEqual(["esc", "f"]);
+    expect(withModifiers("right")).toEqual(["alt+right"]);
     clearModifiers();
     pressModifier("alt");
-    expect(withModifiers("backspace")).toEqual(["ctrl+w"]);
+    expect(withModifiers("backspace")).toEqual(["alt+backspace"]);
     clearModifiers();
     pressModifier("shift");
     expect(withModifiers("a")).toEqual(["A"]);

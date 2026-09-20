@@ -1,32 +1,6 @@
 import type { ILink, ILinkProvider, ITerminalOptions, Terminal } from "@xterm/xterm";
 
-/** CSI / application-cursor bytes a TUI expects from a hardware key. */
-export function encodeTerminalKey(key: string, applicationCursor = false): string {
-  switch (key) {
-    case "esc":
-      return "\x1b";
-    case "up":
-      return applicationCursor ? "\x1bOA" : "\x1b[A";
-    case "down":
-      return applicationCursor ? "\x1bOB" : "\x1b[B";
-    case "right":
-      return applicationCursor ? "\x1bOC" : "\x1b[C";
-    case "left":
-      return applicationCursor ? "\x1bOD" : "\x1b[D";
-    case "backspace":
-      return "\x7f";
-    case "tab":
-      return "\t";
-    case "enter":
-      return "\r";
-    default: {
-      const ctrl = /^ctrl\+([a-z])$/.exec(key);
-      if (ctrl) return String.fromCharCode(ctrl[1].charCodeAt(0) - 96);
-      if (key.length === 1) return key;
-      return "";
-    }
-  }
-}
+export { encodeTerminalKey } from "../keypad/terminal-keys";
 
 export function httpUrlsInLine(text: string): Array<{ uri: string; start: number; end: number }> {
   const out: Array<{ uri: string; start: number; end: number }> = [];

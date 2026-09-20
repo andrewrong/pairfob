@@ -186,8 +186,10 @@ test("IME completion sends its live text once without Enter during composition",
 });
 
 test("held Alt survives repaint, maps one physical arrow, and releases without latching", async () => {
-  const sent: string[][] = [];
-  attachLiveSession(live({ sendKeys: async (_id: string, value: string[]) => { sent.push(value); } }));
+  const sent: string[] = [];
+  const plain: string[][] = [];
+  attachLiveSession(live({ sendText: async (_id: string, value: string) => { sent.push(value); },
+    sendKeys: async (_id: string, value: string[]) => { plain.push(value); } }));
   paint();
   const alt = key("Opt");
   const left = key("←");
@@ -200,7 +202,8 @@ test("held Alt survives repaint, maps one physical arrow, and releases without l
   act(() => { left.dispatchEvent(new happy.MouseEvent("click", { bubbles: true, detail: 1 }) as unknown as Event); });
   dispatch(document, "pointerup", { pointerId: 11, pointerType: "touch" });
   await act(async () => { await flushKeys(); });
-  expect(sent).toEqual([["esc", "b"]]);
+  expect(sent).toEqual(["\x1b[1;3D"]);
+  expect(plain).toEqual([]);
   expect(modifierIsActive("alt")).toBeFalse();
   expect(alt.getAttribute("aria-pressed")).toBe("false");
 });

@@ -7,7 +7,7 @@ import { keysExpanded, padKind, setKeysExpanded, setPadKind } from "../../settin
 import { composeDraft, setComposeDraft, setComposeFocused, setComposeIME, setComposeLive } from "../compose-store";
 const { SLASH_COMMANDS } = await import("../../../lib/slash-commands");
 const { notifyFullTerminalKeyboard } = await import("./full-terminal-input");
-const { clearModifiers } = await import("../keypad/keypad");
+const { clearModifiers, pressModifier, releaseModifier } = await import("../keypad/keypad");
 const { FullTerminalPad } = await import("./full-terminal-pad");
 const padSource = await Bun.file(new URL("./full-terminal-pad.tsx", import.meta.url)).text();
 
@@ -133,4 +133,15 @@ describe("React full-terminal pad", () => {
     esc.dispatchEvent(new view.PointerEvent("pointerdown", { button: 0, cancelable: true }));
     expect(esc.classList.contains("is-pressed")).toBe(false);
   });
+});
+
+
+test("Opt then arrow reaches the full terminal as one complete chord", async () => {
+  const sent: string[] = [];
+  paint(key => sent.push(key));
+  await act(async () => {
+    pressModifier("alt"); releaseModifier("alt");
+    appRoot().querySelector<HTMLButtonElement>('[aria-label="上箭头"]')!.click();
+  });
+  expect(sent).toEqual(["alt+up"]);
 });

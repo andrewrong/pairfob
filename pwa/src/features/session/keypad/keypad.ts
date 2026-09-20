@@ -68,7 +68,7 @@ export function releaseModifier(mod: Modifier): void {
   paintAllModifiers();
 }
 
-/** Map a pad token through held Ctrl/Opt/Shift/Cmd onto SendKeys-legal tokens. */
+/** Apply held/latched modifiers to logical keys; transports encode the chords. */
 export function withModifiers(key: string): string[] {
   const flags = {
     ctrl: active("ctrl"),
