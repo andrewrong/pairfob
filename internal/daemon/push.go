@@ -344,6 +344,12 @@ func (e *Engine) DeliverPush(deviceID string, payload []byte) error {
 // NotifyHerd fans out a privacy-minimized notification to every unrevoked
 // subscribed device, with a per-herd/per-kind/per-device 30 second debounce.
 func (e *Engine) NotifyHerd(event HerdPush) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	return e.notifyHerd(ctx, event)
+}
+
+func (e *Engine) notifyHerd(ctx context.Context, event HerdPush) error {
 	if !validID(event.HerdID) {
 		return errors.New("valid herd id is required")
 	}
@@ -387,8 +393,6 @@ func (e *Engine) NotifyHerd(event HerdPush) error {
 		devices = append(devices, id)
 	}
 	e.mu.Unlock()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
 	var failures []error
 	var failuresMu sync.Mutex
 	var wg sync.WaitGroup

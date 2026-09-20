@@ -38,14 +38,18 @@ type monitorSubscribeCall struct {
 	session runtime.SessionRef
 	panes   []string
 	stream  *monitorTestStream
+	at      time.Time
 }
 
 type monitorTestRuntime struct {
 	*runtime.Fake
-	mu          sync.Mutex
-	observes    map[string]int
-	subscribeCh chan monitorSubscribeCall
-	unsupported bool
+	mu               sync.Mutex
+	observes         map[string]int
+	subscribeCh      chan monitorSubscribeCall
+	unsupported      bool
+	closeImmediately bool
+	observeErr       error
+	snapshot         *runtime.Snapshot
 }
 
 func newMonitorTestRuntime() *monitorTestRuntime {
@@ -58,9 +62,24 @@ func (r *monitorTestRuntime) Observe(ctx context.Context, session runtime.Sessio
 	if _, ok := query.(runtime.SnapshotQuery); ok {
 		r.mu.Lock()
 		r.observes[session.Name]++
+		err, snapshot := r.observeErr, r.snapshot
 		r.mu.Unlock()
+		if err != nil {
+			return nil, err
+		}
+		if snapshot != nil {
+			copy := *snapshot
+			copy.Panes = append([]runtime.Pane(nil), snapshot.Panes...)
+			return runtime.SnapshotView{Snapshot: copy}, nil
+		}
 	}
 	return r.Fake.Observe(ctx, session, query)
+}
+
+func (r *monitorTestRuntime) setSnapshot(snapshot runtime.Snapshot) {
+	r.mu.Lock()
+	r.snapshot = &snapshot
+	r.mu.Unlock()
 }
 
 func (r *monitorTestRuntime) SubscribeEvents(_ context.Context, session runtime.SessionRef, subscription runtime.EventSubscription) (runtime.EventStream, error) {
@@ -68,7 +87,12 @@ func (r *monitorTestRuntime) SubscribeEvents(_ context.Context, session runtime.
 		return nil, &runtime.Fault{Code: runtime.CodeUnsupported, Outcome: runtime.OutcomeNotApplied, Retry: runtime.RetryNever}
 	}
 	stream := newMonitorTestStream()
-	r.subscribeCh <- monitorSubscribeCall{session: session, panes: append([]string(nil), subscription.PaneIDs...), stream: stream}
+	if r.closeImmediately {
+		_ = stream.Close()
+	}
+	r.subscribeCh <- monitorSubscribeCall{
+		session: session, panes: append([]string(nil), subscription.PaneIDs...), stream: stream, at: time.Now(),
+	}
 	return stream, nil
 }
 
@@ -138,6 +162,84 @@ func TestRuntimeMonitorSubscribesMembershipAcceleratesAndReconnects(t *testing.T
 	}
 }
 
+func TestRuntimeMonitorCancelsBoundedPushDeliveryOnShutdown(t *testing.T) {
+	rt := newMonitorTestRuntime()
+	sequence1 := uint64(1)
+	pane := rt.Fake.Snap.Panes[0]
+	pane.AgentStatus, pane.AgentInstanceID, pane.StateChangeSeq = "idle", "instance", &sequence1
+	snapshot := rt.Fake.Snap
+	snapshot.Panes = []runtime.Pane{pane}
+	rt.setSnapshot(snapshot)
+
+	engine := NewEngine(nil, nil, rt)
+	pub, priv := testVAPID(t)
+	userPub, userAuth := testPushSubscriptionKeys(t)
+	started := make(chan struct{})
+	engine.VAPIDPublic, engine.VAPIDPrivate, engine.VAPIDSubject = pub, priv, "mailto:probe@example.invalid"
+	engine.PushHTTPClient = &http.Client{Transport: &holdRoundTripper{started: started}}
+	engine.PushEnabled = true
+	engine.DaemonID = "daemon-test"
+	engine.Devices["dev_12345678"] = &Device{ID: "dev_12345678", PushSubscriptions: []state.PushSubscription{{
+		Endpoint: "https://push.example.test/one", P256DH: userPub, Auth: userAuth,
+	}}}
+	stop, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		engine.MonitorPush(stop, time.Second)
+		close(done)
+	}()
+	_ = waitMonitorCall(t, rt.subscribeCh, func(call monitorSubscribeCall) bool { return len(call.panes) == 0 })
+	stream := waitMonitorCall(t, rt.subscribeCh, func(call monitorSubscribeCall) bool { return len(call.panes) == 1 })
+
+	sequence2 := uint64(2)
+	pane.AgentStatus, pane.StateChangeSeq = "working", &sequence2
+	snapshot.Panes = []runtime.Pane{pane}
+	rt.setSnapshot(snapshot)
+	beforeWorking := rt.observeCount("")
+	stream.stream.events <- runtime.Event{Kind: runtime.EventAgentStatus, PaneID: pane.PaneID, AgentStatus: "done"}
+	deadline := time.Now().Add(time.Second)
+	for rt.observeCount("") == beforeWorking && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if rt.observeCount("") == beforeWorking {
+		t.Fatal("working snapshot was not reconciled")
+	}
+	sequence3 := uint64(3)
+	pane.AgentStatus, pane.StateChangeSeq = "done", &sequence3
+	snapshot.Panes = []runtime.Pane{pane}
+	rt.setSnapshot(snapshot)
+	stream.stream.events <- runtime.Event{Kind: runtime.EventAgentStatus, PaneID: pane.PaneID, AgentStatus: "done"}
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("push delivery did not start")
+	}
+	close(stop)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("monitor shutdown did not cancel push delivery")
+	}
+}
+
+func TestRuntimeMonitorBacksOffAfterStreamEOF(t *testing.T) {
+	rt := newMonitorTestRuntime()
+	rt.closeImmediately = true
+	engine := NewEngine(nil, nil, rt)
+	stop, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		engine.MonitorPush(stop, 40*time.Millisecond)
+		close(done)
+	}()
+	_ = waitMonitorCall(t, rt.subscribeCh, func(call monitorSubscribeCall) bool { return len(call.panes) == 0 })
+	second := waitMonitorCall(t, rt.subscribeCh, func(call monitorSubscribeCall) bool { return len(call.panes) == 1 })
+	third := waitMonitorCall(t, rt.subscribeCh, func(call monitorSubscribeCall) bool { return len(call.panes) == 1 })
+	close(stop)
+	<-done
+	if elapsed := third.at.Sub(second.at); elapsed < 30*time.Millisecond {
+		t.Fatalf("stream EOF caused a busy reconnect loop: %v", elapsed)
+	}
+}
+
 func TestRuntimeMonitorUnsupportedFallsBackToPolling(t *testing.T) {
 	rt := newMonitorTestRuntime()
 	rt.unsupported = true
@@ -156,6 +258,28 @@ func TestRuntimeMonitorUnsupportedFallsBackToPolling(t *testing.T) {
 	<-done
 	if rt.observeCount("") < 2 {
 		t.Fatalf("unsupported subscription did not poll: observes=%d", rt.observeCount(""))
+	}
+}
+
+func TestNamedRuntimeFailureDoesNotEmitDefaultAvailability(t *testing.T) {
+	rt := newMonitorTestRuntime()
+	rt.observeErr = &runtime.Fault{Code: runtime.CodeOffline, Outcome: runtime.OutcomeNotApplied, Retry: runtime.RetryReadSafe}
+	engine := NewEngine(nil, nil, rt)
+	var namedPokes []string
+	namedState := sessionMonitorState{panes: map[string]monitoredPane{}}
+	engine.reconcileRuntimeSession(context.Background(), runtime.NamedSession("alpha"), false, &namedState, func(reason, _ string) {
+		namedPokes = append(namedPokes, reason)
+	}, func(HerdPush) {})
+	if len(namedPokes) != 0 {
+		t.Fatalf("named runtime emitted default availability: %v", namedPokes)
+	}
+	var defaultPokes []string
+	defaultState := sessionMonitorState{panes: map[string]monitoredPane{}}
+	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &defaultState, func(reason, _ string) {
+		defaultPokes = append(defaultPokes, reason)
+	}, func(HerdPush) {})
+	if len(defaultPokes) != 1 || defaultPokes[0] != "herdr_offline" {
+		t.Fatalf("default availability pokes=%v", defaultPokes)
 	}
 }
 
@@ -187,12 +311,13 @@ func (c *countPushTransport) RoundTrip(*http.Request) (*http.Response, error) {
 	return &http.Response{StatusCode: http.StatusCreated, Status: "201 Created", Body: io.NopCloser(strings.NewReader("")), Header: http.Header{}}, nil
 }
 
-func TestQueuedStatusTransitionNotifiesOnceAndLaterSequenceRearms(t *testing.T) {
+func TestStatusEventOnlyInvalidatesAndNewSnapshotSequenceRearms(t *testing.T) {
 	rt := newMonitorTestRuntime()
 	sequence := uint64(1)
-	rt.Fake.Snap.Panes[0].AgentStatus = "idle"
-	rt.Fake.Snap.Panes[0].AgentInstanceID = "instance"
-	rt.Fake.Snap.Panes[0].StateChangeSeq = &sequence
+	oldPane := rt.Fake.Snap.Panes[0]
+	oldPane.AgentStatus = "done"
+	oldPane.AgentInstanceID = "old-instance"
+	oldPane.StateChangeSeq = &sequence
 	engine := NewEngine(nil, nil, rt)
 	pub, priv := testVAPID(t)
 	userPub, userAuth := testPushSubscriptionKeys(t)
@@ -205,36 +330,45 @@ func TestQueuedStatusTransitionNotifiesOnceAndLaterSequenceRearms(t *testing.T) 
 		Endpoint: "https://push.example.test/one", P256DH: userPub, Auth: userAuth,
 	}}}
 	monitorState := sessionMonitorState{panes: map[string]monitoredPane{
-		"w0:p1": {status: "idle", instanceID: "instance", stateChangeSeq: copyUint64(&sequence), pane: rt.Fake.Snap.Panes[0]},
+		"w0:p1": {status: "done", instanceID: "old-instance", stateChangeSeq: copyUint64(&sequence), pane: oldPane},
 	}}
-	engine.applyRuntimeEvent(runtime.Event{Kind: runtime.EventAgentStatus, PaneID: "w0:p1", AgentStatus: "working"}, true, &monitorState, func(string, string) {})
-	engine.applyRuntimeEvent(runtime.Event{Kind: runtime.EventAgentStatus, PaneID: "w0:p1", AgentStatus: "done"}, true, &monitorState, func(string, string) {})
-	if calls := transport.calls.Load(); calls != 1 {
-		t.Fatalf("queued working->done notifications=%d, want 1", calls)
+	pokes := 0
+	engine.applyRuntimeEvent(runtime.Event{Kind: runtime.EventAgentStatus, PaneID: "w0:p1", AgentStatus: "working"}, func(string, string) { pokes++ })
+	if monitorState.panes["w0:p1"].status != "done" || transport.calls.Load() != 0 || pokes != 1 {
+		t.Fatalf("unversioned event changed authority: state=%+v pushes=%d pokes=%d", monitorState.panes["w0:p1"], transport.calls.Load(), pokes)
 	}
 
 	sequence = 2
-	rt.Fake.Snap.Panes[0].AgentStatus = "done"
-	rt.Fake.Snap.Panes[0].StateChangeSeq = &sequence
-	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {})
-	if calls := transport.calls.Load(); calls != 1 {
-		t.Fatalf("authoritative snapshot duplicated queued completion: %d", calls)
+	newPane := oldPane
+	newPane.AgentInstanceID = "new-instance"
+	newPane.StateChangeSeq = &sequence
+	rt.setSnapshot(runtime.Snapshot{Panes: []runtime.Pane{newPane}})
+	emitPush := func(event HerdPush) { _ = engine.NotifyHerd(event) }
+	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {}, emitPush)
+	if calls := transport.calls.Load(); calls != 0 {
+		t.Fatalf("stale event notified a replacement occupant: %d", calls)
 	}
+
 	sequence = 3
-	rt.Fake.Snap.Panes[0].StateChangeSeq = &sequence
-	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {})
-	if calls := transport.calls.Load(); calls != 2 {
-		t.Fatalf("new completion sequence did not rearm notification: %d", calls)
+	newPane.StateChangeSeq = &sequence
+	rt.setSnapshot(runtime.Snapshot{Panes: []runtime.Pane{newPane}})
+	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {}, emitPush)
+	if calls := transport.calls.Load(); calls != 1 {
+		t.Fatalf("same-status completion sequence did not rearm: %d", calls)
+	}
+	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {}, emitPush)
+	if calls := transport.calls.Load(); calls != 1 {
+		t.Fatalf("unchanged authoritative snapshot duplicated notification: %d", calls)
 	}
 }
 
 func TestSnapshotSequenceRearmsCompletionWithoutObservedWorking(t *testing.T) {
-	kind, notify := pushKindForObservation("done", "done", true, false)
+	kind, notify := pushKindForObservation("done", "done", true)
 	if !notify || kind != PushDone {
 		t.Fatalf("kind=%q notify=%v", kind, notify)
 	}
-	if kind, notify = pushKindForObservation("done", "done", true, true); notify || kind != "" {
-		t.Fatalf("queued done was duplicated: kind=%q notify=%v", kind, notify)
+	if kind, notify = pushKindForObservation("done", "done", false); notify || kind != "" {
+		t.Fatalf("unchanged done snapshot notified: kind=%q notify=%v", kind, notify)
 	}
 }
 

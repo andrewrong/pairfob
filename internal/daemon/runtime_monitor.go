@@ -22,15 +22,14 @@ type runtimeMonitorLease struct {
 }
 
 type monitoredPane struct {
-	status              string
-	instanceID          string
-	stateChangeSeq      *uint64
-	interactiveReady    *bool
-	launchPending       *bool
-	pendingDoneSequence bool
-	workspaceLabel      string
-	tabLabel            string
-	pane                runtime.Pane
+	status           string
+	instanceID       string
+	stateChangeSeq   *uint64
+	interactiveReady *bool
+	launchPending    *bool
+	workspaceLabel   string
+	tabLabel         string
+	pane             runtime.Pane
 }
 
 type sessionMonitorState struct {
@@ -88,14 +87,28 @@ func (e *Engine) runRuntimeMonitors(stop <-chan struct{}, every time.Duration) {
 
 	type pokeEvent struct{ reason, paneID string }
 	pokes := make(chan pokeEvent, 64)
+	notifications := make(chan HerdPush, 64)
 	var workers sync.WaitGroup
-	workers.Add(1)
+	workers.Add(2)
 	go func() {
 		defer workers.Done()
 		for {
 			select {
 			case event := <-pokes:
 				e.sendPoke(event.reason, event.paneID)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	go func() {
+		defer workers.Done()
+		for {
+			select {
+			case event := <-notifications:
+				deliveryCtx, deliveryCancel := context.WithTimeout(ctx, 20*time.Second)
+				_ = e.notifyHerd(deliveryCtx, event)
+				deliveryCancel()
 			case <-ctx.Done():
 				return
 			}
@@ -108,11 +121,19 @@ func (e *Engine) runRuntimeMonitors(stop <-chan struct{}, every time.Duration) {
 			// A Poke only accelerates an authoritative client snapshot.
 		}
 	}
+	emitPush := func(event HerdPush) {
+		select {
+		case notifications <- event:
+		default:
+			// Push is best effort. Keep observation bounded; foreground clients
+			// still converge through Pokes and snapshot polling.
+		}
+	}
 
 	workers.Add(1)
 	go func() {
 		defer workers.Done()
-		e.runSessionMonitor(ctx, runtime.DefaultSession(), every, true, emitPoke)
+		e.runSessionMonitor(ctx, runtime.DefaultSession(), every, true, emitPoke, emitPush)
 	}()
 
 	leases := map[string]runtimeMonitorLease{}
@@ -155,7 +176,7 @@ func (e *Engine) runRuntimeMonitors(stop <-chan struct{}, every time.Duration) {
 				workers.Add(1)
 				go func(name string) {
 					defer workers.Done()
-					e.runSessionMonitor(monitorCtx, runtime.NamedSession(name), every, false, emitPoke)
+					e.runSessionMonitor(monitorCtx, runtime.NamedSession(name), every, false, emitPoke, emitPush)
 				}(name)
 			}
 		case now := <-cleanup.C:
@@ -169,13 +190,13 @@ func (e *Engine) runRuntimeMonitors(stop <-chan struct{}, every time.Duration) {
 	}
 }
 
-func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionRef, every time.Duration, allowPush bool, emitPoke func(string, string)) {
+func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionRef, every time.Duration, allowPush bool, emitPoke func(string, string), emitPush func(HerdPush)) {
 	state := sessionMonitorState{panes: map[string]monitoredPane{}, availability: runtimeUnknown}
 	subscriber, supportsEvents := e.RT.(runtime.EventSubscriber)
 	membership := []string(nil)
 	for ctx.Err() == nil {
 		if !supportsEvents || len(membership) > 1024 {
-			e.pollRuntimeSession(ctx, session, every, allowPush, &state, emitPoke)
+			e.pollRuntimeSession(ctx, session, every, allowPush, &state, emitPoke, emitPush)
 			return
 		}
 		stream, err := subscriber.SubscribeEvents(ctx, session, runtime.EventSubscription{PaneIDs: membership})
@@ -184,7 +205,7 @@ func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionR
 				supportsEvents = false
 				continue
 			}
-			e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke)
+			e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke, emitPush)
 			if !waitRuntimeMonitor(ctx, every) {
 				return
 			}
@@ -193,7 +214,7 @@ func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionR
 
 		// The stream is installed before this authoritative reconciliation, so
 		// transitions during Snapshot remain queued rather than disappearing.
-		changedMembership, nextMembership := e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke)
+		changedMembership, nextMembership := e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke, emitPush)
 		if changedMembership || !sameStrings(membership, nextMembership) {
 			membership = nextMembership
 			_ = stream.Close()
@@ -221,9 +242,9 @@ func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionR
 					reconnect, streamFailed = true, true
 					break
 				}
-				e.applyRuntimeEvent(event, allowPush, &state, emitPoke)
-				// Drain events already queued before taking a snapshot. In
-				// particular, do not collapse working->done into only done.
+				e.applyRuntimeEvent(event, emitPoke)
+				// Drain a bounded batch of queued invalidations before taking
+				// the authoritative snapshot that resolves all of them.
 			Drain:
 				for drained := 0; drained < monitorEventDrainLimit; drained++ {
 					select {
@@ -232,17 +253,17 @@ func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionR
 							reconnect, streamFailed = true, true
 							break Drain
 						}
-						e.applyRuntimeEvent(queued, allowPush, &state, emitPoke)
+						e.applyRuntimeEvent(queued, emitPoke)
 					default:
 						break Drain
 					}
 				}
-				changed, panes := e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke)
+				changed, panes := e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke, emitPush)
 				if changed || !sameStrings(membership, panes) {
 					membership, reconnect = panes, true
 				}
 			case <-timer.C:
-				changed, panes := e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke)
+				changed, panes := e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke, emitPush)
 				membership = panes
 				reconnect = changed
 				timer.Reset(healthyEvery)
@@ -261,9 +282,9 @@ func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionR
 	}
 }
 
-func (e *Engine) pollRuntimeSession(ctx context.Context, session runtime.SessionRef, every time.Duration, allowPush bool, state *sessionMonitorState, emitPoke func(string, string)) {
+func (e *Engine) pollRuntimeSession(ctx context.Context, session runtime.SessionRef, every time.Duration, allowPush bool, state *sessionMonitorState, emitPoke func(string, string), emitPush func(HerdPush)) {
 	for {
-		e.reconcileRuntimeSession(ctx, session, allowPush, state, emitPoke)
+		e.reconcileRuntimeSession(ctx, session, allowPush, state, emitPoke, emitPush)
 		if !waitRuntimeMonitor(ctx, every) {
 			return
 		}
@@ -295,11 +316,11 @@ func (e *Engine) monitorSnapshot(ctx context.Context, session runtime.SessionRef
 	return snapshot.Snapshot, nil
 }
 
-func (e *Engine) reconcileRuntimeSession(ctx context.Context, session runtime.SessionRef, allowPush bool, state *sessionMonitorState, emitPoke func(string, string)) (bool, []string) {
+func (e *Engine) reconcileRuntimeSession(ctx context.Context, session runtime.SessionRef, allowPush bool, state *sessionMonitorState, emitPoke func(string, string), emitPush func(HerdPush)) (bool, []string) {
 	snapshot, err := e.monitorSnapshot(ctx, session)
 	nextAvailability, reason := transitionRuntimeAvailability(state.availability, err == nil)
 	state.availability = nextAvailability
-	if reason != "" {
+	if reason != "" && session.Name == "" {
 		emitPoke(reason, "")
 	}
 	if err != nil {
@@ -323,24 +344,14 @@ func (e *Engine) reconcileRuntimeSession(ctx context.Context, session runtime.Se
 			tabLabel: tabLabels[pane.TabID], pane: pane,
 		}
 		sameOccupant := known && (previous.instanceID == "" || pane.AgentInstanceID == "" || previous.instanceID == pane.AgentInstanceID)
-		if sameOccupant {
-			current.pendingDoneSequence = previous.pendingDoneSequence
-		}
 		if !known || !sameOccupant || observedPaneChanged(previous, current) {
 			emitPoke("agent_status", pane.PaneID)
 		}
 		if sameOccupant {
 			sequenceAdvanced := pane.StateChangeSeq != nil && previous.stateChangeSeq != nil && *pane.StateChangeSeq > *previous.stateChangeSeq
-			kind, notify := pushKindForObservation(previous.status, pane.AgentStatus, sequenceAdvanced, previous.pendingDoneSequence)
-			if pane.AgentStatus == "done" && sequenceAdvanced && previous.pendingDoneSequence {
-				current.pendingDoneSequence = false
-			}
-			if pane.AgentStatus != "done" {
-				current.pendingDoneSequence = false
-			}
+			kind, notify := pushKindForObservation(previous.status, pane.AgentStatus, sequenceAdvanced)
 			if notify && allowPush && e.PushEnabled {
-				push := herdPushForPane(pane, current.workspaceLabel, current.tabLabel, kind)
-				_ = e.NotifyHerd(push)
+				emitPush(herdPushForPane(pane, current.workspaceLabel, current.tabLabel, kind))
 			}
 		}
 		next[pane.PaneID] = current
@@ -351,40 +362,16 @@ func (e *Engine) reconcileRuntimeSession(ctx context.Context, session runtime.Se
 	return !sameStrings(previousMembership, nextMembership), nextMembership
 }
 
-func (e *Engine) applyRuntimeEvent(event runtime.Event, allowPush bool, state *sessionMonitorState, emitPoke func(string, string)) {
-	if event.Kind != runtime.EventAgentStatus {
-		// Existing clients already treat agent_status as a snapshot-refresh hint;
-		// do not add a new wire-level Poke reason for structural changes.
-		emitPoke("agent_status", event.PaneID)
-		return
-	}
-	previous, known := state.panes[event.PaneID]
-	if !known || previous.status == event.AgentStatus {
-		return
-	}
-	current := previous
-	current.status = event.AgentStatus
-	current.pane.AgentStatus = event.AgentStatus
-	if event.AgentStatus != "done" {
-		current.pendingDoneSequence = false
-	}
+func (e *Engine) applyRuntimeEvent(event runtime.Event, emitPoke func(string, string)) {
+	// Protocol 20 events carry neither occupant identity nor a sequence. Treat
+	// every validated event as an invalidation only; the following authoritative
+	// snapshot decides status and notification semantics.
 	emitPoke("agent_status", event.PaneID)
-	if kind, notify := pushKindForTransition(previous.status, true, event.AgentStatus); notify && allowPush && e.PushEnabled {
-		push := herdPushForPane(current.pane, current.workspaceLabel, current.tabLabel, kind)
-		_ = e.NotifyHerd(push)
-		if kind == PushDone {
-			current.pendingDoneSequence = true
-		}
-	}
-	state.panes[event.PaneID] = current
 }
 
-func pushKindForObservation(previous, current string, sequenceAdvanced, pendingDoneSequence bool) (PushKind, bool) {
+func pushKindForObservation(previous, current string, sequenceAdvanced bool) (PushKind, bool) {
 	kind, notify := pushKindForTransition(previous, true, current)
 	if current == "done" && sequenceAdvanced {
-		if pendingDoneSequence {
-			return "", false
-		}
 		return PushDone, true
 	}
 	return kind, notify
