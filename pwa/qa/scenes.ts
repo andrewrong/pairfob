@@ -317,10 +317,11 @@ export async function applyScene(name: string, session: FixtureSession): Promise
   }
   if (name.startsWith("chat") || name === "desktop-chat") {
     chatPane();
-    if (name.startsWith("chat-pi-")) applyTrace({
-      agentTraceItems: data.phase2ConversationTrace(), agentTraceTail: data.phase2ConversationTrace().length,
-      agentTraceLoadState: "ready", agentTraceSig: `qa-${name}`,
-    });
+    if (name.startsWith("chat-pi-")) {
+      const trace = data.phase2ConversationTrace();
+      session.setTrace(trace);
+      applyTrace({ agentTraceItems: trace, agentTraceTail: trace.length, agentTraceLoadState: "ready", agentTraceSig: JSON.stringify(trace) });
+    }
     if (name === "chat-pi-unread") applyTrace({ agentTraceFollow: false, agentTraceUnread: true });
     if (name === "chat-pi-compose") setComposeDraft("First line stays intact.\n第二行正在使用输入法组合。\nThird line verifies the narrow compose area.");
     if (name === "chat-draft") setComposeDraft("Review the interaction changes.\nKeep focus and selection stable.\nThen run the checks.");

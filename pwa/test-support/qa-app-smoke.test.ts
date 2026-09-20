@@ -18,8 +18,8 @@ import { act } from "react";
  * (no WebGL/PTY): the open/frame/close lifecycle is production code. The two
  * `shellOnly` scenes deliberately render the standalone FullTerminalScreen
  * shell fixture without an engine. Coverage is reported honestly:
- * 58 scenes render through the stable App (including the 2 mock-engine
- * terminals), 2 shellOnly scenes render the QA shell fixture — all 60 catalog
+ * 62 scenes render through the stable App (including the 2 mock-engine
+ * terminals), 2 shellOnly scenes render the QA shell fixture — all 64 catalog
  * scenes are exercised here; the 240-shot browser matrix remains the full
  * visual contract.
  */
@@ -178,7 +178,7 @@ function assertPaneRoot(expectedPane: string): void {
 }
 
 test("every QA scene id + untitled built", () => {
-  expect(scenes.length).toBe(60);
+  expect(scenes.length).toBe(64);
   const seen = new Set<string>();
   for (const scene of scenes) {
     expect(seen.has(scene.name)).toBeFalse();
@@ -187,7 +187,7 @@ test("every QA scene id + untitled built", () => {
   }
 });
 
-test("every scene renders: 58 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
+test("every scene renders: 62 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
   expect(domReady).toBeTrue();
   const failures: string[] = [];
   const appRendered: string[] = [];
@@ -241,8 +241,8 @@ test("every scene renders: 58 through the stable App (incl. mock-engine terminal
   }
   expect(failures).toEqual([]);
   expect(shellRendered).toEqual(["terminal-loading", "terminal-error"]);
-  expect(appRendered).toHaveLength(58);
-  expect(appRendered.length + shellRendered.length).toBe(60);
+  expect(appRendered).toHaveLength(62);
+  expect(appRendered.length + shellRendered.length).toBe(64);
 }, 180_000);
 
 test("attention QA scenes drive rich labels, ordering, and runtime replacement through App", async () => {
@@ -327,6 +327,6 @@ test("scene names and descriptions are documented for the window.qa surface", ()
   const names = scenes.map((scene) => scene.name);
   expect(names).toContain("terminal-loading");
   expect(names).toContain("terminal-error");
-  expect(names.length).toBe(60);
+  expect(names.length).toBe(64);
   for (const scene of scenes) expect(scene.description).toBeTruthy();
 });

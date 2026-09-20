@@ -55,6 +55,8 @@ export type FixtureAPI = {
   clearCalls(): void;
   setConnected(connected: boolean): void;
   emit(event: SessionEvent): void;
+  appendChatTurn(): void;
+  refreshChat(): Promise<FixtureSnapshot>;
   terminalFrame(text: string, options?: FixtureTerminalFrame): boolean;
   hold(method: string): void;
   release(method: string): void;

@@ -11,7 +11,7 @@ import { initSwipeBack } from "../src/features/session/pane-actions";
 import { dropQueuedKeys } from "../src/features/session/guided/keys";
 import { handlePaneKey } from "../src/features/session/guided/compose";
 import { revealCaretRow, stickBottom } from "../src/features/session/guided/term";
-import { stickAgentStream } from "../src/features/session/chat/agent-chat-controller";
+import { refreshAgentTrace, stickAgentStream } from "../src/features/session/chat/agent-chat-controller";
 import { guidedScrollController } from "../src/features/session/guided/guided-scroll";
 import {
   disposeFullTerminal, getFullTerminalView, handleFullTerminalEvent, handleFullTerminalVisibility,
@@ -221,6 +221,13 @@ export async function createFixtureAPI(language: "zh" | "en", initialScene: stri
     clearCalls() { calls.length = 0; },
     setConnected(value) { session.setConnected(value); setNetworkOnline(value); },
     emit(event) { session.emit(event); },
+    appendChatTurn() { session.appendChatTurn(); },
+    async refreshChat() {
+      await refreshAgentTrace();
+      commitView();
+      await settlePaint();
+      return snapshot();
+    },
     terminalFrame(text, options) { return session.terminalFrame(text, options); },
     hold(method) { session.hold(method); },
     release(method) { session.release(method); },

@@ -1,6 +1,7 @@
 import { ProtocolError } from "../src/lib/protocol/errors";
 import { NO_OPERATION_CAPABILITIES } from "../src/lib/operations";
 import type { LiveSession, SessionEvent } from "../src/lib/protocol/session-types";
+import type { AgentTraceItem } from "../src/lib/operations";
 import { setSessionTransport } from "../src/features/connection/connection-store";
 import { FIXED_NOW, record } from "./environment";
 import type { FixtureTerminalFrame } from "./types";
@@ -11,6 +12,8 @@ export type FixtureSession = {
   emit(event: SessionEvent): void;
   terminalFrame(text: string, options?: FixtureTerminalFrame): boolean;
   setConnected(connected: boolean): void;
+  setTrace(items: AgentTraceItem[]): void;
+  appendChatTurn(): void;
   hold(method: string): void;
   release(method: string): void;
   failNext(method: string, code: string): void;
@@ -32,6 +35,8 @@ export function createSession(): FixtureSession {
   const failures = new Map<string, string>();
   const snapshot = data.snapshot();
   const deviceList = data.devices();
+  let trace = data.trace();
+  let appendedTurns = 0;
   const capabilities = Object.fromEntries(Object.keys(NO_OPERATION_CAPABILITIES).map((key) => [key, true]));
   const emit = (event: SessionEvent) => { for (const listener of listeners) listener(event); };
   const op = () => `op_qa_${String(++operation).padStart(12, "0")}`;
@@ -72,8 +77,11 @@ export function createSession(): FixtureSession {
     createTab: (params: unknown) => mutation("createTab", [params], created),
     splitPane: (params: unknown) => mutation("splitPane", [params], created),
     history: (...args: unknown[]) => request("history", args, () => ({ items: [], nextCursor: null, truncated: false })),
-    agentTrace: (...args: unknown[]) => request("agentTrace", args, () => ({ items: data.trace(), nextCursor: null, truncated: false })),
-    agentTraceDetail: (paneId: string, detailRef: string) => request("agentTraceDetail", [paneId, detailRef], () => ({ detailRef, input: '{"path":"src/app.ts"}', output: data.file().content, truncated: false })),
+    agentTrace: (...args: unknown[]) => request("agentTrace", args, () => ({ items: structuredClone(trace), nextCursor: null, truncated: false })),
+    agentTraceDetail: (paneId: string, detailRef: string) => request("agentTraceDetail", [paneId, detailRef], () => {
+      const item = trace.find((entry) => entry.detailRef === detailRef);
+      return { detailRef, input: item?.input, output: item?.output, truncated: false };
+    }),
     agentQuota: () => request("agentQuota", [], data.quotas),
     workspaceOpen: (paneId: string) => request("workspaceOpen", [paneId], data.descriptor),
     workspaceList: (paneId: string, path = "", cursor?: string) => request("workspaceList", [paneId, path, cursor], () => data.directory(path)),
@@ -133,6 +141,15 @@ export function createSession(): FixtureSession {
       return true;
     },
     setConnected(value) { connected = value; },
+    setTrace(items) { trace = structuredClone(items); appendedTurns = 0; },
+    appendChatTurn() {
+      if (trace.length >= 200) throw new Error("QA chat trace reached its 200-item bound");
+      const id = ++appendedTurns;
+      trace.push(
+        { type: "user", text: `QA appended turn ${id}` },
+        { type: "assistant", text: `QA appended response ${id}` },
+      );
+    },
     hold(method) { held.add(method); },
     release(method) { held.delete(method); for (const waiter of waiters.get(method) ?? []) waiter.resolve(); waiters.delete(method); },
     failNext(method, code) { failures.set(method, code); },

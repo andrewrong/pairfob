@@ -28,6 +28,14 @@ async function select(scene: string): Promise<void> {
   await act(async () => { await api!.setScene(scene); });
 }
 
+async function settle(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    if (predicate()) return;
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+  }
+  throw new Error("phase2 QA observable did not settle");
+}
+
 afterEach(async () => {
   if (!api) return;
   await act(async () => { window.dispatchEvent(new Event("beforeunload")); await Promise.resolve(); });
@@ -41,7 +49,23 @@ test("phase2 long Pi scene includes successful, failed, and empty tool results",
   expect(stream).toContain("Turn 12 complete");
   expect(stream).toContain("Bash · bun test chat");
   expect(stream).toContain("empty.txt");
-  expect(document.querySelectorAll(".agent-stream [data-tool-state], .agent-stream details").length).toBeGreaterThan(0);
+  const tools = [...document.querySelectorAll<HTMLDetailsElement>("details.agent-tool")];
+  const failed = tools.find((tool) => tool.textContent?.includes("Bash · bun test chat"))!;
+  await act(async () => {
+    failed.open = true;
+    failed.dispatchEvent(new Event("toggle"));
+    await Promise.resolve();
+  });
+  await settle(() => (document.querySelector(".agent-stream")?.textContent ?? "").includes("expected one refresh"));
+  expect(api!.calls.some((call) => call.method === "agentTraceDetail" && call.args[1] === "qa-tool-error")).toBeTrue();
+  const empty = tools.find((tool) => tool.textContent?.includes("empty.txt"))!;
+  await act(async () => {
+    empty.open = true;
+    empty.dispatchEvent(new Event("toggle"));
+    await Promise.resolve();
+  });
+  await settle(() => api!.calls.some((call) => call.method === "agentTraceDetail" && call.args[1] === "qa-empty-output"));
+  expect(empty.textContent).not.toContain("export function App");
 });
 
 test("phase2 unread and recovery scenes expose real fixture actions without mutation replay", async () => {
@@ -51,11 +75,14 @@ test("phase2 unread and recovery scenes expose real fixture actions without muta
   a.clearCalls();
   a.setConnected(false);
   a.emit({ type: "reconnecting", message: "QA reconnect" });
+  a.appendChatTurn();
   a.setConnected(true);
   a.emit({ type: "connected" });
   a.emit({ type: "poke", reason: "agent_update" });
-  await act(async () => { await a.render(); });
+  await act(async () => { await a.refreshChat(); });
+  expect(a.calls.filter((call) => call.method === "agentTrace")).toHaveLength(1);
   expect(a.calls.filter((call) => call.kind === "mutation")).toEqual([]);
+  expect(document.querySelector(".agent-stream")?.textContent).toContain("QA appended response 1");
   expect(a.snapshot().scene).toBe("chat-pi-recovery");
   expect(a.snapshot().errors).toEqual([]);
 });
@@ -69,7 +96,13 @@ test("phase2 narrow compose preserves focused multiline IME selection", async ()
   expect(document.activeElement).toBe(input);
   expect([input.selectionStart, input.selectionEnd]).toEqual([22, 25]);
   const nodeId = a.snapshot().inputs.find((entry) => entry.focused)?.nodeId;
-  await act(async () => { await a.render(); });
+  const initialTurns = (document.querySelector(".agent-stream")?.textContent?.match(/Turn \d+ complete/g) ?? []).length;
+  expect(initialTurns).toBe(12);
+  a.appendChatTurn();
+  await act(async () => { await a.refreshChat(); });
+  expect(document.querySelector(".agent-stream")?.textContent).toContain("QA appended response 1");
+  expect(a.calls.filter((call) => call.method === "agentTrace")).toHaveLength(1);
   expect(a.snapshot().inputs.find((entry) => entry.focused)?.nodeId).toBe(nodeId);
+  expect(input.value.split("\n")).toHaveLength(3);
   expect(a.snapshot().overflow.documentX).toBe(0);
 });
