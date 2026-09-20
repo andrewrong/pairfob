@@ -29,7 +29,10 @@ import (
 	"pairfob/internal/state"
 )
 
-const pushDebounce = 30 * time.Second
+const (
+	pushDebounce      = 30 * time.Second
+	pushDebounceLimit = 4096
+)
 
 func isUnsafePushIP(ip net.IP) bool {
 	return ip == nil || ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() ||
@@ -349,6 +352,38 @@ func (e *Engine) NotifyHerd(event HerdPush) error {
 	return e.notifyHerd(ctx, event)
 }
 
+// prunePushLastLocked discards entries that can no longer suppress a delivery.
+// The caller holds e.mu.
+func (e *Engine) prunePushLastLocked(now time.Time) {
+	for key, last := range e.pushLast {
+		if now.Sub(last) >= pushDebounce {
+			delete(e.pushLast, key)
+		}
+	}
+}
+
+// admitPushLocked records one debounce key while e.mu is held.
+func (e *Engine) admitPushLocked(key string, now time.Time) bool {
+	if last := e.pushLast[key]; !last.IsZero() && now.Sub(last) < pushDebounce {
+		return false
+	}
+	if len(e.pushLast) >= pushDebounceLimit {
+		var oldestKey string
+		var oldest time.Time
+		for existing, last := range e.pushLast {
+			if oldestKey == "" || last.Before(oldest) {
+				oldestKey, oldest = existing, last
+			}
+		}
+		delete(e.pushLast, oldestKey)
+	}
+	if e.pushLast == nil {
+		e.pushLast = make(map[string]time.Time)
+	}
+	e.pushLast[key] = now
+	return true
+}
+
 func (e *Engine) notifyHerd(ctx context.Context, event HerdPush) error {
 	if !validID(event.HerdID) {
 		return errors.New("valid herd id is required")
@@ -374,6 +409,9 @@ func (e *Engine) notifyHerd(ctx context.Context, event HerdPush) error {
 	})
 	now := time.Now()
 	e.mu.Lock()
+	// Prune on every notification, including when no subscribed device exists.
+	// Sequence-specific keys are otherwise never reused and would accumulate.
+	e.prunePushLastLocked(now)
 	var devices []string
 	for id, dev := range e.Devices {
 		if dev.RevokedAt != nil || len(dev.PushSubscriptions) == 0 {
@@ -386,11 +424,9 @@ func (e *Engine) notifyHerd(ctx context.Context, event HerdPush) error {
 		if event.StateChangeSeq != nil {
 			key += fmt.Sprintf("\x00%d", *event.StateChangeSeq)
 		}
-		if last := e.pushLast[key]; !last.IsZero() && now.Sub(last) < pushDebounce {
-			continue
+		if e.admitPushLocked(key, now) {
+			devices = append(devices, id)
 		}
-		e.pushLast[key] = now
-		devices = append(devices, id)
 	}
 	e.mu.Unlock()
 	var failures []error
