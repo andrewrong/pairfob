@@ -18,19 +18,6 @@ const FOLLOW = 0.85;
 const UNDER_SCALE = 0.94;
 const UNDER_SHIFT = 18;
 const SETTLE_MS = 320;
-const HINT_KEY = "pairfob_swipe_hint";
-
-function hintAlreadyShown(): boolean {
-  try { return localStorage.getItem(HINT_KEY) === "1"; }
-  catch { return true; }
-}
-
-export function armSwipeHint(paneRoot: HTMLElement): void {
-  if (isDesk() || prefersReducedMotion() || hintAlreadyShown()) return;
-  paneRoot.classList.add("hint-edge");
-  try { localStorage.setItem(HINT_KEY, "1"); }
-  catch { /* An unavailable preference does not prevent the gesture. */ }
-}
 
 type Swipe = {
   root: HTMLElement;

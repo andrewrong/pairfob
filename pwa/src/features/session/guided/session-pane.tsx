@@ -4,7 +4,6 @@ import { useSession } from "../hooks";
 import { agentFromDashboardSnapshot } from "../agents";
 import { sessionOwner } from "../identity";
 import { t } from "../../../lib/i18n";
-import { armSwipeHint } from "./pane-swipe";
 import { paneModel, type PaneModel } from "./pane-model";
 import { toggleTermSelect } from "./term";
 import { finishSessionPaint, type SessionHandlers } from "./view";
@@ -54,7 +53,6 @@ function SessionPaneView({ includeBack, handlers, scroll, parts = defaultParts }
   useLayoutEffect(() => {
     const host = root.current;
     if (!host) return;
-    if (includeBack) armSwipeHint(host);
     finishSessionPaint(scroll);
   }, [includeBack, session.termSelect]);
   useLayoutEffect(() => {

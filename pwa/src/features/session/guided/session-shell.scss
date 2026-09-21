@@ -49,37 +49,6 @@
   transition: transform var(--dur-4) var(--ease-spring);
 }
 
-/* --- Edge back hint -----------------------------------------------------------
-   A gesture nobody can see is a gesture nobody uses. This line is the only
-   affordance for swipe-back, so it is always present and brightens under the
-   finger; the one-time animation runs on a phone's first pane.
-   ------------------------------------------------------------------------------ */
-
-.pane-root::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 3;
-  width: 4px;
-  background: linear-gradient(90deg, var(--accent), transparent);
-  opacity: 0.12;
-  pointer-events: none;
-  transition: opacity var(--dur-1) var(--ease);
-}
-
-.pane-root.edge-armed::before { opacity: 0.5; }
-
-.pane-root.hint-edge::before { animation: edge-hint 1.2s var(--ease-in-out) 1; }
-
-@keyframes edge-hint {
-  0% { opacity: 0.12; width: 4px; }
-  35% { opacity: 0.6; width: 7px; }
-  70% { opacity: 0.5; width: 5px; }
-  100% { opacity: 0.12; width: 4px; }
-}
-
 /* The screen the pane came from, held behind it for the length of the drag. */
 .pane-under {
   position: fixed;
@@ -98,8 +67,6 @@
 .pane-under > .page { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
-  .pane-root::before { transition: none; }
-  .pane-root.hint-edge::before { animation: none; }
   .pane-root.settling { transition: transform var(--dur-2) linear; }
 }
 
