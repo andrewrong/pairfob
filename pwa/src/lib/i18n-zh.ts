@@ -544,6 +544,8 @@ export const zh = {
   "key.backspace": "退格",
   "keys.primary": "终端快捷键",
   "keys.more": "更多终端快捷键",
+  "keys.modifierHint": "双击锁定，轻点单次生效",
+  "keys.modifierLocked": "已锁定；轻点解除",
   "keys.mods": "修饰键",
   "compose.live": "实时",
   "compose.batch": "组字",

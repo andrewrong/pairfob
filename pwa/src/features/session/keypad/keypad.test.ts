@@ -85,6 +85,8 @@ describe("pad modifiers", () => {
     button.click();
     expect(button.getAttribute("aria-pressed")).toBe("true");
     button.click();
+    expect(button.dataset.locked).toBe("true");
+    button.click();
     expect(button.getAttribute("aria-pressed")).toBe("false");
     button.remove();
   });

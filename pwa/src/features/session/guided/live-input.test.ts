@@ -142,3 +142,16 @@ describe("LiveInputPump", () => {
     expect(errors).toEqual([]);
   });
 });
+
+test("encoded chords keep original preview and failure recovery text", async () => {
+  const run = harness();
+  run.pump.enqueue("b", "\x1bb");
+  run.pump.enqueue("c", "\x03");
+  expect(run.pump.snapshot().visibleText).toBe("bc");
+  run.scheduled.shift()!();
+  expect(run.requests[0]!.text).toBe("\x1bb\x03");
+  run.pump.enqueue("f", "\x1bf");
+  run.requests[0]!.done.reject(new Error("failed"));
+  await microtasks();
+  expect(run.failures[0]!.input).toEqual({ failedText: "bc", queuedText: "f" });
+});

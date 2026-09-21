@@ -14,6 +14,7 @@ import {
   notifyFullTerminalKeyboard,
   subscribeFullTerminalKeyboard,
 } from "./full-terminal-input";
+import { useModifierScope } from "../keypad/modifier-scope";
 import { bindPadPress } from "../keypad/key-press";
 import {
   PRIMARY_KEYS,
@@ -22,6 +23,7 @@ import {
   bindModifier,
   clearModifiers,
   modifierIsActive,
+  modifierIsLocked,
   modifierSnapshot,
   subscribeModifiers,
   withModifiers,
@@ -55,14 +57,21 @@ function FullTerminalKeyButton({ spec, onKey }: { spec: KeySpec; onKey: (key: st
     }, { repeat: spec.repeat === true });
     return destroy;
   }, [spec.key, spec.modifier, spec.repeat]);
+  const locked = Boolean(spec.modifier && modifierIsLocked(spec.modifier));
   const latched = Boolean(spec.modifier && modifierIsActive(spec.modifier));
   return <button
     ref={ref}
     type="button"
-    className={spec.modifier ? `key key-mod${latched ? " on" : ""}` : "key"}
+    className={spec.modifier ? `key key-mod${latched ? " on" : ""}${locked ? " is-locked" : ""}` : "key"}
     aria-label={keyAria(spec)}
+    data-locked={spec.modifier ? String(locked) : undefined}
+    title={spec.modifier ? t(locked ? "keys.modifierLocked" : "keys.modifierHint") : undefined}
+    aria-description={spec.modifier ? t(locked ? "keys.modifierLocked" : "keys.modifierHint") : undefined}
     aria-pressed={spec.modifier ? (latched ? "true" : "false") : undefined}
-  >{spec.label ?? ""}</button>;
+  >{spec.label ?? ""}{locked && <svg className="key-lock" aria-hidden="true" viewBox="0 0 16 16">
+    <rect x="3" y="7" width="10" height="7" rx="2" />
+    <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+  </svg>}</button>;
 }
 
 function KeyRow({ specs, label, extra, onKey }: {
@@ -111,6 +120,7 @@ function FullTerminalPadControls({
   optionsRef: { current: FullTerminalControlsOptions };
   padRef: { current: HTMLDivElement | null };
 }) {
+  useModifierScope();
   useSyncExternalStore(subscribeModifiers, modifierSnapshot, modifierSnapshot);
   const [, bump] = useState(0);
   const restoreCompose = (): void => {

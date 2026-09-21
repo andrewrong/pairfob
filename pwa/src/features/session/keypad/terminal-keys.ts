@@ -25,6 +25,10 @@ export function encodeTerminalKey(key: string, applicationCursor = false): strin
   else if (/^[a-z]$/i.test(key)) bytes = ctrl
     ? String.fromCharCode(key.toLowerCase().charCodeAt(0) - 96)
     : shift ? key.toUpperCase() : key;
+  else if (ctrl && /^[ @\[\\\]\^_]$/.test(key)) bytes = String.fromCharCode(key.charCodeAt(0) & 0x1f);
+  else if (ctrl && key === "?") bytes = "\x7f";
+  else if (ctrl && /^[3-7]$/.test(key)) bytes = String.fromCharCode(Number(key) + 24);
+  else if (ctrl && key === "8") bytes = "\x7f";
   else if (!ctrl && Array.from(key).length === 1) bytes = shift ? key.toUpperCase() : key;
   else return "";
   return (alt ? "\x1b" : "") + bytes;

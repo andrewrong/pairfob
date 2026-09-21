@@ -10,7 +10,6 @@ import { CompletionCount } from "./herd-controls";
 import type { HerdActions } from "../actions";
 import type { HerdViewModel } from "../model/herd-view";
 import { HerdList } from "./herd-list";
-import type { AttentionFilter } from "../attention-filter";
 
 function HerdTopActions({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
   return (
@@ -50,17 +49,17 @@ export function HerdScreen({
   actions: HerdActions;
   variant: "page" | "rail";
 }) {
-  const [filter, setFilter] = useState<AttentionFilter>("all");
+  const [finishedRequest, setFinishedRequest] = useState(0);
   const root = useRef<HTMLElement>(null);
   const revealFinished = useRef(false);
   useLayoutEffect(() => {
-    if (!revealFinished.current || filter !== "finished") return;
+    if (!revealFinished.current) return;
     const target = root.current?.querySelector<HTMLElement>(".card.status-done .card-main");
     if (!target) return;
     revealFinished.current = false;
     target.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
     target.focus({ preventScroll: true });
-  }, [filter, view]);
+  }, [finishedRequest, view]);
   const showFinished = () => {
     const collapsed = { ...preferencesStore.get().listGroupCollapsed };
     for (const group of view.groups) {
@@ -68,7 +67,7 @@ export function HerdScreen({
     }
     setListGroupCollapsed(collapsed);
     revealFinished.current = true;
-    setFilter("finished");
+    setFinishedRequest((request) => request + 1);
   };
   const chrome = (
     <>
@@ -83,7 +82,7 @@ export function HerdScreen({
       </p>
       <HerdBanners tone={view.status.tone} />
       {variant === "page" ? <AppNotice /> : null}
-      <HerdList view={view} actions={actions} filter={filter} onFilter={setFilter} />
+      <HerdList view={view} actions={actions} />
     </>
   );
   const bindRoot = (node: HTMLElement | null) => { root.current = node; };

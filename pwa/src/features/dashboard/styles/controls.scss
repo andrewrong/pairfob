@@ -24,49 +24,7 @@
     margin-top: 10px;
   }
 
-  .attention-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 12px 0 4px;
-    padding: 2px 1px 6px;
-  }
 
-  .attention-filter {
-    min-height: 44px;
-    flex: 1 1 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 0 12px;
-    background: var(--surface);
-    color: var(--muted);
-    font: inherit;
-  }
-
-  .attention-filter[aria-checked="true"] {
-    border-color: var(--ink);
-    color: var(--ink);
-    background: rgba(233, 237, 243, 0.07);
-  }
-
-  .attention-filter-count {
-    min-width: 1.25em;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-    opacity: .72;
-  }
-
-  .attention-empty {
-    display: grid;
-    justify-items: center;
-    gap: 12px;
-    padding: 34px 12px;
-    color: var(--muted);
-    text-align: center;
-  }
 }
 
 @mixin herd-done-count {

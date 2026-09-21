@@ -28,6 +28,7 @@ export type LiveInputPumpOptions = {
  */
 export class LiveInputPump {
   private queuedText = "";
+  private queuedBytes = "";
   private inFlightText = "";
   private scheduled: unknown | null = null;
   private sending: Promise<unknown> | null = null;
@@ -37,9 +38,10 @@ export class LiveInputPump {
 
   constructor(private readonly options: LiveInputPumpOptions) {}
 
-  enqueue(text: string): boolean {
+  enqueue(text: string, bytes = text): boolean {
     if (!text || this.stopped || this.failed) return false;
     this.queuedText += text;
+    this.queuedBytes += bytes;
     this.notify();
     if (!this.sending && this.scheduled === null) {
       this.scheduled = this.options.schedule(() => {
@@ -64,6 +66,7 @@ export class LiveInputPump {
     this.stopped = true;
     this.cancelScheduled();
     this.queuedText = "";
+    this.queuedBytes = "";
     this.inFlightText = "";
     this.sending = null;
     this.notify();
@@ -89,13 +92,15 @@ export class LiveInputPump {
   private drain(): void {
     if (this.stopped || this.failed || this.sending || !this.queuedText) return;
     const text = this.queuedText;
+    const bytes = this.queuedBytes;
     this.queuedText = "";
+    this.queuedBytes = "";
     this.inFlightText = text;
     this.notify();
 
     let request: Promise<unknown>;
     try {
-      request = Promise.resolve(this.options.send(text));
+      request = Promise.resolve(this.options.send(bytes));
     } catch (error) {
       this.fail(error, text);
       return;
@@ -132,6 +137,7 @@ export class LiveInputPump {
     this.sending = null;
     this.inFlightText = "";
     this.queuedText = "";
+    this.queuedBytes = "";
     this.failed = true;
     this.cancelScheduled();
     this.notify();

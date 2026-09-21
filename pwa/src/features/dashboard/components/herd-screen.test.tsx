@@ -186,63 +186,30 @@ describe("herd screen presentation", () => {
     expect([...app().querySelectorAll(".topbar-actions button")]).toHaveLength(2);
   });
 
-  test("filters remain accessible, reversible, and keep card actions", () => {
+  test("shows every task status without status filter pills and keeps card actions", () => {
     paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("run", "alpha", "working"), agent("done", "alpha", "done")] }));
-    const controls = [...app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')];
-    expect(app().querySelector('.attention-filters[role="radiogroup"]')?.getAttribute("aria-label")).toBe(t("filter.aria"));
-    expect(controls.map((node) => node.textContent)).toEqual(["全部3", "等你处理1", "刚完成1", "执行中1", "待检查0"]);
-    act(() => controls[1]!.click());
-    expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent)).toEqual(["wait"]);
+    expect(app().querySelector(".attention-filters")).toBeNull();
+    expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent).sort()).toEqual(["done", "run", "wait"]);
     act(() => cardMain("wait").click());
     expect(calls).toEqual(["openPane:wait:card-title"]);
-    act(() => controls[4]!.click());
-    expect(app().querySelector(".attention-empty")?.textContent).toContain(t("filter.empty"));
-    act(() => app().querySelector<HTMLButtonElement>(".attention-empty button")!.click());
-    expect([...app().querySelectorAll(".card-name")]).toHaveLength(3);
   });
 
-  test("filter radios use roving focus and standard keyboard selection", () => {
-    paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("run", "alpha", "working")] }));
-    const controls = () => [...app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')];
-    controls()[0]!.focus();
-    act(() => controls()[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
-    expect(controls()[1]!.getAttribute("aria-checked")).toBe("true");
-    expect(controls()[1]!.tabIndex).toBe(0);
-    expect(document.activeElement).toBe(controls()[1]);
-    act(() => controls()[1]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })));
-    expect(document.activeElement).toBe(controls()[4]);
-    act(() => controls()[4]!.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true })));
-    expect(controls()[0]!.getAttribute("aria-checked")).toBe("true");
-    act(() => controls()[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })));
-    expect(document.activeElement).toBe(controls()[4]);
-    act(() => controls()[4]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })));
-    expect(document.activeElement).toBe(controls()[3]);
-    act(() => controls()[3]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })));
-    expect(document.activeElement).toBe(controls()[4]);
-  });
-
-  test("completion count leaves checking, reveals results, and focuses a completed card", () => {
+  test("completion count focuses a completed card without hiding other tasks", () => {
     const checking = { ...agent("check", "alpha", "idle"), interactiveReady: false };
     paint(model({
       listGroup: "space",
       agents: [checking, agent("done", "beta", "done")],
       groupCollapsed: {},
     }));
-    const filters = [...app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')];
-    act(() => filters[4]!.click());
-    expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent)).toEqual(["check"]);
     act(() => app().querySelector<HTMLButtonElement>(".done-count")!.click());
-    expect(filters[2]!.getAttribute("aria-checked")).toBe("true");
-    expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent)).toEqual(["done"]);
+    expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent).sort()).toEqual(["check", "done"]);
     expect(document.activeElement).toBe(app().querySelector(".card.status-done .card-main"));
   });
 
-  test("filtered grouped results still honor collapse and expand actions", () => {
+  test("grouped results still honor collapse and expand actions", () => {
     const checking = { ...agent("check", "alpha", "idle"), interactiveReady: false };
     const input = { listGroup: "space" as const, agents: [checking], groupCollapsed: {} };
     paint(model(input));
-    const checkingFilter = app().querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')[4]!;
-    act(() => checkingFilter.click());
     const heading = app().querySelector<HTMLButtonElement>(".group-title")!;
     expect(heading.getAttribute("aria-expanded")).toBe("true");
     act(() => heading.click());

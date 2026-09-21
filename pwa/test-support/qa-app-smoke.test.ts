@@ -245,26 +245,24 @@ test("every scene renders: 62 through the stable App (incl. mock-engine terminal
   expect(appRendered.length + shellRendered.length).toBe(64);
 }, 180_000);
 
-test("attention QA scenes drive rich labels, ordering, and runtime replacement through App", async () => {
+test("attention QA scenes show all statuses and runtime replacement without filter pills", async () => {
   const first = await prepareScene("attention-rich");
   try {
     const copy = document.querySelector("#app")?.textContent ?? "";
     expect(copy).toContain(t("status.starting"));
     expect(copy).toContain(t("status.notReady"));
     expect(copy).toContain(t("status.ready"));
-    const finished = [...document.querySelectorAll<HTMLButtonElement>('[role="radio"]')]
-      .find((button) => button.textContent?.includes(t("filter.finished")))!;
-    await act(async () => { finished.click(); await Promise.resolve(); });
-    expect([...document.querySelectorAll(".card-name")].map((node) => node.textContent))
-      .toEqual(["done-new", "done-old"]);
+    expect(document.querySelector(".attention-filters")).toBeNull();
+    const names = [...document.querySelectorAll(".card-name")].map((node) => node.textContent);
+    expect(names).toContain("done-new");
+    expect(names).toContain("done-old");
+    expect(names.length).toBeGreaterThan(2);
   } finally {
     await teardownScene(first, false);
   }
   const updated = await prepareScene("attention-rich-updated");
   try {
-    const all = [...document.querySelectorAll<HTMLButtonElement>('.attention-filters [role="radio"]')]
-      .find((button) => button.textContent?.includes(t("filter.all")))!;
-    await act(async () => { all.click(); await Promise.resolve(); });
+    expect(document.querySelector(".attention-filters")).toBeNull();
     expect(document.querySelector("#app")?.textContent).toContain(t("status.ready"));
     expect(document.querySelectorAll(".card")).toHaveLength(8);
   } finally {

@@ -36,7 +36,9 @@ const BATCH_MS = 55;
 let pending: string[] = [];
 let pendingPane = "";
 let batchTimer: number | null = null;
-let flushing = false;
+let pendingSession: ReturnType<typeof liveSession> = null;
+let queueGeneration = 0;
+let flushing: Promise<void> | null = null;
 const pagePending = new Map<string, { up: number; down: number }>();
 let pagePendingRevision = 0;
 const pagePendingListeners = new Set<() => void>();
@@ -90,9 +92,10 @@ export function queueKey(key: string, source?: HTMLElement | null): void {
   if (!liveSession() || !openPaneId()) return;
   const mapped = withModifiers(key);
   if (!mapped.length) return;
-  if (pendingPane && pendingPane !== openPaneId()) dropQueuedKeys();
+  if (pendingPane && (pendingPane !== openPaneId() || pendingSession !== liveSession())) dropQueuedKeys();
   const wasEmpty = pending.length === 0;
   pendingPane = openPaneId();
+  pendingSession = liveSession();
   pending.push(...mapped);
   haptic(4, source);
   // Fired here rather than on pointerdown: the spark should only promise a key
@@ -112,48 +115,69 @@ export function queueKey(key: string, source?: HTMLElement | null): void {
   if (batchTimer === null) batchTimer = window.setTimeout(() => void flushKeys(), BATCH_MS);
 }
 
-export async function flushKeys(): Promise<void> {
+/** Resolve only after every queued batch in this ownership generation settles. */
+export function flushKeys(): Promise<void> {
   if (batchTimer !== null) {
     clearTimeout(batchTimer);
     batchTimer = null;
   }
-  if (flushing || !pending.length) return;
-  const session = liveSession();
-  const paneId = pendingPane;
-  if (!session || !paneId || paneId !== openPaneId()) {
+  if (pendingPane && (pendingSession !== liveSession() || pendingPane !== openPaneId())) {
     dropQueuedKeys();
-    return;
   }
-  const raw = requiresTerminalText(pending[0]);
-  let count = 1;
-  while (count < Math.min(pending.length, MAX_BATCH) && requiresTerminalText(pending[count]) === raw) count++;
-  const keys = pending.slice(0, count);
-  pending = pending.slice(keys.length);
-  flushing = true;
-  try {
-    const mutationStartedAt = nowMs();
-    // Each key batch writes one encrypted frame. Queueing PaneRead
-    // immediately afterwards preserves daemon session order while avoiding a
-    // second cross-region round trip after the mutation acknowledgement.
-    const mutation = raw
-      ? session.sendText(paneId, keys.map(key => encodeTerminalKey(key)).join(""))
-      : session.sendKeys(paneId, keys, { intent: "pad" });
-    const read = requestPaneRefresh({ notBefore: mutationStartedAt, postponeFallback: true });
-    void read.catch(() => undefined);
-    await mutation;
-    if (keys.includes("enter")) markPaneSubmitted(paneId);
-    clearNotice();
-    await read;
-  } catch (error) {
+  if (flushing) return flushing;
+  if (!pending.length) return Promise.resolve();
+  const session = pendingSession;
+  const paneId = pendingPane;
+  if (!session || !paneId) {
     dropQueuedKeys();
-    await reportMutationError(session, error);
-  } finally {
-    flushing = false;
-    if (pending.length) void flushKeys();
+    return Promise.resolve();
+  }
+  const generation = queueGeneration;
+  const ownsQueue = () => queueGeneration === generation && liveSession() === session && openPaneId() === paneId;
+  // Publish the shared promise before dispatch: a transport may throw synchronously.
+  let resolve!: () => void;
+  let reject!: (error: unknown) => void;
+  const completion = new Promise<void>((done, fail) => { resolve = done; reject = fail; });
+  flushing = completion;
+  void drain(session).then(resolve, reject);
+  return completion;
+
+  async function drain(session: NonNullable<ReturnType<typeof liveSession>>): Promise<void> {
+    try {
+      while (ownsQueue() && pending.length) {
+        const raw = requiresTerminalText(pending[0]);
+        let count = 1;
+        while (count < Math.min(pending.length, MAX_BATCH) && requiresTerminalText(pending[count]) === raw) count++;
+        const keys = pending.splice(0, count);
+        const mutationStartedAt = nowMs();
+        // Start the ordered read behind the write without another network round trip.
+        const mutation = raw
+          ? session.sendText(paneId, keys.map(key => encodeTerminalKey(key)).join(""))
+          : session.sendKeys(paneId, keys, { intent: "pad" });
+        const read = requestPaneRefresh({ notBefore: mutationStartedAt, postponeFallback: true });
+        void read.catch(() => undefined);
+        await mutation;
+        if (!ownsQueue()) return;
+        if (keys.includes("enter")) markPaneSubmitted(paneId);
+        clearNotice();
+        await read;
+      }
+    } catch (error) {
+      // An old pane/session must never discard or report against a newer queue.
+      if (ownsQueue()) {
+        dropQueuedKeys();
+        await reportMutationError(session, error);
+      }
+    } finally {
+      if (queueGeneration === generation) flushing = null;
+    }
   }
 }
 
 export function dropQueuedKeys(): void {
+  queueGeneration += 1;
+  flushing = null;
+  pendingSession = null;
   pending = [];
   pendingPane = "";
   // Keys that were never sent must not keep showing as if they had been.
@@ -171,8 +195,9 @@ export function queueRepeats(key: string, count: number, source?: HTMLElement | 
   const n = Math.min(Math.max(count, 1), MAX_BATCH);
   for (let i = 0; i < n; i++) {
     if (!liveSession() || !openPaneId()) return;
-    if (pendingPane && pendingPane !== openPaneId()) dropQueuedKeys();
+    if (pendingPane && (pendingPane !== openPaneId() || pendingSession !== liveSession())) dropQueuedKeys();
     pendingPane = openPaneId();
+    pendingSession = liveSession();
     pending.push(...mapped);
     if (i === 0) {
       haptic(4, source);

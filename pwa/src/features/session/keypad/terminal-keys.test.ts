@@ -30,3 +30,18 @@ test("editing chords preserve legacy terminal bytes without substituting readlin
   expect(requiresTerminalText("+")).toBe(false);
   for (const key of ["alt+unknown", "constructor", "__proto__"]) expect(encodeTerminalKey(key)).toBe("");
 });
+
+
+test("Ctrl punctuation and digit aliases encode terminal control bytes", () => {
+  const cases: Array<[string, number]> = [
+    [" ", 0], ["@", 0], ["[", 27], ["\\", 28], ["]", 29], ["^", 30], ["_", 31], ["?", 127],
+    ["3", 27], ["4", 28], ["5", 29], ["6", 30], ["7", 31], ["8", 127],
+  ];
+  for (const [key, code] of cases) {
+    const chord = mapPadKey(key, { ...none, ctrl: true });
+    expect(chord).toEqual([`ctrl+${key}`]);
+    expect(requiresTerminalText(chord[0]!)).toBe(true);
+    expect(encodeTerminalKey(chord[0]!)).toBe(String.fromCharCode(code));
+    expect(encodeTerminalKey(`ctrl+alt+${key}`)).toBe(`\x1b${String.fromCharCode(code)}`);
+  }
+});

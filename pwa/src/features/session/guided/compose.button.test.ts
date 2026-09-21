@@ -18,6 +18,7 @@ const { replaceAgentsFromSnapshot } = await import("../../dashboard/catalog-stor
 const { setPhase } = await import("../../connection/connection-store");
 const { setLang, t } = await import("../../../lib/i18n.ts");
 const { flushLiveInput, handlePaneKey, sendPad, setComposeLive, submitTyped } = await import("./compose.ts");
+const { clearModifiers, pressModifier, releaseModifier } = await import("../keypad/keypad");
 const { dropQueuedKeys, flushKeys } = await import("./keys.ts");
 const { SessionCompose } = await import("./session-compose.tsx");
 
@@ -85,6 +86,7 @@ afterEach(async () => {
   await act(async () => { await flushLiveInput(); });
   unmountReact();
   dropQueuedKeys();
+  clearModifiers();
   setComposeDraft("");
   writeComposeLive(false);
   setDefaultComposeLive(false);
@@ -207,6 +209,27 @@ describe("compose trailing Enter", () => {
     expect(await act(() => flushLiveInput())).toBeTrue();
     expect(sent).toEqual(["hello"]);
     expect(input.placeholder).toBe("实时 · 边打边进终端");
+  });
+
+  test.each([
+    ["alt", "b", "f", "\x1bbf"],
+    ["ctrl", "]", "]", "\x1d]"],
+  ] as const)("%s modifies real-time %s once before batching", async (modifier, first, second, expected) => {
+    const sent: string[] = [];
+    selectPane("p1");
+    attachLiveSession({ isConnected: () => true, sendText: async (_pane: string, text: string) => { sent.push(text); } } as never);
+    mount("", true);
+    const input = appRoot().querySelector("textarea")!;
+    const view = appRoot().ownerDocument.defaultView!;
+    act(() => {
+      pressModifier(modifier); releaseModifier(modifier);
+      input.value = first;
+      input.dispatchEvent(new view.Event("input", { bubbles: true }));
+      input.value = second;
+      input.dispatchEvent(new view.Event("input", { bubbles: true }));
+    });
+    await act(async () => { await flushLiveInput(); });
+    expect(sent).toEqual([expected]);
   });
 
   test("a failed live mutation pauses live mode and restores text for deliberate retry", async () => {

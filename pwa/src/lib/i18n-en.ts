@@ -541,6 +541,8 @@ export const en: { [K in keyof typeof zh]: string } = {
   "key.backspace": "Backspace",
   "keys.primary": "Terminal keys",
   "keys.more": "More terminal keys",
+  "keys.modifierHint": "Double-tap to lock; tap for one key",
+  "keys.modifierLocked": "Locked; tap to unlock",
   "keys.mods": "Modifiers",
   "compose.live": "Live",
   "compose.batch": "Compose",

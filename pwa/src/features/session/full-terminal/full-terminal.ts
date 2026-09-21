@@ -1,3 +1,4 @@
+import { encodeLiveKey } from "../keypad/live-key";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 
@@ -254,7 +255,7 @@ function sendPadKey(key: string, source?: HTMLElement | null): void {
 function bindInput(host: HTMLElement): void {
   const app = appRoot();
   if (!terminal) return;
-  terminal.onData((value) => sendInput(new TextEncoder().encode(value)));
+  terminal.onData((value) => sendInput(new TextEncoder().encode(encodeLiveKey(value))));
   terminal.onBinary((value) => {
     const bytes = new Uint8Array(value.length);
     for (let index = 0; index < value.length; index++) bytes[index] = value.charCodeAt(index) & 0xff;

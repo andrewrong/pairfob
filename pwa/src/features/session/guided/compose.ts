@@ -1,3 +1,4 @@
+import { encodeLiveKey } from "../keypad/live-key";
 import { appRoot } from "../../../app/dom-root";
 import {
   COMPOSE_MAX_PX,
@@ -232,9 +233,11 @@ function typeLive(text: string): boolean {
   const queued = pump.snapshot().queuedText;
   const next = fitOperationPrompt(queued + text).text;
   const accepted = next.startsWith(queued) ? next.slice(queued.length) : "";
-  if (!accepted || !pump.enqueue(accepted)) return false;
+  if (!accepted) return false;
+  const bytes = encodeLiveKey(accepted);
+  if (!pump.enqueue(accepted, bytes)) return false;
   haptic(4);
-  predictText(openPaneId(), accepted, livePaneHash());
+  if (bytes === accepted) predictText(openPaneId(), accepted, livePaneHash());
   return true;
 }
 
