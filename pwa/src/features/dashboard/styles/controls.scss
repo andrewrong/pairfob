@@ -6,20 +6,6 @@
     flex-wrap: wrap;
   }
 
-  .herd-topbar-actions {
-    min-width: 0;
-    flex: 0 1 auto;
-    max-width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .herd-topbar-actions .text-link,
-  .herd-topbar-actions .topbar-create {
-    flex: none;
-    justify-content: center;
-  }
-
   .herd-list .section-title:first-child,
   .herd-list .herd-group:first-child .group-title {
     margin-top: 10px;

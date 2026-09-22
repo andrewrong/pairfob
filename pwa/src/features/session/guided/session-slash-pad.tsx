@@ -1,3 +1,4 @@
+import { SegmentedControl, SegmentedOption } from "../../../shared/ui/primitives";
 import { SLASH_COMMANDS } from "../../../lib/slash-commands";
 import { t } from "../../../lib/i18n";
 import { padKind } from "../../settings/preferences-store";
@@ -6,22 +7,20 @@ import { setComposeText } from "./compose";
 import { PadChromeButton } from "../compose-focus";
 
 export function SessionPadModeBar({ onRepaint }: { onRepaint: () => void }) {
-  return <div className="seg pad-mode" role="radiogroup" aria-label={t("slash.padKind")}>
+  return <SegmentedControl className="pad-mode" aria-label={t("slash.padKind")}>
     {([
       { kind: "keys" as const, label: t("slash.keys") },
       { kind: "slash" as const, label: t("slash.commands") },
     ]).map((option) => {
       const selected = padKind() === option.kind;
-      return <PadChromeButton
+      return <SegmentedOption as={PadChromeButton}
         key={option.kind}
         type="button"
-        className={`seg-item${selected ? " on" : ""}`}
-        role="radio"
-        aria-checked={selected ? "true" : "false"}
+        selected={selected}
         onClick={() => selectPadKind(option.kind, onRepaint)}
-      >{option.label}</PadChromeButton>;
+      >{option.label}</SegmentedOption>;
     })}
-  </div>;
+  </SegmentedControl>;
 }
 
 export function SessionSlashPad({ onSelect = setComposeText }: { onSelect?: (text: string) => void }) {

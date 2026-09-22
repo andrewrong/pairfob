@@ -1,3 +1,4 @@
+import { SegmentedControl } from "../../../shared/ui/primitives";
 import { boardLayouts } from "../../board/layout-store";
 import { composeLive } from "../compose-store";
 import { operationCapabilities } from "../../operations/capabilities-store";
@@ -51,32 +52,32 @@ export function openPaneMenu(): void {
   };
   showActionSheet(t("pane.menuTitle"), modal => <>
     <h3 className="menu-section-title">{t("pane.sectionMode")}</h3>
-    <div className="seg menu-mode" role="radiogroup" aria-label={t("mode.aria")}>
+    <SegmentedControl className="menu-mode" activation="manual" aria-label={t("mode.aria")}>
       {TERM_MODE_OPTIONS.map(mode => <MenuRadio key={mode} modal={modal} label={TERM_MODE_LABEL[mode]} aria={TERM_MODE_MENU[mode]}
         selected={currentMode === mode} disabled={mode === "agent" && currentMode !== mode && !canEnterAgentChat()}
         action={() => selectPaneTermMode(mode)} />)}
-    </div>
+    </SegmentedControl>
     <p className="empty-sub">{t("mode.autoHint")}</p>
     {isFullTerminal() && <>
       <ActionSection modal={modal} title={t("pane.termSection")} entries={[{ label: t("pane.reconnect"), run: retryFullTerminal }]} />
       <h3 className="menu-section-title">{t("pane.width")}</h3>
-      <div className="seg menu-mode" role="radiogroup" aria-label={t("pane.width")}>
+      <SegmentedControl className="menu-mode" activation="manual" aria-label={t("pane.width")}>
         <MenuRadio modal={modal} label={t("pane.fit")} aria={t("pane.fitAria")} selected={termFit() === "fit"} action={() => setTermFit("fit")} />
         {TERM_COL_PRESETS.map(cols => <MenuRadio key={cols} modal={modal} label={t("pane.colsShort", { cols })}
           aria={t("pane.panColsAria", { cols })} selected={termFit() === "pan" && termCols() === cols} action={() => setTermFit("pan", cols)} />)}
-      </div>
+      </SegmentedControl>
     </>}
     {!caps.zoom_pane && split && <p className="empty-sub">{t("pane.splitUnsupported")}</p>}
     {!isAgentChat() && <>
       <h3 className="menu-section-title">{t("menu.input")}</h3>
-      <div className="seg menu-mode" role="radiogroup" aria-label={t("pane.inputAria")}>
+      <SegmentedControl className="menu-mode" activation="manual" aria-label={t("pane.inputAria")}>
         {[{ live: false, label: t("compose.batch"), aria: t("pane.composeAria") },
           { live: true, label: t("compose.live"), aria: t("pane.liveAria") }].map(option => <MenuRadio key={String(option.live)} modal={modal}
           label={option.label} aria={option.aria} selected={composeLive() === option.live} action={() => {
             if (isFullTerminal()) setFullTerminalComposeLive(option.live);
             else void setComposeLive(option.live);
           }} />)}
-      </div>
+      </SegmentedControl>
       <ActionSection modal={modal} title={t("menu.display")} entries={[
         ...(!isFullTerminal() ? [{ label: t(termWrap() ? "pane.unwrap" : "menu.wrap"), run: toggleTermWrap }] : []),
         { label: t("menu.selectText"), run: () => toggleTermSelect(true) },

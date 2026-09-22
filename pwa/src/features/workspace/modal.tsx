@@ -1,10 +1,8 @@
-import { useLayoutEffect, useRef, type FormEvent, type ReactNode } from "react";
+import { useRef, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { t } from "../../lib/i18n";
-import { bindSheetDrag } from "../../shared/ui/overlay/sheet-drag";
+import { useDialogLifecycle } from "../../shared/ui/overlay/dialog-lifecycle";
+import { SheetContent } from "../../shared/ui/overlay/sheet-content";
 import { Button } from "../../shared/ui/primitives";
-
-const OPEN_GESTURE_MS = 400;
 
 type WorkspaceDialogProps = {
   className: string;
@@ -24,44 +22,12 @@ export function WorkspaceDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const openedAt = useRef(0);
-  const trigger = useRef<HTMLElement | null>(null);
-  const onDismissRef = useRef(onDismiss);
-  const initialFocusRef = useRef(initialFocus);
-  onDismissRef.current = onDismiss;
-  initialFocusRef.current = initialFocus;
-
-  useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    const form = formRef.current;
-    if (!dialog) return;
-    trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    openedAt.current = performance.now();
-    const closed = () => onDismissRef.current();
-    dialog.addEventListener("close", closed);
-    dialog.showModal();
-    const focus = initialFocusRef.current?.() ?? form?.querySelector<HTMLButtonElement>("button:not(:disabled):not(.sheet-close)");
-    focus?.focus();
-    const disposeDrag = sheet && form
-      ? bindSheetDrag({ dialog, form, scroller: bodyRef.current, close: () => onDismissRef.current() })
-      : undefined;
-    return () => {
-      dialog.removeEventListener("close", closed);
-      disposeDrag?.();
-      if (dialog.open) dialog.close();
-      document.body.classList.remove("sheet-open", "sheet-dragging");
-      document.body.style.removeProperty("--sheet-lift");
-      const restore = trigger.current;
-      queueMicrotask(() => {
-        if (restore?.isConnected) restore.focus({ preventScroll: true });
-      });
-    };
-  }, [sheet]);
-
-  const guardedDismiss = () => {
-    if (performance.now() - openedAt.current < OPEN_GESTURE_MS) return;
-    onDismiss();
-  };
+  useDialogLifecycle({ dialog: dialogRef, onDismiss, onClose: onDismiss, restoreFocus: true,
+    sheet: sheet ? { form: formRef, scroller: bodyRef } : undefined,
+    focus: () => {
+      const target = initialFocus?.() ?? formRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled):not(.sheet-close)");
+      target?.focus();
+    } });
 
   return createPortal(
     <dialog
@@ -69,14 +35,6 @@ export function WorkspaceDialog({
       className={className}
       data-react-modal=""
       aria-labelledby={titleId}
-      onCancel={(event) => {
-        event.preventDefault();
-        guardedDismiss();
-      }}
-      onClick={(event) => {
-        if (event.target !== dialogRef.current) return;
-        guardedDismiss();
-      }}
     >
       <form
         ref={formRef}
@@ -86,16 +44,9 @@ export function WorkspaceDialog({
           else event.preventDefault();
         }}
       >
-        {sheet && <div className="sheet-grab" aria-hidden="true"><span className="sheet-grab-bar" /></div>}
-        {sheet ? (
-          <>
-            <div className="sheet-head">
-              <h2 className="modal-title" id={titleId}>{title}</h2>
-              <Button className="icon-btn sheet-close" aria-label={t("close")} onClick={onDismiss}>×</Button>
-            </div>
-            <div ref={bodyRef} className="sheet-body">{children}</div>
-          </>
-        ) : children}
+        {sheet ? <SheetContent title={title ?? ""} titleId={titleId} onDismiss={onDismiss} bodyRef={bodyRef}>
+          {children}
+        </SheetContent> : children}
       </form>
     </dialog>,
     document.body,

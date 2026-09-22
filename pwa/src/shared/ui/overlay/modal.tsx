@@ -1,4 +1,5 @@
-import { createRef, useLayoutEffect, type FormEventHandler, type ReactNode, type RefObject } from "react";
+import { useDialogLifecycle } from "./dialog-lifecycle";
+import { createRef, type FormEventHandler, type ReactNode, type RefObject } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 
@@ -83,28 +84,8 @@ export function ModalFrame<T>({ modal, title, className = "modal", heading, chil
   describedBy?: string;
   focus?: (form: HTMLFormElement) => void;
 }) {
-  useLayoutEffect(() => {
-    const dialog = modal.dialog.current!;
-    const openedAt = performance.now();
-    const cancel = (event: Event) => {
-      event.preventDefault();
-      if (performance.now() - openedAt >= 400) modal.dismiss();
-    };
-    const backdrop = (event: MouseEvent) => {
-      if (event.target === dialog) cancel(event);
-    };
-    dialog.addEventListener("cancel", cancel);
-    dialog.addEventListener("click", backdrop);
-    dialog.addEventListener("close", modal.finish);
-    dialog.showModal();
-    focus?.(modal.form.current!);
-    return () => {
-      dialog.removeEventListener("cancel", cancel);
-      dialog.removeEventListener("click", backdrop);
-      dialog.removeEventListener("close", modal.finish);
-      if (dialog.open) dialog.close();
-    };
-  }, [modal]);
+  useDialogLifecycle({ dialog: modal.dialog, onDismiss: modal.dismiss, onClose: modal.finish,
+    focus: () => { if (modal.form.current) focus?.(modal.form.current); } });
   return <dialog ref={modal.dialog} className={className} aria-labelledby={modal.titleId}
     aria-describedby={describedBy} data-react-modal="">
     <form ref={modal.form} method="dialog" onSubmit={onSubmit ?? (event => event.preventDefault())} onInput={onInput}>

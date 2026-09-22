@@ -5,7 +5,7 @@ import { listGroup, preferencesStore, setListGroup, setListGroupCollapsed } from
 import { groupAgents, syncGroupCollapsed, type ListGroup } from "../../../lib/ranking";
 import { t } from "../../../lib/i18n";
 // Temporary shared-UI paths: the primitives are the approved shared surface.
-import { Button } from "../../../shared/ui/primitives";
+import { Button, SegmentedControl, SegmentedOption } from "../../../shared/ui/primitives";
 import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
 
 /**
@@ -52,19 +52,17 @@ export function chooseListGroup(id: ListGroup): void {
 export function ListGroupControl() {
   const group = useSyncExternalStore(preferencesStore.subscribe, listGroup);
   return (
-    <div className="seg" role="radiogroup" aria-label={t("list.groupAria")}>
+    <SegmentedControl aria-label={t("list.groupAria")}>
       {GROUP_OPTIONS.map((option) => (
-        <Button
+        <SegmentedOption
           key={option.id}
-          role="radio"
-          aria-checked={group === option.id}
-          className={`seg-item${group === option.id ? " on" : ""}`}
+          selected={group === option.id}
           onClick={() => chooseListGroup(option.id)}
         >
           {t(option.key)}
-        </Button>
+        </SegmentedOption>
       ))}
-    </div>
+    </SegmentedControl>
   );
 }
 

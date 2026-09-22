@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { Brand, Button, StatusDot } from "../../../shared/ui/primitives";
+import { Brand, Button, StatusDot, TopbarActions } from "../../../shared/ui/primitives";
 import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
 import { preferencesStore, setListGroupCollapsed } from "../../settings/preferences-store";
 // AppNotice is the connected App notice (chrome barrel seam); HerdBanners is the
@@ -13,7 +13,7 @@ import { HerdList } from "./herd-list";
 
 function HerdTopActions({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
   return (
-    <div className="topbar-actions herd-topbar-actions">
+    <TopbarActions className="herd-topbar-actions">
       {view.create && (
         <Button
           className="topbar-create"
@@ -29,7 +29,7 @@ function HerdTopActions({ view, actions }: { view: HerdViewModel; actions: HerdA
       )}
       <Button className="text-link" onClick={actions.openBoard}>{view.board.label}</Button>
       <Button className="text-link" onClick={actions.openSettings}>{view.settings.label}</Button>
-    </div>
+    </TopbarActions>
   );
 }
 

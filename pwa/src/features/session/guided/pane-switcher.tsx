@@ -7,7 +7,7 @@ import { useDashboard } from "../../dashboard/hooks";
 import { usePreferences } from "../../settings/hooks";
 import { useSession } from "../hooks";
 import { openPaneId } from "../session-store";
-import { Chevron, EmptyState } from "../../../shared/ui/primitives";
+import { SelectionRow, EmptyState } from "../../../shared/ui/primitives";
 import { MenuItem, showActionSheet, type ActionSheetController } from "../../../shared/ui/overlay/action-sheet";
 
 /**
@@ -29,13 +29,13 @@ function PaneSwitcherBody({ modal }: { modal: ActionSheetController }): ReactEle
   return <>
     <div className="switch-list">{agents.length ? agents.map((agent) => {
       const meta = [statusLabel(agent.status), agentMeta(agent, group)].filter(Boolean).join(" · ");
-      return <button key={agent.paneId} type="button" className={`switch-item${agent.paneId === session.paneId ? " on" : ""}`}
-        onClick={() => modal.close(() => { if (agent.paneId !== openPaneId()) void openPane(agent.paneId); })}>
-        <span className="switch-main"><span className="switch-head">
+      return <SelectionRow key={agent.paneId} selected={agent.paneId === session.paneId}
+        onClick={() => modal.close(() => { if (agent.paneId !== openPaneId()) void openPane(agent.paneId); })}
+        title={agentTitle(agent, group)} description={meta}
+        titleLeading={<>
           {paneIsPinned(preferences.panePinned, agent.paneId) && <span className="pin-mark" aria-hidden="true" />}
-          <span className={`agent-dot agent-${agent.status}`} /><span className="switch-name">{agentTitle(agent, group)}</span>
-        </span>{meta && <span className="switch-meta">{meta}</span>}</span><Chevron />
-      </button>;
+          <span className={`agent-dot agent-${agent.status}`} />
+        </>} />;
     }) : <EmptyState spec={{ figure: "link", title: t("home.switcherEmptyTitle"), sub: t("home.switcherEmpty") }} />}</div>
     <MenuItem modal={modal}>{t("cancel")}</MenuItem>
   </>;

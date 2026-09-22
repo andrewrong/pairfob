@@ -8,7 +8,7 @@ import { QuotaPanelView } from "../../features/agent-quota/quota-panel-view";
 import { quotaSnapshot, subscribeQuota } from "../../features/agent-quota/store";
 import { t } from "../../lib/i18n";
 import type { LiveSession } from "../../lib/protocol/session-types";
-import { BackBar, Button } from "../../shared/ui/primitives";
+import { BackBar, Button, TopbarActions } from "../../shared/ui/primitives";
 
 /**
  * Quota page composition.
@@ -54,14 +54,14 @@ export function QuotaContent() {
           commitView();
         }}
       >
-        <div className="topbar-actions">
+        <TopbarActions>
           <Button
             className="topbar-create quota-refresh"
             disabled={loading || session?.isConnected() !== true}
             aria-busy={loading}
             onClick={() => void refreshAgentQuota()}
           >{t(loading ? "quota.loading" : "quota.refresh")}</Button>
-        </div>
+        </TopbarActions>
       </BackBar>
       <QuotaPanelView panel={panel} />
     </>

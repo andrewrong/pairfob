@@ -28,7 +28,7 @@ import { herdStatusOf } from "../../features/connection/herd-status";
 import { AgentQuotaSummary } from "../../pages/quota/quota-summary";
 import { AppNotice } from "../../app/notice";
 import { ListGroupControl } from "../../features/dashboard/components/herd-controls";
-import { BackBar, Button, EmptyState, Feedback, SetHeading, SetNavRow, SetRow } from "../../shared/ui/primitives";
+import { BackBar, Button, SegmentedControl, SegmentedOption, EmptyState, Feedback, SetHeading, SetNavRow, SetRow } from "../../shared/ui/primitives";
 import { LanguageControl } from "../../features/settings/language";
 import { DaemonUpdate } from "../../features/settings/daemon-update-view";
 import { settingsNetworkHelp, settingsNetworkP2PFail, settingsNetworkPath } from "../../features/settings/model";
@@ -50,49 +50,45 @@ function useLang(): void {
 
 function NetworkModeControl({ connection }: { connection: ConnectionRecord }) {
   return (
-    <div className="seg" role="radiogroup" aria-label={t("settings.networkAria")} aria-busy={connection.transportSwitching || undefined}>
+    <SegmentedControl aria-label={t("settings.networkAria")} aria-busy={connection.transportSwitching || undefined}>
       {NETWORK_MODE_OPTIONS.map((id) => {
         const selected = connection.networkMode === id;
         return (
-          <Button
+          <SegmentedOption
             key={id}
-            className={`seg-item${selected ? " on" : ""}`}
-            role="radio"
-            aria-checked={selected}
+            selected={selected}
             disabled={id === "p2p" && !connection.p2pEnabled}
             onClick={() => void selectNetworkMode(id)}
-          >{t(NETWORK_MODE_COPY[id])}</Button>
+          >{t(NETWORK_MODE_COPY[id])}</SegmentedOption>
         );
       })}
-    </div>
+    </SegmentedControl>
   );
 }
 
 function DefaultTermModeControl({ defaultTermMode }: { defaultTermMode: TermMode }) {
   return (
-    <div className="seg" role="radiogroup" aria-label={t("mode.defaultAria")}>
+    <SegmentedControl aria-label={t("mode.defaultAria")}>
       {TERM_MODE_OPTIONS.map((id) => {
         const selected = defaultTermMode === id;
         return (
-          <Button
+          <SegmentedOption
             key={id}
-            className={`seg-item${selected ? " on" : ""}`}
-            role="radio"
-            aria-checked={selected}
+            selected={selected}
             onClick={() => {
               if (defaultTermMode === id) return;
               setDefaultTermMode(id);
             }}
-          >{TERM_MODE_LABEL[id]}</Button>
+          >{TERM_MODE_LABEL[id]}</SegmentedOption>
         );
       })}
-    </div>
+    </SegmentedControl>
   );
 }
 
 function ComposeLiveControl({ defaultComposeLive }: { defaultComposeLive: boolean }) {
   return (
-    <div className="seg compose-live" role="radiogroup" aria-label={t("pane.inputAria")}>
+    <SegmentedControl className="compose-live" aria-label={t("pane.inputAria")}>
       {(
         [
           { live: false, label: t("compose.batch") },
@@ -101,20 +97,18 @@ function ComposeLiveControl({ defaultComposeLive }: { defaultComposeLive: boolea
       ).map((option) => {
         const selected = defaultComposeLive === option.live;
         return (
-          <Button
+          <SegmentedOption
             key={option.live ? "1" : "0"}
-            className={`seg-item${selected ? " on" : ""}`}
             data-live={option.live ? "1" : "0"}
-            role="radio"
-            aria-checked={selected}
+            selected={selected}
             onClick={() => {
               if (defaultComposeLive === option.live) return;
               setDefaultComposeLive(option.live);
             }}
-          >{option.label}</Button>
+          >{option.label}</SegmentedOption>
         );
       })}
-    </div>
+    </SegmentedControl>
   );
 }
 

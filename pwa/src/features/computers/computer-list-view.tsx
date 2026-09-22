@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { BackBar, Brand, Button, Chevron } from "../../shared/ui/primitives";
+import { BackBar, Brand, Button, SelectionRow } from "../../shared/ui/primitives";
 import type { ComputersViewModel } from "./model";
 
 /**
@@ -31,30 +31,15 @@ export function ComputerListView({ view, onSwitch, onForget, onAdd, onBack, noti
       <div className="computer-list">
         {view.rows.map(row => (
           <div className="computer-row" key={row.daemonId}>
-            <Button className={`switch-item${row.current ? " on" : ""}`} onClick={() => onSwitch(row.daemonId)}>
-              <span className="switch-main">
-                <span className="switch-head">
-                  <span className="switch-name">{row.title}</span>
-                  {row.currentPill ? <span className="pill pill-live">{row.currentPill}</span> : null}
-                </span>
-                <span className="switch-meta">{row.meta}</span>
-              </span>
-              <Chevron />
-            </Button>
+            <SelectionRow selected={row.current} onClick={() => onSwitch(row.daemonId)}
+              title={row.title} description={row.meta}
+              badge={row.currentPill ? <span className="pill pill-live">{row.currentPill}</span> : null} />
             <Button className="computer-forget" aria-label={row.forgetAria} onClick={() => onForget(row.daemonId)}>{row.forgetLabel}</Button>
           </div>
         ))}
       </div>
-      <Button className="switch-item computer-add" onClick={onAdd}>
-        <span className="add-mark" aria-hidden="true" />
-        <span className="switch-main">
-          <span className="switch-head">
-            <span className="switch-name">{view.addLabel}</span>
-          </span>
-          <span className="switch-meta">{view.addHint}</span>
-        </span>
-        <Chevron />
-      </Button>
+      <SelectionRow className="computer-add" onClick={onAdd} title={view.addLabel} description={view.addHint}
+        leading={<span className="add-mark" aria-hidden="true" />} />
       {footer}
     </>
   );

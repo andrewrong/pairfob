@@ -1,3 +1,4 @@
+import { SheetHandle } from "../../shared/ui/overlay/sheet-content";
 import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from "react";
 import { t } from "../../lib/i18n";
 import { OPERATION_INPUT_LIMITS } from "../../lib/operations";
@@ -50,7 +51,7 @@ export function OperationFrame<T>({ modal, title, children, onSubmit, onInput, f
   }, [modal]);
   return <ModalFrame modal={modal} title={title} className="modal operation-modal" onSubmit={onSubmit} onInput={onInput}
     focus={form => focusDialog ? modal.dialog.current?.focus() : form.querySelector<HTMLElement>("input, select, textarea, button")?.focus()}
-    heading={<><div className="sheet-grab" aria-hidden="true"><span className="sheet-grab-bar" /></div>
+    heading={<><SheetHandle />
       <h2 id={modal.titleId} className="modal-title">{title}</h2></>}>
     {children}
   </ModalFrame>;

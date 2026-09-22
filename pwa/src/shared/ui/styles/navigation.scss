@@ -9,6 +9,20 @@
     min-height: 44px;
   }
 
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    min-width: 0;
+    max-width: 100%;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .topbar-actions > * { flex: none; }
+
   .topbar-title {
     display: flex;
     align-items: center;
@@ -33,6 +47,8 @@
     font-weight: 550;
     border-radius: 8px;
   }
+
+  .topbar-actions .text-link { justify-content: center; }
 
   .text-link:disabled { opacity: 0.4; }
 

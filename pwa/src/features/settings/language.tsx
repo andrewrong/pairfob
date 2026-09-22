@@ -1,7 +1,7 @@
+import { SegmentedControl, SegmentedOption } from "../../shared/ui/primitives";
 import { useSyncExternalStore } from "react";
 import { clearNotice } from "../../app/notices-store";
 import { langPref, langRevision, setLangPref, subscribeLang, t, type LangPref } from "../../lib/i18n";
-import { Button } from "../../shared/ui/primitives";
 
 /**
  * Language preference controls. Connected: a change persists the preference,
@@ -28,12 +28,11 @@ export function applyLanguage(next: LangPref): void {
 
 export function LanguageControl() {
   useLang();
-  return <div className="seg" role="radiogroup" aria-label={t("settings.langAria")}>
-    {LANG_OPTIONS.map(option => <Button key={option.id} role="radio" aria-checked={langPref() === option.id}
-      className={`seg-item${langPref() === option.id ? " on" : ""}`} onClick={() => applyLanguage(option.id)}>
+  return <SegmentedControl aria-label={t("settings.langAria")}>
+    {LANG_OPTIONS.map(option => <SegmentedOption key={option.id} selected={langPref() === option.id} onClick={() => applyLanguage(option.id)}>
       {t(option.key)}
-    </Button>)}
-  </div>;
+    </SegmentedOption>)}
+  </SegmentedControl>;
 }
 
 export function LanguageSelect() {

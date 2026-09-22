@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { t } from "../../../lib/i18n";
-import { bindSheetDrag } from "./sheet-drag";
+import { SegmentedOption } from "../primitives/segmented-control";
+import { useRef, type ReactNode } from "react";
+import { useDialogLifecycle } from "./dialog-lifecycle";
+import { SheetContent } from "./sheet-content";
 import { presentModal, type ModalController } from "./modal";
 
 export type SheetAction = () => void | Promise<void>;
@@ -10,35 +11,14 @@ export function SheetFrame<T>({ modal, title, children, className = "" }: {
   modal: ModalController<T>; title: string; children: ReactNode; className?: string;
 }) {
   const body = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const dialog = modal.dialog.current!;
-    const form = modal.form.current!;
-    const openedAt = performance.now();
-    const cancel = (event: Event) => { event.preventDefault(); modal.dismiss(); };
-    const backdrop = (event: MouseEvent) => {
-      if (event.target === dialog && performance.now() - openedAt >= 400) modal.dismiss();
-    };
-    const stopDrag = bindSheetDrag({ dialog, form, scroller: body.current, close: modal.dismiss });
-    dialog.addEventListener("cancel", cancel);
-    dialog.addEventListener("click", backdrop);
-    dialog.addEventListener("close", modal.finish);
-    dialog.showModal();
-    form.querySelector<HTMLButtonElement>("button:not(:disabled):not(.sheet-close)")?.focus();
-    return () => {
-      stopDrag();
-      dialog.removeEventListener("cancel", cancel);
-      dialog.removeEventListener("click", backdrop);
-      dialog.removeEventListener("close", modal.finish);
-      if (dialog.open) dialog.close();
-    };
-  }, [modal]);
+  useDialogLifecycle({ dialog: modal.dialog, onDismiss: modal.dismiss, onClose: modal.finish,
+    cancelGuardMs: 0, sheet: { form: modal.form, scroller: body },
+    focus: () => modal.form.current?.querySelector<HTMLButtonElement>("button:not(:disabled):not(.sheet-close)")?.focus() });
   return <dialog ref={modal.dialog} className={`modal sheet${className ? ` ${className}` : ""}`} aria-labelledby={modal.titleId} data-react-modal="" data-react-action-sheet="">
     <form ref={modal.form} method="dialog" onSubmit={event => event.preventDefault()}>
-      <div className="sheet-grab" aria-hidden="true"><span className="sheet-grab-bar" /></div>
-      <div className="sheet-head"><h2 id={modal.titleId} className="modal-title">{title}</h2>
-        <button type="button" className="icon-btn sheet-close" aria-label={t("close")} onClick={modal.dismiss}>×</button>
-      </div>
-      <div ref={body} className="sheet-body">{children}</div>
+      <SheetContent title={title} titleId={modal.titleId} onDismiss={modal.dismiss} bodyRef={body}>
+        {children}
+      </SheetContent>
     </form>
   </dialog>;
 }
@@ -66,6 +46,5 @@ export function MenuSection({ title, children }: { title: string; children: Reac
 export function MenuRadio({ modal, label, aria, selected, action, disabled = false }: {
   modal: ActionSheetController; label: string; aria: string; selected: boolean; action: SheetAction; disabled?: boolean;
 }) {
-  return <button type="button" className={`seg-item${selected ? " on" : ""}`} role="radio"
-    aria-checked={selected} aria-label={aria} disabled={disabled} onClick={() => { if (!selected) modal.close(action); }}>{label}</button>;
+  return <SegmentedOption selected={selected} aria-label={aria} disabled={disabled} onClick={() => { if (!selected) modal.close(action); }}>{label}</SegmentedOption>;
 }
