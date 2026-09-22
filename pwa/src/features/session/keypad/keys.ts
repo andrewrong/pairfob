@@ -42,3 +42,22 @@ export const TERTIARY_KEYS: KeySpec[] = [
   { key: "ctrl+e", label: "Ctrl+E", repeat: true },
   { key: "ctrl+k", label: "Ctrl+K", repeat: true },
 ];
+
+/** Keep every modifier on the same page so held and locked chords remain reachable. */
+export const EXPANDED_KEYS: KeySpec[] = [
+  ...TERTIARY_KEYS.filter((key) => key.modifier),
+  ...SECONDARY_KEYS,
+  ...TERTIARY_KEYS.filter((key) => !key.modifier),
+];
+
+/** Editing and TUI choices; these keys never append Enter. */
+export const EXTRA_KEYS: KeySpec[] = [
+  { key: "shift+tab", label: "⇧Tab", aria: "Shift+Tab" },
+  { key: "ctrl+w", label: "Ctrl+W" },
+  { key: "ctrl+u", label: "Ctrl+U" },
+  { key: "ctrl+r", label: "Ctrl+R" },
+  { key: "ctrl+y", label: "Ctrl+Y" },
+  { key: "alt+b", label: "Alt+B", repeat: true },
+  { key: "alt+f", label: "Alt+F", repeat: true },
+  ...["1", "2", "3", "4", "5", "y", "n"].map(key => ({ key, label: key.toUpperCase() })),
+];

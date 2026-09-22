@@ -26,10 +26,3 @@
 .quota-ring.is-unknown { background: var(--line-strong, #30343b); color: var(--muted); }
 .quota-ring-center { width: 34px; height: 34px; background: var(--bg, #0a0c10); border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-variant-numeric: tabular-nums; }
 .quota-mini-name { font-size: 10px; line-height: 1.2; white-space: nowrap; }
-.topbar-create.quota-refresh::before {
-  width: 14px;
-  height: 14px;
-  background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 12a9 9 0 0 0-15.17-6.55L3 8m0-5v5h5m-5 4a9 9 0 0 0 15.17 6.55L21 16m0 5v-5h-5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 12a9 9 0 0 0-15.17-6.55L3 8m0-5v5h5m-5 4a9 9 0 0 0 15.17 6.55L21 16m0 5v-5h-5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-}

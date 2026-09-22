@@ -27,3 +27,16 @@ describe("slash command catalog", () => {
   });
 
 });
+
+test("provider menus are explicit and unknown agents never inherit another provider's commands", async () => {
+  const { slashCommandsForAgent } = await import("./slash-commands");
+  const claude = slashCommandsForAgent("claude").map(item => item.label);
+  const codex = slashCommandsForAgent("codex").map(item => item.label);
+  expect(claude).toContain("/context");
+  expect(claude).toContain("/resume");
+  expect(codex).toContain("/status");
+  expect(codex).not.toContain("/loop");
+  expect(codex).not.toContain("/usage");
+  expect(slashCommandsForAgent("shell")).toEqual([]);
+  expect(slashCommandsForAgent("")).toEqual([]);
+});

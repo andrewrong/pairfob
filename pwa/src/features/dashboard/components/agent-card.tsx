@@ -1,3 +1,4 @@
+import { Pin } from "lucide-react";
 import { useRef } from "react";
 import { Button, Chevron } from "../../../shared/ui/primitives";
 import { useObjectPress } from "../../../shared/ui/overlay";
@@ -32,7 +33,7 @@ export function AgentCard({ card, actions }: { card: HerdCardView; actions: Herd
           >
             {card.pinned && (
               <>
-                <span className="pin-mark" aria-hidden="true" />
+                <Pin className="pin-mark" size={12} aria-hidden="true" />
                 <span className="sr-only">{card.pinnedLabel}</span>
               </>
             )}

@@ -1,3 +1,4 @@
+import { RefreshCw, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { DiffNoteTarget } from "../../lib/diff-notes";
 import { t } from "../../lib/i18n";
@@ -53,9 +54,9 @@ function WorkspaceHeader({ snapshot, onBranches }: { snapshot: WorkspaceSnapshot
           {branchLabel(snapshot.descriptor?.git)}
         </Button>
       )}
-      <Button className="icon-btn workspace-refresh" aria-label={t("workspace.refresh")} disabled={snapshot.loading} onClick={refreshWorkspace} />
+      <Button className="icon-btn workspace-refresh" aria-label={t("workspace.refresh")} disabled={snapshot.loading} onClick={refreshWorkspace}><RefreshCw size={18} aria-hidden="true" /></Button>
       {snapshot.view !== "browser" && (
-        <Button className="icon-btn workspace-dismiss" aria-label={t("workspace.dismiss")} title={t("workspace.dismiss")} onClick={leaveWorkspace} />
+        <Button className="icon-btn workspace-dismiss" aria-label={t("workspace.dismiss")} title={t("workspace.dismiss")} onClick={leaveWorkspace}><X size={20} aria-hidden="true" /></Button>
       )}
     </div>
   </header>;

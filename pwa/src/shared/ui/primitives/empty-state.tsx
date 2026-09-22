@@ -1,9 +1,10 @@
+import { PanelsTopLeft, LayoutGrid, Unplug, Smartphone } from "lucide-react";
 import { Button } from "./button";
 
 /**
  * Empty placeholder for a list or canvas.
  *
- * The spec is a plain view model: copy, an optional geometric figure and an
+ * The spec is a plain view model: copy, an optional icon and an
  * optional action. Callers resolve all of it, so the component holds no policy
  * about which screen is empty or why.
  */
@@ -16,12 +17,13 @@ export type EmptySpec = {
   action?: { label: string; run: () => void; disabled?: boolean };
 };
 
-const EMPTY_FIGURE_BLOCKS = { panes: 3, grid: 4, link: 3, device: 2 };
+const EMPTY_FIGURES = { panes: PanelsTopLeft, grid: LayoutGrid, link: Unplug, device: Smartphone };
 
 export function EmptyState({ spec }: { spec: EmptySpec }) {
+  const Icon = spec.figure ? EMPTY_FIGURES[spec.figure] : null;
   return <div className="empty">
-    {spec.figure && <div className={`empty-figure figure-${spec.figure}`} aria-hidden="true">
-      {Array.from({ length: EMPTY_FIGURE_BLOCKS[spec.figure] }, (_, i) => <span key={i} />)}
+    {Icon && <div className={`empty-figure figure-${spec.figure}`} aria-hidden="true">
+      <Icon size={44} strokeWidth={1.5} />
     </div>}
     <p className="empty-title">{spec.title}</p><p className="empty-sub">{spec.sub}</p>
     {spec.action && <Button className="btn btn-small btn-primary empty-action" disabled={spec.action.disabled === true}

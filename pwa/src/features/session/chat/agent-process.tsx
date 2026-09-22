@@ -1,3 +1,4 @@
+import { Check, CircleAlert } from "lucide-react";
 import { useCallback } from "react";
 import { t } from "../../../lib/i18n";
 import { stepKey, stepSummary, toolState } from "../../../lib/agent-trace-view";
@@ -16,7 +17,7 @@ function ToolStateMark({ item }: { item: AgentTraceItem }) {
   const status = toolState(item);
   const label = t(status === "running" ? "trace.runningTool" : status === "error" ? "trace.failedTool" : "trace.doneTool");
   return <span className={`agent-tool-state agent-tool-state-${status}`} aria-label={label} title={label}>
-    {status === "running" ? <Spinner /> : status === "error" ? "!" : "✓"}
+    {status === "running" ? <Spinner /> : status === "error" ? <CircleAlert size={14} aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
   </span>;
 }
 

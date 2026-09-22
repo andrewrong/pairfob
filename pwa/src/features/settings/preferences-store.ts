@@ -1,3 +1,4 @@
+import { parseQuickCommands, type QuickCommand } from "./quick-command-model";
 import { parseListGroup, parsePinnedAt, prunePinnedAt, togglePinnedAt, touchPane, nextTouchedAt,
   type AgentCard, type ListGroup, type PinnedAt, type TouchedAt } from "../../lib/ranking";
 import { parseTermMode, TERM_MODE_OPTIONS, type TermMode } from "../../lib/terminal-mode";
@@ -23,6 +24,7 @@ export const TERM_WRAP_KEY = "pairfob:termWrap";
 export const TERM_FIT_KEY = "pairfob:termFit";
 export const TERM_COLS_KEY = "pairfob:termCols";
 export const KEYS_EXPANDED_KEY = "pairfob:keysExpanded";
+export const QUICK_COMMANDS_KEY = "pairfob:quickCommands";
 export const PAD_KIND_KEY = "pairfob:padKind";
 export const DEFAULT_COMPOSE_LIVE_KEY = "pairfob:defaultComposeLive";
 export const PANE_COMPOSE_LIVE_KEY = "pairfob:paneComposeLive";
@@ -53,6 +55,7 @@ export type PreferencesRecord = {
   keysExpanded: boolean;
   /** Expanded pad body: terminal keys or slash-command chips. */
   padKind: PadKind;
+  quickCommands: QuickCommand[] | null;
   listGroup: ListGroup;
   /** true = that grouped heading is collapsed. Missing ids follow first-open. */
   listGroupCollapsed: Record<string, boolean>;
@@ -182,6 +185,7 @@ export function initialPreferences(): PreferencesRecord {
     termCols: 80,
     keysExpanded: false,
     padKind: "keys",
+    quickCommands: null,
     listGroup: "flat",
     listGroupCollapsed: {},
     paneTouched: {},
@@ -210,6 +214,7 @@ export function hydratePreferences(environment: DomainEnvironment): void {
     record.termCols = loadTermCols(stored);
     record.keysExpanded = loadKeysExpanded(stored);
     record.padKind = loadPadKind(stored);
+    record.quickCommands = parseQuickCommands(parseJSON(stored(QUICK_COMMANDS_KEY)));
     record.listGroup = loadListGroup(stored);
     record.defaultTermMode = loadDefaultTermMode(stored);
     record.defaultComposeLive = loadDefaultComposeLive(stored);
@@ -590,3 +595,13 @@ export function resetPreferences(): void {
 
 export { parseTermMode };
 export type { ListGroup, PinnedAt, TouchedAt, TermMode };
+
+export function setQuickCommands(commands: QuickCommand[]): boolean {
+  const parsed = parseQuickCommands(commands);
+  if (!parsed) return false;
+  batch(() => {
+    write(record => { record.quickCommands = parsed; });
+    writeStorage(QUICK_COMMANDS_KEY, JSON.stringify(parsed));
+  });
+  return true;
+}

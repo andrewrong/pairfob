@@ -1,3 +1,5 @@
+import { applySnapshot as seedPadSnapshot } from "../../dashboard/catalog-store";
+import { selectPane as selectPadPane } from "../session-store";
 import { act, createElement } from "react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
@@ -67,8 +69,8 @@ describe("React full-terminal pad", () => {
       input.focus();
       input.setSelectionRange(1, 3);
     });
-    const labels = [...appRoot().querySelectorAll("button")].map((el) => el.textContent);
-    expect(labels.slice(0, 6)).toEqual(["Esc", "↑", "↓", "←", "→", "⌫"]);
+    const labels = [...appRoot().querySelectorAll("button")].map((el) => el.getAttribute("aria-label") || el.textContent);
+    expect(labels.slice(0, 6)).toEqual(["Esc", "上箭头", "下箭头", "左箭头", "右箭头", "退格"]);
     const more = appRoot().querySelector<HTMLButtonElement>(".key-more")!;
     const view = appRoot().ownerDocument.defaultView!;
     const down = new view.PointerEvent("pointerdown", { button: 0, cancelable: true });
@@ -81,19 +83,20 @@ describe("React full-terminal pad", () => {
     expect([input.selectionStart, input.selectionEnd]).toEqual([1, 3]);
     expect(appRoot().textContent).toContain("Ctrl+C");
     expect(appRoot().textContent).toContain("Opt");
-    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("扩展键盘形态");
+    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("切换到命令");
   });
 
   test("expanded commands fill compose in batch and send text without Enter in live", async () => {
+    seedPadSnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] });
+    selectPadPane("shortcut-test");
     act(() => { setKeysExpanded(true); setPadKind("keys"); });
     const sent: Array<[string, boolean]> = [];
     const options = { sendKey: () => undefined, sendCompose: (text: string, enter: boolean) => { sent.push([text, enter]); return true; }, keyboard: keyboard(), desk: false };
     renderReact(createElement(FullTerminalPad, { options }));
-    const commandMode = [...appRoot().querySelectorAll<HTMLButtonElement>(".pad-mode button")]
-      .find((el) => el.textContent === "命令")!;
+    const commandMode = appRoot().querySelector<HTMLButtonElement>(".pad-mode")!;
     await act(() => { commandMode.click(); });
     expect(padKind()).toBe("slash");
-    expect(appRoot().querySelector('[aria-checked="true"]')?.textContent).toBe("命令");
+    expect(appRoot().querySelector(".pad-mode")?.textContent).toBe("命令");
     expect([...appRoot().querySelectorAll(".slash-cmd")].map((el) => el.textContent)).toEqual(SLASH_COMMANDS.map((c) => c.label));
     await act(() => { (appRoot().querySelector('[aria-label="插入 /goal，接着填目标"]') as HTMLButtonElement).click(); });
     expect(composeDraft()).toBe("/goal ");
@@ -144,4 +147,40 @@ test("Opt then arrow reaches the full terminal as one complete chord", async () 
     appRoot().querySelector<HTMLButtonElement>('[aria-label="上箭头"]')!.click();
   });
   expect(sent).toEqual(["alt+up"]);
+});
+
+test("second key page sends literal choices without Enter and editing chords intact", async () => {
+  const sent: string[] = [];
+  setKeysExpanded(true);
+  setPadKind("keys");
+  await act(() => { paint(key => sent.push(key)); });
+  await act(() => { (appRoot().querySelectorAll<HTMLButtonElement>(".pad-page-dot")[1])!.click(); });
+  expect(appRoot().querySelectorAll(".pad-page .key")).toHaveLength(14);
+  for (const name of ["Shift+Tab", "Ctrl+W", "Alt+B", "1", "Y", "N"]) {
+    await act(() => { appRoot().querySelector<HTMLButtonElement>(`[aria-label="${name}"]`)!.click(); });
+  }
+  expect(sent).toEqual(["shift+tab", "ctrl+w", "alt+b", "1", "y", "n"]);
+});
+
+test("custom prompts fill and focus a draft in both input modes without transmitting", async () => {
+  const { setQuickCommands, resetPreferences } = await import("../../settings/preferences-store");
+  const { composeLive } = await import("../compose-store");
+  const sent: Array<[string, boolean]> = [];
+  try {
+    setQuickCommands([{ id: "custom", label: "Custom", text: "Review this change", pinned: true }]);
+    setKeysExpanded(true);
+    setPadKind("slash");
+    setComposeLive(true);
+    await act(() => { paint(() => undefined, (text, enter) => { sent.push([text, enter]); return true; }); });
+    await act(() => { appRoot().querySelector<HTMLButtonElement>(".quick-cmd")!.click(); });
+    expect(composeLive()).toBe(false);
+    expect(composeDraft()).toBe("Review this change");
+    const field = appRoot().querySelector<HTMLTextAreaElement>("textarea")!;
+    expect(field.value).toBe("Review this change");
+    expect(document.activeElement).toBe(field);
+    await act(() => { setQuickCommands([{ id: "custom", label: "Custom", text: "Next draft", pinned: true }]); });
+    await act(() => { appRoot().querySelector<HTMLButtonElement>(".quick-cmd")!.click(); });
+    expect(field.value).toBe("Next draft");
+    expect(sent).toEqual([]);
+  } finally { resetPreferences(); localStorage.removeItem("pairfob:quickCommands"); }
 });

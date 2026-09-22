@@ -1,13 +1,17 @@
+import { flushSync } from "react-dom";
+import { KeyLabel } from "../keypad/key-label";
+import { ChevronDown, Ellipsis, LockKeyhole } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { composeFocused, composeIME, composeLive } from "../compose-store";
+import { composeFocused, composeIME, composeLive, setComposeDraft } from "../compose-store";
 import { useCompose } from "../hooks";
 import { usePreferences } from "../../settings/hooks";
-import { keysExpanded, padKind, setKeysExpanded } from "../../settings/preferences-store";
+import { keysExpanded, setKeysExpanded } from "../../settings/preferences-store";
 import { t } from "../../../lib/i18n";
 import {
   type FullTerminalControlsOptions,
   requestFullTerminalPadEnter,
   setFullTerminalComposeText,
+  setFullTerminalInputMode,
 } from "./full-terminal-compose";
 import {
   fullTerminalKeyboardOpen,
@@ -18,8 +22,8 @@ import { useModifierScope } from "../keypad/modifier-scope";
 import { bindPadPress } from "../keypad/key-press";
 import {
   PRIMARY_KEYS,
-  SECONDARY_KEYS,
-  TERTIARY_KEYS,
+  EXPANDED_KEYS,
+  EXTRA_KEYS,
   bindModifier,
   clearModifiers,
   modifierIsActive,
@@ -68,10 +72,7 @@ function FullTerminalKeyButton({ spec, onKey }: { spec: KeySpec; onKey: (key: st
     title={spec.modifier ? t(locked ? "keys.modifierLocked" : "keys.modifierHint") : undefined}
     aria-description={spec.modifier ? t(locked ? "keys.modifierLocked" : "keys.modifierHint") : undefined}
     aria-pressed={spec.modifier ? (latched ? "true" : "false") : undefined}
-  >{spec.label ?? ""}{locked && <svg className="key-lock" aria-hidden="true" viewBox="0 0 16 16">
-    <rect x="3" y="7" width="10" height="7" rx="2" />
-    <path d="M5 7V5a3 3 0 0 1 6 0v2" />
-  </svg>}</button>;
+  ><KeyLabel spec={spec} />{locked && <LockKeyhole className="key-lock" size={12} aria-hidden="true" />}</button>;
 }
 
 function KeyRow({ specs, label, extra, onKey }: {
@@ -135,7 +136,6 @@ function FullTerminalPadControls({
   const preferences = usePreferences();
   const live = compose.composeLive;
   const expanded = preferences.keysExpanded;
-  const kind = preferences.padKind;
 
   const onKey = (key: string, _el: HTMLElement): void => {
     if (!composeLive() && key === "enter") {
@@ -156,28 +156,36 @@ function FullTerminalPadControls({
   };
 
   const more = (
-    <PadChromeButton
-      type="button"
-      className="key key-more"
-      aria-label={t("keys.morePad")}
-      aria-expanded={expanded ? "true" : "false"}
-      onClick={() => {
-        clearModifiers();
-        setKeysExpanded(!keysExpanded());
-        repaint();
-      }}
-    />
+    <>
+      {expanded && <SessionPadModeBar onRepaint={repaint} />}
+      <PadChromeButton
+        type="button"
+        className="key key-more"
+        aria-label={t("keys.morePad")}
+        aria-expanded={expanded ? "true" : "false"}
+        onClick={() => {
+          clearModifiers();
+          setKeysExpanded(!keysExpanded());
+          repaint();
+        }}
+      >{expanded ? <ChevronDown size={20} aria-hidden="true" /> : <Ellipsis size={20} aria-hidden="true" />}</PadChromeButton>
+    </>
   );
 
   return <div className="full-terminal-pad-controls">
     {live && <FullTerminalKeyboardButton keyboard={optionsRef.current.keyboard} />}
     <KeyRow specs={PRIMARY_KEYS} label={t("keys.primary")} extra={more} onKey={onKey} />
-    {expanded && <SessionPadModeBar onRepaint={repaint} />}
-    {expanded && kind === "slash" && <SessionSlashPad onSelect={selectCommand} />}
-    {expanded && kind !== "slash" && <>
-      <KeyRow specs={SECONDARY_KEYS} label={t("keys.more")} onKey={onKey} />
-      <KeyRow specs={TERTIARY_KEYS} label={t("keys.mods")} onKey={onKey} />
-    </>}
+    {expanded && <SessionSlashPad onSelect={selectCommand} onCustomSelect={(text) => {
+      flushSync(() => {
+        setFullTerminalInputMode(false, optionsRef.current.sendCompose, repaint);
+        setComposeDraft(text);
+      });
+      if (padRef.current) setFullTerminalComposeText(padRef.current, text);
+    }} keyItems={[
+      ...EXPANDED_KEYS.map((spec) => <FullTerminalKeyButton key={spec.key} spec={spec} onKey={onKey} />),
+      <span key="page-space" aria-hidden="true" />,
+      ...EXTRA_KEYS.map((spec) => <FullTerminalKeyButton key={spec.key} spec={spec} onKey={onKey} />),
+    ]} />}
   </div>;
 }
 

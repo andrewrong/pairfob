@@ -1,3 +1,4 @@
+import { GitBranch, ChevronRight } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { t } from "../../lib/i18n";
@@ -14,14 +15,14 @@ function worktreeTitle(item: WorktreeSummary): string {
 
 function WorktreeCard({ item, actionable }: { item: WorktreeSummary; actionable: boolean }) {
   return <>
-    <span className="worktree-icon" aria-hidden="true" />
+    <span className="worktree-icon" aria-hidden="true"><GitBranch size={18} /></span>
     <span className="worktree-copy"><strong className="worktree-title">{worktreeTitle(item)}</strong>
       {item.label && item.branch && <span className="worktree-branch">{item.branch}</span>}
       <code className="worktree-path">{item.path}</code>
     </span>
     <span className="worktree-tail">
       {item.openWorkspaceId && <span className="worktree-opened">{t("form.worktreeOpened")}</span>}
-      {actionable && <span className="worktree-chevron" aria-hidden="true">›</span>}
+      {actionable && <ChevronRight className="worktree-chevron" size={18} aria-hidden="true" />}
     </span>
   </>;
 }

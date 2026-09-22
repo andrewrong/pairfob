@@ -1,3 +1,4 @@
+import { Minus, Plus } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { BackButton, Button, StatusLine } from "../../../shared/ui/primitives";
 // AppNotice is the connected App notice (chrome barrel seam); HerdBanners is the
@@ -88,9 +89,9 @@ export function BoardScreenView({
           {view.sub ? <span className="board-sub">{view.sub}</span> : null}
         </div>
         <div className="board-zoom">
-          <Button className="icon-btn" aria-label={view.zoom.out} onClick={() => actions.zoom(-1)}>−</Button>
+          <Button className="icon-btn" aria-label={view.zoom.out} onClick={() => actions.zoom(-1)}><Minus size={20} aria-hidden="true" /></Button>
           <Button className="text-link" aria-label={view.zoom.fit} onClick={actions.fit}>{view.zoom.fitLabel}</Button>
-          <Button className="icon-btn" aria-label={view.zoom.in} onClick={() => actions.zoom(1)}>+</Button>
+          <Button className="icon-btn" aria-label={view.zoom.in} onClick={() => actions.zoom(1)}><Plus size={20} aria-hidden="true" /></Button>
         </div>
       </header>
       <StatusLine status={view.status} />

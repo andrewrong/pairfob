@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import type { ReactNode, Ref } from "react";
 import { t } from "../../../lib/i18n";
 import { Button } from "../primitives/button";
@@ -13,7 +14,7 @@ export function SheetContent({ title, titleId, onDismiss, bodyRef, children }: {
   return <>
     <SheetHandle />
     <div className="sheet-head"><h2 id={titleId} className="modal-title">{title}</h2>
-      <Button className="icon-btn sheet-close" aria-label={t("close")} onClick={onDismiss}>×</Button>
+      <Button className="icon-btn sheet-close" aria-label={t("close")} onClick={onDismiss}><X size={20} aria-hidden="true" /></Button>
     </div>
     <div ref={bodyRef} className="sheet-body">{children}</div>
   </>;

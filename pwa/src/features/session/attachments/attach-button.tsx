@@ -1,3 +1,4 @@
+import { Paperclip } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { Button } from "../../../shared/ui/primitives/button";
 import { computersStore } from "../../computers/catalog-store";
@@ -49,7 +50,7 @@ export function AttachButton({ labeled = false }: AttachButtonProps) {
         if (scope) presentAttachmentSheet(scope);
       }}
     >
-      <span className="attach-glyph" aria-hidden="true" />
+      <Paperclip className="attach-glyph" size={20} aria-hidden="true" />
       {labeled && <span className="attach-btn-text">{attachT("attach.title")}</span>}
     </Button>
   );

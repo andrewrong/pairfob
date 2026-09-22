@@ -1,3 +1,5 @@
+import { applySnapshot as seedPadSnapshot } from "../../dashboard/catalog-store";
+import { selectPane as selectPadPane } from "../session-store";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act, createElement } from "react";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
@@ -140,18 +142,18 @@ describe("complete-terminal pad chrome", () => {
       },
     }));
     const pad = appRoot();
-    const labels = [...pad.querySelectorAll(".full-terminal-pad button")].map((el) => el.textContent);
-    expect(labels.slice(0, 6)).toEqual(["Esc", "↑", "↓", "←", "→", "⌫"]);
+    const labels = [...pad.querySelectorAll(".full-terminal-pad button")].map((el) => el.getAttribute("aria-label") || el.textContent);
+    expect(labels.slice(0, 6)).toEqual(["Esc", "上箭头", "下箭头", "左箭头", "右箭头", "退格"]);
     expect(pad.querySelector('[aria-label="更多按键"]') !== null).toBeTrue();
     act(() => { (pad.querySelector('[aria-label="更多按键"]') as HTMLButtonElement).click(); });
     expect(keysExpanded()).toBe(true);
     const expanded = [...pad.querySelectorAll(".full-terminal-pad button")].map((el) => el.textContent);
     expect(expanded).toContain("Ctrl+C");
     expect(expanded).toContain("Opt");
-    expect(expanded).toContain("Shift");
-    expect(expanded).toContain("Cmd");
-    expect(expanded).toContain("Ctrl+A");
-    expect(pad.querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("扩展键盘形态");
+    expect(pad.textContent).toContain("Shift");
+    expect(pad.textContent).toContain("Cmd");
+    expect(pad.textContent).toContain("Ctrl+A");
+    expect(pad.querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("切换到命令");
     (pad.querySelector('[aria-label="上箭头"]') as HTMLButtonElement).dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0 }),
     );
@@ -171,11 +173,11 @@ describe("complete-terminal pad chrome", () => {
       },
     }));
     const pad = appRoot();
-    const commandMode = [...pad.querySelectorAll<HTMLButtonElement>(".pad-mode button")]
-      .find((el) => el.textContent === "命令");
+    const commandMode = pad.querySelector<HTMLButtonElement>(".pad-mode");
     act(() => { commandMode?.click(); });
     expect(padKind()).toBe("slash");
-    expect(pad.querySelector('[aria-checked="true"]')?.textContent).toBe("命令");
+    expect(pad.querySelector(".pad-mode")?.textContent).toBe("命令");
+    act(() => { seedPadSnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] }); selectPadPane("shortcut-test"); });
     act(() => { (pad.querySelector('[aria-label="插入 /clear"]') as HTMLButtonElement).click(); });
     expect(composeDraft()).toBe("/clear");
     expect((pad.querySelector(".full-terminal-compose-input") as HTMLTextAreaElement).value).toBe("/clear");

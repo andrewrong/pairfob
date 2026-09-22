@@ -145,8 +145,8 @@ describe("board screen presentation", () => {
     expect(zoom.map((node) => node.getAttribute("aria-label")))
       .toEqual([t("board.zoomOut"), t("board.fitAria"), t("board.zoomIn")]);
     expect(zoom[1].textContent).toBe(t("board.fit"));
-    expect(zoom[0].textContent).toBe("−");
-    expect(zoom[2].textContent).toBe("+");
+    expect(zoom[0].querySelector("svg.lucide-minus")?.getAttribute("aria-hidden")).toBe("true");
+    expect(zoom[2].querySelector("svg.lucide-plus")?.getAttribute("aria-hidden")).toBe("true");
   });
 
   test("new tab fails closed on capability, busy, connection and workspace", () => {

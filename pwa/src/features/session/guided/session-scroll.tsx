@@ -1,7 +1,11 @@
+import { ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { t } from "../../../lib/i18n";
 import { bindScrollHold, type RemoteScroll } from "../full-terminal/full-terminal-scroll";
 import { pagePendingCounts, pagePendingStoreRevision, subscribePagePending } from "./keys";
+
+const SCROLL_ICONS = { "scroll-up": ChevronUp, "scroll-down": ChevronDown,
+  "scroll-page-up": ChevronsUp, "scroll-page-down": ChevronsDown };
 
 function ScrollHoldButton({
   mark,
@@ -9,11 +13,12 @@ function ScrollHoldButton({
   pending,
   onFire,
 }: {
-  mark: string;
+  mark: keyof typeof SCROLL_ICONS;
   aria: string;
   pending: boolean;
   onFire: () => void;
 }) {
+  const Icon = SCROLL_ICONS[mark];
   const btnRef = useRef<HTMLButtonElement>(null);
   const fireRef = useRef(onFire);
   fireRef.current = onFire;
@@ -30,7 +35,7 @@ function ScrollHoldButton({
       aria-label={aria}
       title={aria}
       aria-busy={pending ? true : undefined}
-    />
+    ><Icon size={20} aria-hidden="true" /></button>
   );
 }
 

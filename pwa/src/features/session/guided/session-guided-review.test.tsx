@@ -192,7 +192,7 @@ test("held Alt survives repaint, maps one physical arrow, and releases without l
     sendKeys: async (_id: string, value: string[]) => { plain.push(value); } }));
   paint();
   const alt = key("Opt");
-  const left = key("←");
+  const left = key("左箭头");
   dispatch(alt, "pointerdown", { pointerId: 11, button: 0, pointerType: "touch" });
   paint();
   expect(key("Opt") === alt).toBeTrue();
@@ -212,7 +212,7 @@ test("unmount cancels active arrow repeat and detached native key listeners", as
   const sent: string[][] = [];
   attachLiveSession(live({ sendKeys: async (_id: string, value: string[]) => { sent.push(value); } }));
   paint();
-  const up = key("↑");
+  const up = key("上箭头");
   dispatch(up, "pointerdown", { pointerId: 1, button: 0, pointerType: "touch" });
   expect(sent).toEqual([["up"]]);
   act(() => unmountReact());

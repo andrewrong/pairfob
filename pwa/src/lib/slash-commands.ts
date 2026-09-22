@@ -1,11 +1,3 @@
-/**
- * Slash tokens typed into the agent PTY. Pairfob does not interpret them:
- * unknown commands are the agent's problem after send.
- *
- * Phone 4×2 grid: start over on the first row, then goal / loop / usage /
- * help. Argument-taking tokens keep a trailing space so the caret sits
- * where the user types the rest.
- */
 export type SlashCommand = {
   token: string;
   label: string;
@@ -22,3 +14,23 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { token: "/usage", label: "/usage" },
   { token: "/help", label: "/help" },
 ];
+
+// Official catalogs: https://code.claude.com/docs/en/commands
+// https://developers.openai.com/codex/cli/slash-commands
+function tokens(values: string[]): SlashCommand[] {
+  return values.map(token => ({ token, label: token.trim() }));
+}
+
+/** Agent identity comes from the live dashboard snapshot, never from a guessed title. */
+export function slashCommandsForAgent(agent: string): SlashCommand[] {
+  switch (agent.trim().toLowerCase()) {
+    case "claude":
+    case "claude-code":
+      return [...SLASH_COMMANDS, ...tokens(["/resume", "/context", "/diff", "/review"])];
+    case "codex":
+      return tokens(["/new", "/compact", "/model", "/status", "/goal ", "/diff", "/review", "/resume",
+        "/fork", "/mention ", "/plan", "/skills"]);
+    default:
+      return [];
+  }
+}

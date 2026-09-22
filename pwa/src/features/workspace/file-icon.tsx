@@ -11,6 +11,11 @@ export function FileIcon({
 }) {
   const fileName = name || path || "";
   const id = fileIconFor(kind, fileName);
+  const glyph = fileIconGlyph(id);
+  if ("icon" in glyph) {
+    const Icon = glyph.icon;
+    return <Icon className="file-icon" data-file-icon={id} size={18} aria-hidden="true" focusable="false" />;
+  }
   return (
     <svg
       className="file-icon"
@@ -19,7 +24,7 @@ export function FileIcon({
       aria-hidden="true"
       focusable="false"
     >
-      {fileIconGlyph(id).map((part, index) => (
+      {glyph.paths.map((part, index) => (
         <path
           key={index}
           d={part.d}

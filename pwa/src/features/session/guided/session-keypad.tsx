@@ -1,10 +1,12 @@
+import { KeyLabel } from "../keypad/key-label";
+import { ChevronDown, Ellipsis, LockKeyhole } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { t } from "../../../lib/i18n";
-import { keysExpanded, padKind, setKeysExpanded } from "../../settings/preferences-store";
+import { keysExpanded, setKeysExpanded } from "../../settings/preferences-store";
 import {
   PRIMARY_KEYS,
-  SECONDARY_KEYS,
-  TERTIARY_KEYS,
+  EXPANDED_KEYS,
+  EXTRA_KEYS,
   bindModifier,
   clearModifiers,
   modifierIsActive,
@@ -46,10 +48,7 @@ function SessionKeyButton({ spec }: { spec: KeySpec }) {
     title={spec.modifier ? t(locked ? "keys.modifierLocked" : "keys.modifierHint") : undefined}
     aria-description={spec.modifier ? t(locked ? "keys.modifierLocked" : "keys.modifierHint") : undefined}
     aria-pressed={spec.modifier ? (latched ? "true" : "false") : undefined}
-  >{spec.label ?? ""}{locked && <svg className="key-lock" aria-hidden="true" viewBox="0 0 16 16">
-    <rect x="3" y="7" width="10" height="7" rx="2" />
-    <path d="M5 7V5a3 3 0 0 1 6 0v2" />
-  </svg>}</button>;
+  ><KeyLabel spec={spec} />{locked && <LockKeyhole className="key-lock" size={12} aria-hidden="true" />}</button>;
 }
 
 function KeyRow({ specs, label, extra }: { specs: KeySpec[]; label: string; extra?: ReactNode }) {
@@ -67,36 +66,31 @@ export function SessionKeyPad() {
   const repaint = () => bump((n) => n + 1);
   const expanded = keysExpanded();
   const more = (
-    <PadChromeButton
-      type="button"
-      className="key key-more"
-      aria-label={t("keys.morePad")}
-      aria-expanded={expanded ? "true" : "false"}
-      onClick={() => {
-        clearModifiers();
-        setKeysExpanded(!keysExpanded());
-        repaint();
-      }}
-    />
+    <>
+      {expanded && <SessionPadModeBar onRepaint={repaint} />}
+      <PadChromeButton
+        type="button"
+        className="key key-more"
+        aria-label={t("keys.morePad")}
+        aria-expanded={expanded ? "true" : "false"}
+        onClick={() => {
+          clearModifiers();
+          setKeysExpanded(!keysExpanded());
+          repaint();
+        }}
+      >{expanded ? <ChevronDown size={20} aria-hidden="true" /> : <Ellipsis size={20} aria-hidden="true" />}</PadChromeButton>
+    </>
   );
   return <div className="keys-wrap">
     <KeyRow specs={PRIMARY_KEYS} label={t("keys.primary")} extra={more} />
-    {expanded && <SessionPadModeBar onRepaint={repaint} />}
-    {expanded && padKind() === "slash" && <SessionSlashPad />}
-    {expanded && padKind() !== "slash" && <>
-      <KeyRow
-        specs={SECONDARY_KEYS}
-        label={t("keys.more")}
-        extra={
-          <PadChromeButton
-            type="button"
-            className="key"
-            aria-label={t("keys.newlineAria")}
-            onClick={insertNewline}
-          >{t("keys.newline")}</PadChromeButton>
-        }
-      />
-      <KeyRow specs={TERTIARY_KEYS} label={t("keys.mods")} />
-    </>}
+    {expanded && <SessionSlashPad keyItems={[
+      ...EXPANDED_KEYS.map((spec) => spec.key === "ctrl+c"
+        ? <PadChromeButton key="newline" type="button" className="key"
+          aria-label={t("keys.newlineAria")} onClick={insertNewline}>{t("keys.newline")}</PadChromeButton>
+        : <SessionKeyButton key={spec.key} spec={spec} />),
+      ...EXPANDED_KEYS.filter((spec) => spec.key === "ctrl+c")
+        .map((spec) => <SessionKeyButton key={spec.key} spec={spec} />),
+      ...EXTRA_KEYS.map((spec) => <SessionKeyButton key={spec.key} spec={spec} />),
+    ]} />}
   </div>;
 }

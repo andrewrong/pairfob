@@ -1,3 +1,4 @@
+import { ScanLine, ChevronDown, Check, X } from "lucide-react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 import { t } from "../../lib/i18n";
 import { PAIR_CODE_WITH_LOCATOR_PATTERN } from "../../lib/pairing-input";
@@ -50,11 +51,11 @@ export function ConnectView({
         ) : (
           <>
             {view.showFailedRail ? <PairRail view={view} failure={view.railNote} /> : null}
-            <Button className="btn-scan" onClick={onScan}>{t("connect.scan")}</Button>
+            <Button className="btn-scan" onClick={onScan}><ScanLine size={18} aria-hidden="true" />{t("connect.scan")}</Button>
             <details className="manual-pair" open={view.manualOpen} onToggle={event => {
               onToggleManual(event.currentTarget.open);
             }}>
-              <summary className="manual-pair-summary">{t("connect.manualSummary")}</summary>
+              <summary className="manual-pair-summary">{t("connect.manualSummary")}<ChevronDown className="manual-pair-chevron" size={16} aria-hidden="true" /></summary>
               <div className="manual-pair-body">
                 <label className="field" htmlFor="pair-code">
                   <div className="field-head">
@@ -91,7 +92,7 @@ function PairRail({ view, failure }: { view: ConnectViewModel; failure: string |
       {view.rail.map(step => (
         <li key={step.key} className={`pair-step is-${step.state}`}
           aria-current={step.state === "active" ? "step" : undefined}>
-          <span className="pair-dot" /><span className="pair-step-label">{t(`pair.step.${step.key}`)}</span>
+          <span className="pair-dot" aria-hidden="true">{step.state === "done" && <Check size={12} />}{step.state === "failed" && <X size={12} />}</span><span className="pair-step-label">{t(`pair.step.${step.key}`)}</span>
           <span className="sr-only">{t(`pair.state.${step.state}`)}</span>
           {step.state === "failed" && failure ? <p className="pair-step-note">{failure}</p> : null}
         </li>

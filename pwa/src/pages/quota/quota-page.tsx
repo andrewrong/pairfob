@@ -1,3 +1,4 @@
+import { RefreshCw } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { computersStore, liveSession } from "../../features/computers/catalog-store";
 import { goToScreen } from "../../app/navigation-store";
@@ -60,7 +61,7 @@ export function QuotaContent() {
             disabled={loading || session?.isConnected() !== true}
             aria-busy={loading}
             onClick={() => void refreshAgentQuota()}
-          >{t(loading ? "quota.loading" : "quota.refresh")}</Button>
+          ><RefreshCw size={16} aria-hidden="true" />{t(loading ? "quota.loading" : "quota.refresh")}</Button>
         </TopbarActions>
       </BackBar>
       <QuotaPanelView panel={panel} />

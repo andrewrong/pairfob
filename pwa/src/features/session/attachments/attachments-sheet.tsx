@@ -1,3 +1,4 @@
+import { FileText } from "lucide-react";
 import { AttachmentConnection, useAttachmentP2PReady } from "./attachments-connection";
 import { memo, useRef, useSyncExternalStore } from "react";
 import { presentModal } from "../../../shared/ui/overlay/modal";
@@ -127,7 +128,7 @@ const Row = memo(function Row({ scope, item, scopeCurrent, canUpload }: { scope:
   const thumb = item.kind === "image" ? runtimeObjectUrl(attachmentScopeKey(scope), item.localId) : "";
   return <li className={`attach-row attach-${item.status}`}>
     <div className="attach-thumb" aria-hidden={item.kind !== "image"}>
-      {thumb ? <img src={thumb} alt="" decoding="async" loading="lazy" /> : <span className="attach-thumb-mark" />}
+      {thumb ? <img src={thumb} alt="" decoding="async" loading="lazy" /> : <FileText className="attach-thumb-mark" size={22} aria-hidden="true" />}
     </div>
     <div className="attach-meta">
       <p className="attach-name" title={item.name}>{item.name}</p>

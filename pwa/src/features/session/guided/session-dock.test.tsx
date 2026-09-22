@@ -1,3 +1,5 @@
+import { applySnapshot as seedPadSnapshot } from "../../dashboard/catalog-store";
+import { selectPane as selectPadPane } from "../session-store";
 import { act, createElement } from "react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
@@ -44,7 +46,7 @@ describe("React session dock", () => {
     setKeysExpanded(true);
     setPadKind("keys");
     await act(() => { paint(); });
-    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("扩展键盘形态");
+    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("切换到命令");
     expect(appRoot().querySelector(".slash-pad")).toBeNull();
     expect(appRoot().textContent).toContain("Tab");
     expect(appRoot().textContent).toContain("Ctrl");
@@ -52,13 +54,15 @@ describe("React session dock", () => {
   });
 
   test("expanded command morph fills compose chips and not SendKeys", async () => {
+    seedPadSnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] });
+    selectPadPane("shortcut-test");
     setKeysExpanded(true);
     setPadKind("slash");
     await act(() => { paint(); });
     const chips = [...appRoot().querySelectorAll(".slash-cmd")].map((el) => el.textContent);
     expect(chips).toEqual(SLASH_COMMANDS.map((command) => command.label));
     expect(appRoot().querySelector(".keys-wrap")?.textContent).not.toContain("Tab");
-    expect(appRoot().querySelector('[aria-checked="true"]')?.textContent).toBe("命令");
+    expect(appRoot().querySelector(".pad-mode")?.textContent).toBe("命令");
   });
 
   test("expanding and switching pad modes preserves the same focused IME field and selection", async () => {
@@ -84,9 +88,9 @@ describe("React session dock", () => {
     };
     await tap(appRoot().querySelector(".key-more")!);
     expect(keysExpanded()).toBe(true);
-    await tap(appRoot().querySelectorAll<HTMLButtonElement>(".pad-mode button")[1]!);
+    await tap(appRoot().querySelector<HTMLButtonElement>(".pad-mode")!);
     expect(appRoot().querySelector(".slash-pad")).toBeTruthy();
-    await tap(appRoot().querySelectorAll<HTMLButtonElement>(".pad-mode button")[0]!);
+    await tap(appRoot().querySelector<HTMLButtonElement>(".pad-mode")!);
     expect(appRoot().querySelector(".key-mod")).toBeTruthy();
     await tap(appRoot().querySelector(".key-more")!);
     expect(keysExpanded()).toBe(false);

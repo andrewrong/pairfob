@@ -1,14 +1,15 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { t } from "../../../lib/i18n";
 import { Button } from "./button";
 
-/** Geometric disclosure/next mark. The glyph is drawn by CSS, never by text. */
+/** Decorative disclosure mark; the owning control provides its accessible name. */
 export function Chevron({ className = "chev" }: { className?: string }) {
-  return <span className={className} aria-hidden="true" />;
+  return <ChevronRight className={className} size={16} aria-hidden="true" />;
 }
 
 export function BackButton({ onBack, label }: { onBack: () => void; label?: string }) {
-  return <Button className="icon-btn back" onClick={onBack} aria-label={label ?? t("chrome.back")}>‹</Button>;
+  return <Button className="icon-btn back" onClick={onBack} aria-label={label ?? t("chrome.back")}><ChevronLeft size={24} aria-hidden="true" /></Button>;
 }
 
 export function BackBar({ title, onBack, children }: { title: string; onBack: () => void; children?: ReactNode }) {

@@ -26,9 +26,6 @@
 .attach-glyph {
   width: 20px;
   height: 20px;
-  background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21.4 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21.4 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 /* --- Picker sheet ---------------------------------------------------------------------- */
@@ -146,22 +143,7 @@
 .attach-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
 .attach-thumb-mark {
-  width: 16px;
-  height: 20px;
-  border: 1.6px solid var(--muted);
-  border-radius: 2px;
-  position: relative;
-}
-
-.attach-thumb-mark::after {
-  content: "";
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: 4px;
-  height: 1.6px;
-  background: var(--muted);
-  box-shadow: 0 -4px 0 var(--muted);
+  color: var(--muted);
 }
 
 .attach-meta { min-width: 0; }
@@ -608,8 +590,8 @@ dialog.modal.imgedit-modal .imgedit-apply {
 }
 
 .attach-btn-labeled .attach-glyph {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
 }
 
 .attach-btn-labeled .attach-btn-text {

@@ -1,3 +1,4 @@
+import { Pin } from "lucide-react";
 import type { ReactElement } from "react";
 import { agentMeta, agentTitle, statusLabel } from "../../../lib/dashboard";
 import { groupAgents, paneIsPinned } from "../../../lib/ranking";
@@ -33,7 +34,7 @@ function PaneSwitcherBody({ modal }: { modal: ActionSheetController }): ReactEle
         onClick={() => modal.close(() => { if (agent.paneId !== openPaneId()) void openPane(agent.paneId); })}
         title={agentTitle(agent, group)} description={meta}
         titleLeading={<>
-          {paneIsPinned(preferences.panePinned, agent.paneId) && <span className="pin-mark" aria-hidden="true" />}
+          {paneIsPinned(preferences.panePinned, agent.paneId) && <Pin className="pin-mark" size={12} aria-hidden="true" />}
           <span className={`agent-dot agent-${agent.status}`} />
         </>} />;
     }) : <EmptyState spec={{ figure: "link", title: t("home.switcherEmptyTitle"), sub: t("home.switcherEmpty") }} />}</div>

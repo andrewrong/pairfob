@@ -69,27 +69,7 @@
   white-space: nowrap;
 }
 
-.workspace-refresh::before {
-  content: "";
-  width: 18px;
-  height: 18px;
-  background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 12a9 9 0 0 0-15.17-6.55L3 8m0-5v5h5m-5 4a9 9 0 0 0 15.17 6.55L21 16m0 5v-5h-5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 12a9 9 0 0 0-15.17-6.55L3 8m0-5v5h5m-5 4a9 9 0 0 0 15.17 6.55L21 16m0 5v-5h-5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-
-.workspace-dismiss::before,
-.workspace-dismiss::after {
-  position: absolute;
-  width: 16px;
-  height: 1.5px;
-  border-radius: 999px;
-  background: currentColor;
-  content: "";
-}
 .workspace-dismiss { position: relative; }
-.workspace-dismiss::before { transform: rotate(45deg); }
-.workspace-dismiss::after { transform: rotate(-45deg); }
 
 .workspace-body {
   display: flex;
@@ -262,7 +242,7 @@
   font-size: var(--text-secondary);
 }
 
-.workspace-feedback .spinner { width: 18px; height: 18px; border-width: 2px; }
+.workspace-feedback .spinner { width: 18px; height: 18px; }
 .workspace-feedback p { margin: 0; }
 .workspace-error { flex-wrap: wrap; color: var(--error); }
 
@@ -542,8 +522,6 @@
 .diff-note-body { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-caption); line-height: 1.5; }
 .diff-note-actions { display: flex; gap: 6px; }
 .diff-note-action { flex: 1; min-width: 44px; min-height: 44px; font-size: var(--text-caption); }
-
-
 
 .workspace-notes-bar {
   display: flex;

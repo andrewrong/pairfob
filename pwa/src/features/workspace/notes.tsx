@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { canPromptAgent } from "../../lib/dashboard";
 import {
@@ -134,7 +135,7 @@ export function DiffNoteCards({ target, onEdit }: { target: DiffNoteTarget; onEd
   const sending = diffNoteSending(note.id) || diffNoteSendOpen();
   return <div className="workspace-diff-note">
     <div className="diff-note-main" onClick={() => { if (!sending) onEdit(target); }}>
-      <span className="diff-note-mark" aria-hidden="true">✎</span>
+      <Pencil className="diff-note-mark" size={16} aria-hidden="true" />
       <span className="diff-note-body">{note.body}</span>
     </div>
     <div className="diff-note-actions">

@@ -165,6 +165,8 @@ html.page-zoomed :is(.term, .term-line) {
 .term-jump:active,
 .agent-jump:active { background: var(--accent-deep); }
 
+.term-jump-text { display: inline-flex; align-items: center; gap: 6px; }
+
 /* Bars stand for the newest rows: a wall of output reads differently from a
    one-line prompt before anyone decides to jump. */
 .term-jump-preview {

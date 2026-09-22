@@ -265,26 +265,11 @@
   border-bottom: 1px dashed var(--line);
 }
 
-.agent-reply-fold-summary::before {
-  content: "";
-  flex: none;
-  width: 7px;
-  height: 10px;
-  background: currentColor;
-  clip-path: polygon(0 0, 100% 50%, 0 100%, 30% 50%);
-  transition: transform var(--dur-1) var(--ease);
-}
-
-.agent-reply-fold[open] > .agent-reply-fold-summary::before {
-  transform: rotate(90deg);
-}
-
 .agent-reply-fold-summary > .spinner,
 .agent-run-status > .spinner,
 .agent-tool-state > .spinner {
   width: 12px;
   height: 12px;
-  border-width: 2px;
 }
 
 .agent-reply-fold-title {
@@ -408,7 +393,6 @@
 .agent-detail-state > .spinner {
   width: 12px;
   height: 12px;
-  border-width: 2px;
 }
 
 .agent-detail-error {
@@ -481,3 +465,6 @@
   min-width: 0;
   min-height: 0;
 }
+
+.agent-reply-fold-chevron { transition: transform var(--dur-1) var(--ease); }
+.agent-reply-fold[open] .agent-reply-fold-chevron { transform: rotate(90deg); }

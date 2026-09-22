@@ -131,20 +131,13 @@
 .worktree-card:disabled { opacity: 0.58; }
 
 .worktree-icon {
-  position: relative;
+  display: grid;
+  place-items: center;
   width: 30px;
   height: 30px;
   border-radius: 9px;
   background: rgba(110, 168, 254, 0.13);
-}
-
-.worktree-icon::before {
-  position: absolute;
-  inset: 7px;
-  background: var(--accent);
-  content: "";
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='6' cy='5' r='2.5' fill='none' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='18' cy='6' r='2.5' fill='none' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='6' cy='19' r='2.5' fill='none' stroke='%23000' stroke-width='2'/%3E%3Cpath d='M6 7.5v9M8.5 17c5.2-.7 8.2-3.6 9.2-8.5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='6' cy='5' r='2.5' fill='none' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='18' cy='6' r='2.5' fill='none' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='6' cy='19' r='2.5' fill='none' stroke='%23000' stroke-width='2'/%3E%3Cpath d='M6 7.5v9M8.5 17c5.2-.7 8.2-3.6 9.2-8.5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  color: var(--accent);
 }
 
 .worktree-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }

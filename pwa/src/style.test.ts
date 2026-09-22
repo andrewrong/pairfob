@@ -79,25 +79,14 @@ describe("UI accessibility guardrails", () => {
     expect(css).not.toMatch(/font-size:\s*(?:0\.(?:7|72|74|75|76|78|79|8|82|83|84|85|86|87|88|9|92|93|94|95|98)|1\.(?:02|05|08|45))rem/);
   });
 
-  test("manual pair disclosure draws a geometric chevron instead of a font glyph", () => {
-    const chevron = rule(".manual-pair summary::after");
-    expect(chevron).toMatch(/clip-path:\s*polygon\(/);
-    expect(chevron).toMatch(/content:\s*""/);
-    expect(chevron).not.toMatch(/var\(--faint\)/);
-    expect(rule(".manual-pair[open] summary::after")).toMatch(/rotate\(180deg\)/);
-    expect(rule(".btn-scan::before")).toMatch(/linear-gradient\(currentColor/);
-    expect(rule(".add-mark::before")).toMatch(/linear-gradient\(currentColor/);
-    expect(rule(".add-mark::before")).toMatch(/content:\s*""/);
-    expect(css).toMatch(/\.chev,\s*\.group-chev,\s*\.pill-toggle::after\s*\{[^}]*clip-path:\s*polygon\(/);
-    expect(rule(".pin-mark")).toMatch(/clip-path:\s*polygon\(/);
-    expect(css).toMatch(/\.key-more::after,\s*\.icon-more::after\s*\{[^}]*box-shadow:/);
-    expect(rule(".icon-workspace::before")).toMatch(/mask:/);
-    expect(rule(".icon-workspace::before")).not.toMatch(/linear-gradient/);
-    expect(css).toMatch(/\.key-more\[aria-expanded=true\]::after\s*\{[^}]*clip-path:\s*polygon\(/);
-    expect(css).not.toMatch(/content:\s*"▾"|content:\s*"⌄"|content:\s*"›"|content:\s*"\+"/);
-    expect(rule(".set-help::before")).toMatch(/content:\s*""/);
-    expect(rule(".set-help::before")).toMatch(/mask:/);
-    expect(rule(".set-help::before")).not.toMatch(/content:\s*"\?"/);
+  test("Lucide disclosure icons rotate while CSS no longer draws duplicate marks", () => {
+    expect(rule(".manual-pair[open] .manual-pair-chevron")).toMatch(/rotate\(180deg\)/);
+    expect(rule('.group-title[aria-expanded="true"] .group-chev')).toMatch(/rotate\(90deg\)/);
+    expect(rule(".lucide")).toMatch(/flex:\s*none/);
+    for (const selector of [".manual-pair summary::after", ".btn-scan::before", ".add-mark::before",
+      ".key-more::after", ".icon-more::after", ".icon-workspace::before", ".set-help::before"]) {
+      expect(css).not.toContain(selector);
+    }
   });
 
   test("settings help copy is a centered dialog even on a phone width", () => {
@@ -144,18 +133,18 @@ describe("UI accessibility guardrails", () => {
     expect(rule(".topbar-create")).toMatch(/color:\s*var\(--accent\)/);
     expect(rule(".topbar-create")).not.toMatch(/background:\s*var\(--accent\)/);
     expect(rule(".topbar-create")).toMatch(/min-width:\s*44px/);
-    expect(css).toMatch(/\.topbar-create::before\s*\{[^}]*linear-gradient\(currentColor/);
+    expect(css).not.toContain(".topbar-create::before");
   });
 
   test("quota details refresh is a topbar chip and summary headings keep settings type", () => {
-    expect(rule(".topbar-create.quota-refresh::before")).toMatch(/mask:/);
+    expect(css).not.toContain(".topbar-create.quota-refresh::before");
     expect(css).not.toMatch(/\.quota-summary-heading h2\s*\{/);
     expect(rule(".quota-details")).toMatch(/color:\s*var\(--accent\)/);
   });
 
-  test("settings back sits on the title row without the session-chrome glyph nudge", () => {
+  test("SVG back icons stay centered without a font-glyph nudge", () => {
     expect(rule(".back")).not.toMatch(/padding-bottom/);
-    expect(css).toMatch(/\.chrome \.back\s*\{[^}]*padding-bottom:\s*3px/);
+    expect(css).not.toMatch(/\.chrome \.back\s*\{[^}]*padding-bottom:/);
     expect(css).toMatch(/\.settings-page \.topbar \.back,\s*\.main-settings \.topbar \.back\s*\{[^}]*margin-left:\s*-12px/);
     expect(css).toMatch(/\.settings-page \.topbar \+ \.lede\s*\{[^}]*margin-top:\s*14px/);
     expect(css).not.toMatch(/\.prelude \.topbar/);
@@ -165,8 +154,7 @@ describe("UI accessibility guardrails", () => {
     expect(rule(".icon-btn")).toMatch(/flex:\s*none/);
     expect(rule(".icon-btn")).toMatch(/min-width:\s*44px/);
     expect(rule(".icon-btn")).toMatch(/padding:\s*0/);
-    expect(rule(".icon-stop::before")).toMatch(/width:\s*12px/);
-    expect(rule(".icon-stop::before")).toMatch(/height:\s*12px/);
+    expect(css).not.toContain(".icon-stop::before");
     expect(rule(".icon-stop")).not.toMatch(/border:\s*1px/);
     expect(rule(".icon-stop")).not.toMatch(/background:\s*rgba\(255, 178, 36/);
   });
@@ -186,8 +174,7 @@ describe("UI accessibility guardrails", () => {
   });
 
   test("workspace controls use a centered refresh mark and mobile-sized change rows", () => {
-    expect(rule(".workspace-refresh::before")).toMatch(/mask:/);
-    expect(rule(".workspace-refresh::before")).toMatch(/width:\s*18px/);
+    expect(css).not.toContain(".workspace-refresh::before");
     expect(css).not.toMatch(/\.workspace-refresh::after\s*\{/);
     expect(rule(".workspace-change-group-title")).toMatch(/min-height:\s*44px/);
     expect(rule(".workspace-change")).toMatch(/min-height:\s*50px/);
@@ -491,12 +478,11 @@ describe("UI accessibility guardrails", () => {
     expect(css).toContain("@media (min-width: 900px)");
   });
 
-  test("complete-terminal keys keep 44px targets and wrap instead of cramming at 320px", () => {
-    expect(rule(".full-terminal-pad :is(.keys)")).toMatch(/grid-auto-columns:\s*minmax\(44px, 1fr\)/);
-    expect(rule(".full-terminal-pad :is(.keys)")).toMatch(/overflow-x:\s*auto/);
-    expect(rule(".full-terminal-pad :is(.key)")).toMatch(/min-width:\s*44px/);
-    expect(css).toMatch(/@media \(max-width: 363\.98px\)[\s\S]*?grid-template-columns:\s*repeat\(6, minmax\(44px, 1fr\)\)/);
-    expect(css).toMatch(/@media \(max-width: 363\.98px\)[\s\S]*?\.full-terminal-pad :is\(\.key-more\)[\s\S]*?grid-column:\s*1\s*\/\s*-1/);
+  test("compact keypad keeps the survival row visible and paginates within two tall rows", () => {
+    expect(rule(".key")).toMatch(/min-height:\s*44px/);
+    expect(rule(".keys")).not.toMatch(/overflow-x:\s*auto/);
+    expect(rule(".pad-page")).toMatch(/grid-template-rows:\s*repeat\(2, 44px\)/);
+    expect(rule(".pad-page")).toMatch(/grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
   });
 
   test("standalone PWA paints the home-indicator strip with the app canvas", () => {

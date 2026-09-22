@@ -1,3 +1,4 @@
+import { CircleHelp } from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "../../../lib/i18n";
 import { showHelp, type HelpBlock } from "../overlay/basic-dialogs";
@@ -26,7 +27,7 @@ export function SetNavRow({ label, value, onClick }: { label: string; value: str
 
 export function HelpButton({ title, blocks }: { title: string; blocks: HelpBlock[] | (() => HelpBlock[]) }) {
   return <Button className="icon-btn set-help" aria-label={t("settings.helpAria", { topic: title })} aria-haspopup="dialog"
-    onClick={() => showHelp(title, typeof blocks === "function" ? blocks() : blocks)} />;
+    onClick={() => showHelp(title, typeof blocks === "function" ? blocks() : blocks)}><CircleHelp size={18} aria-hidden="true" /></Button>;
 }
 
 export function SetHeading({ text, help, children, className = "" }: {

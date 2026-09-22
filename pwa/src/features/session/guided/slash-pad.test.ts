@@ -1,3 +1,5 @@
+import { applySnapshot as seedPadSnapshot } from "../../dashboard/catalog-store";
+import { selectPane as selectPadPane } from "../session-store";
 import { act, createElement } from "react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
@@ -44,10 +46,12 @@ describe("expanded pad modes", () => {
     expect(keypad).toContain("const expanded = keysExpanded()");
     expect(keypad).toContain("{expanded && <SessionPadModeBar onRepaint={repaint} />}");
     expect(keypad.indexOf("{expanded && <SessionPadModeBar")).toBeGreaterThan(keypad.indexOf("const expanded = keysExpanded()"));
-    expect(keypad).toContain('padKind() === "slash"');
+    expect(keypad).toContain("<SessionSlashPad keyItems=");
   });
 
   test("slash chips fill compose instead of sending keys", async () => {
+    seedPadSnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] });
+    selectPadPane("shortcut-test");
     const tokens: string[] = [];
     renderReact(createElement(SessionSlashPad, { onSelect: (text: string) => tokens.push(text) }));
     const chip = appRoot().querySelector<HTMLButtonElement>(".slash-cmd")!;
@@ -72,6 +76,25 @@ describe("expanded pad modes", () => {
     expect(pad).toContain("clearModifiers()");
     expect(pad).toContain("setPadKind(kind)");
     expect(slashView).toContain('t("slash.keys")');
-    expect(slashView).toContain('t("slash.commands")');
+    expect(slashView).toContain('t("slash.commandsShort")');
   });
+});
+test("a pinned prompt leaves live input and fills the guided draft without sending", async () => {
+  const { setQuickCommands, resetPreferences } = await import("../../settings/preferences-store");
+  const { composeDraft, composeLive, setComposeLive } = await import("../compose-store");
+  const { SessionDock } = await import("./session-dock");
+  const { attachLiveSession } = await import("../../computers/catalog-store");
+  const sent: string[] = [];
+  try {
+    attachLiveSession({ sendText: async (_pane: string, text: string) => { sent.push(text); } } as never);
+    selectPadPane("prompt-pane");
+    setQuickCommands([{ id: "review", label: "Review", text: "Review my changes", pinned: true }]);
+    setKeysExpanded(true); setPadKind("slash"); setComposeLive(true);
+    renderReact(createElement(SessionDock, { includeBack: true }));
+    await act(async () => { appRoot().querySelector<HTMLButtonElement>(".quick-cmd")!.click(); });
+    expect(composeLive()).toBe(false);
+    expect(composeDraft()).toBe("Review my changes");
+    expect(appRoot().querySelector<HTMLTextAreaElement>("textarea")!.value).toBe("Review my changes");
+    expect(sent).toEqual([]);
+  } finally { unmountReact(); attachLiveSession(null); resetPreferences(); localStorage.removeItem("pairfob:quickCommands"); }
 });

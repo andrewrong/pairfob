@@ -1,3 +1,4 @@
+import { ArrowDown } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { lineFillBackground, paintLines, spanCss, type StyledLine } from "../../../lib/ansi";
 import { t } from "../../../lib/i18n";
@@ -77,7 +78,7 @@ function JumpChip({ jumpRef }: { jumpRef: { current: HTMLButtonElement | null } 
         jumpToBottom(jump);
       }}
     >
-      <span className="term-jump-text">{label}</span>
+      <span className="term-jump-text"><ArrowDown size={16} aria-hidden="true" />{label}</span>
       {bars.length ? (
         <span className="term-jump-preview" aria-hidden="true">
           {bars.map((fill, i) => (

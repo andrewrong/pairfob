@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { Fragment, type ReactNode, type Ref } from "react";
 import { renderMarkdown } from "../../../lib/agent-markdown";
 import { groupAgentTurns, groupAgentTurnBlocks, processTitle, replyText, turnKey,
@@ -54,6 +55,7 @@ function ProcessFold({ turn, blocks, anchor, kept, hooks, onCopy }: {
   return <AgentDetails traceKey={`f:${turnKey(turn)}`} className="agent-process agent-reply-fold" kept={kept}
     dataTraceAnchor={`${anchor.key}:fold`} dataTraceOrdinal={anchor.ordinal} dataTraceOrdinalEnd={anchor.ordinalFromEnd}>
     <summary className="agent-process-summary agent-reply-fold-summary">
+      <ChevronRight className="agent-reply-fold-chevron" size={16} aria-hidden="true" />
       <span className="agent-reply-fold-title">{t("trace.nSteps", { n: count })}</span>
     </summary>
     <div className="agent-process-body agent-reply-fold-body">

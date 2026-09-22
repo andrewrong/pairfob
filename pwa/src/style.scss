@@ -23,6 +23,7 @@
    that change are the two operation-modal phone overrides, which move into the
    feature sheet where they out-specify the generic rules they cross. */
 @use "./shared/ui/styles/overlay";
+@use "./features/session/keypad/quick-command-editor";
 @use "./features/operations/styles/operations";
 @use "./features/settings/styles/daemon-update";
 @use "./features/workspace/workspace";

@@ -1,3 +1,4 @@
+import { ArrowDown } from "lucide-react";
 import { openPaneId } from "../session-store";
 import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { followTrace, setTraceFollow } from "./trace-store";
@@ -103,7 +104,7 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
           disabled={!chat.agentTraceNext || chat.agentTraceBusy} onClick={() => {
             if (chat.agentTraceNext && !chat.agentTraceBusy) void refreshAgentTrace(true);
           }}>{chat.agentTraceBusy && chat.agentTraceNext ? t("chat.readingOlder") : t("hist.loadEarlier")}</Button>} />
-      <Button className="agent-jump" hidden={chat.agentTraceFollow || !chat.agentTraceUnread} onClick={jumpToLatest}>{t("chat.newReply")}</Button>
+      <Button className="agent-jump" hidden={chat.agentTraceFollow || !chat.agentTraceUnread} onClick={jumpToLatest}><ArrowDown size={16} aria-hidden="true" />{t("chat.newReply")}</Button>
     </div>
     <AgentCompose />
   </div>;

@@ -410,20 +410,6 @@ input[type="text"]:disabled { opacity: 0.55; }
   background: var(--accent);
 }
 
-/* Geometric tick: two strokes, so no glyph has to load or center itself. */
-.pair-step.is-done .pair-dot::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3.5px;
-  width: 6px;
-  height: 3px;
-  border: 1.5px solid var(--bg);
-  border-top: 0;
-  border-right: 0;
-  transform: rotate(-45deg);
-}
-
 .pair-step.is-done .pair-dot::before { background: var(--accent); }
 
 .pair-step.is-done .pair-step-label { color: var(--ink); }
@@ -449,17 +435,6 @@ input[type="text"]:disabled { opacity: 0.55; }
   background: var(--error);
 }
 
-/* Geometric cross on the failed step. */
-.pair-step.is-failed .pair-dot::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  background:
-    linear-gradient(var(--bg), var(--bg)) center / 7px 1.5px no-repeat,
-    linear-gradient(var(--bg), var(--bg)) center / 1.5px 7px no-repeat;
-  transform: rotate(45deg);
-}
-
 .pair-step.is-failed .pair-step-label { color: var(--ink); font-weight: 600; }
 
 @keyframes pair-dot-pulse {
@@ -477,3 +452,5 @@ input[type="text"]:disabled { opacity: 0.55; }
   .pair-step.is-active .pair-dot { animation: none; background: rgba(110, 168, 254, 0.28); }
   .pair-step.is-active .pair-dot::before { animation: none; background: var(--accent); }
 }
+
+.pair-dot { display: grid; place-items: center; color: var(--bg); }

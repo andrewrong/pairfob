@@ -1,6 +1,6 @@
 import { t } from "../../lib/i18n";
 import { dismissWorktreeJob, retryWorktreeJob, worktreeJobs, type WorktreeJob } from "../../lib/worktree-jobs";
-import { Button } from "../../shared/ui/primitives/button";
+import { Button, Spinner } from "../../shared/ui/primitives";
 
 function WorktreeJobCard({ job }: { job: WorktreeJob }) {
   const failed = job.status === "failed";
@@ -9,7 +9,7 @@ function WorktreeJobCard({ job }: { job: WorktreeJob }) {
   return <article className={`card worktree-job worktree-job-${job.status}`}>
     <div className="worktree-job-body">
       <div className="card-title"><span className="card-name">{title}</span>
-        {!failed && <span className="spinner worktree-job-spinner" />}
+        {!failed && <Spinner className="worktree-job-spinner" />}
       </div>
       {context && <p className="card-meta">{context}</p>}
       <p className={failed ? "card-meta worktree-job-error" : "card-meta"}>{failed ? job.error : t("op.creatingWorktree")}</p>

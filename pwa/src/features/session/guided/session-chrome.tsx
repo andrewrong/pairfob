@@ -1,3 +1,4 @@
+import { Ellipsis, FolderOpen, Square } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import { agentMeta, agentStatusLabel, agentTitle, chromeName, cwdName, tabIsSplit } from "../../../lib/dashboard";
 import { t } from "../../../lib/i18n";
@@ -17,11 +18,11 @@ export function SessionActions({ onWorkspace, onMenu, onStop, working }: {
 }) {
   return <div className="chrome-actions">
     {working && <Button className="icon-btn icon-stop" aria-label={t("pane.interrupt")} title={t("pane.interruptTitle")}
-      onClick={() => { haptic(10); onStop(); }} />}
+      onClick={() => { haptic(10); onStop(); }}><Square size={14} fill="currentColor" aria-hidden="true" /></Button>}
     <Button className="icon-btn icon-workspace" aria-label={t("workspace.open")} title={t("workspace.open")}
-      onClick={onWorkspace} />
+      onClick={onWorkspace}><FolderOpen size={20} aria-hidden="true" /></Button>
     <Button className="icon-btn icon-more" aria-label={t("pane.menuTitle")} disabled={operationBusy()}
-      onClick={onMenu} />
+      onClick={onMenu}><Ellipsis size={20} aria-hidden="true" /></Button>
   </div>;
 }
 

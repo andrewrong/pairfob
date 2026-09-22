@@ -89,12 +89,18 @@ describe("fileIconFor", () => {
     for (const [name, id] of cases) expect(fileIconFor("file", name)).toBe(id);
   });
 
-  test("every icon id has a glyph with at least one path", () => {
-    for (const [id, glyph] of Object.entries(FILE_ICON_GLYPH)) {
-      const parts = FILE_ICON_GLYPHS[glyph];
-      expect(parts.length).toBeGreaterThan(0);
-      for (const part of parts) expect(part.d.length).toBeGreaterThan(8);
-      expect(id).toBeTruthy();
+  test("every icon id has renderable geometry", () => {
+    for (const id of Object.keys(FILE_ICON_GLYPH) as FileIconId[]) {
+      const glyph = FILE_ICON_GLYPHS[FILE_ICON_GLYPH[id]];
+      expect(glyph).toBeDefined();
+      if ("paths" in glyph) {
+        expect(glyph.paths.length).toBeGreaterThan(0);
+        for (const part of glyph.paths) expect(part.d.length).toBeGreaterThan(8);
+      } else {
+        const html = renderToStaticMarkup(createElement(glyph.icon, { "aria-hidden": true }));
+        expect(html).toContain("<svg");
+        expect(html).toContain('aria-hidden="true"');
+      }
     }
   });
 });
@@ -116,15 +122,6 @@ describe("legal special names do not resolve to prototype values", () => {
     expect(fileIconFor("file", "package.json")).toBe("npm");
     expect(fileIconFor("file", ".gitignore")).toBe("git");
   });
-});
-
-test("FileIcon of a prototype-key path returns a glyph, not undefined", () => {
-  // The JSX path resolves through FILE_ICON_GLYPHS; a prototype-key input must
-  // yield the "file" glyph (at least one path), never a crash on .map.
-  const id = fileIconFor("file", "constructor");
-  const glyph = FILE_ICON_GLYPHS[FILE_ICON_GLYPH[id]];
-  expect(Array.isArray(glyph)).toBeTrue();
-  expect(glyph.length).toBeGreaterThan(0);
 });
 
 import { createElement } from "react";

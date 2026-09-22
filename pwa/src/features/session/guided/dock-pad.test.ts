@@ -127,9 +127,9 @@ describe("session pad morphs", () => {
       };
       await tap(appRoot().querySelector(".key-more")!);
       expect(keysExpanded()).toBe(true);
-      await tap(appRoot().querySelectorAll<HTMLButtonElement>(".pad-mode button")[1]!);
+      await tap(appRoot().querySelector<HTMLButtonElement>(".pad-mode")!);
       expect(appRoot().querySelector(".slash-pad")).toBeTruthy();
-      await tap(appRoot().querySelectorAll<HTMLButtonElement>(".pad-mode button")[0]!);
+      await tap(appRoot().querySelector<HTMLButtonElement>(".pad-mode")!);
       expect(appRoot().querySelector(".key-mod")).toBeTruthy();
       await tap(appRoot().querySelector(".key-more")!);
       expect(keysExpanded()).toBe(false);
@@ -163,7 +163,7 @@ describe("session pad morphs", () => {
     setKeysExpanded(true);
     setPadKind("keys");
     await act(() => { paintPad(); });
-    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("扩展键盘形态");
+    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("切换到命令");
     expect(appRoot().querySelector(".slash-pad")).toBeNull();
     expect(appRoot().textContent).toContain("Tab");
     expect(appRoot().textContent).toContain("Ctrl");
@@ -171,12 +171,14 @@ describe("session pad morphs", () => {
   });
 
   test("expanded command morph fills compose chips and not SendKeys", async () => {
+    applySnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] });
+    selectPane("shortcut-test");
     setKeysExpanded(true);
     setPadKind("slash");
     await act(() => { paintPad(); });
     const chips = [...appRoot().querySelectorAll(".slash-cmd")].map((el) => el.textContent);
     expect(chips).toEqual(SLASH_COMMANDS.map((command) => command.label));
     expect(appRoot().textContent).not.toContain("Tab");
-    expect(appRoot().querySelector('[aria-checked="true"]')?.textContent).toBe("命令");
+    expect(appRoot().querySelector(".pad-mode")?.textContent).toBe("命令");
   });
 });

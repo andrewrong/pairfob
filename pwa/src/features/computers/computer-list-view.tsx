@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { BackBar, Brand, Button, SelectionRow } from "../../shared/ui/primitives";
 import type { ComputersViewModel } from "./model";
@@ -39,7 +40,7 @@ export function ComputerListView({ view, onSwitch, onForget, onAdd, onBack, noti
         ))}
       </div>
       <SelectionRow className="computer-add" onClick={onAdd} title={view.addLabel} description={view.addHint}
-        leading={<span className="add-mark" aria-hidden="true" />} />
+        leading={<span className="add-mark" aria-hidden="true"><Plus size={18} /></span>} />
       {footer}
     </>
   );

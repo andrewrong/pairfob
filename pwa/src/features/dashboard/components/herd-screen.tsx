@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Brand, Button, StatusDot, TopbarActions } from "../../../shared/ui/primitives";
 import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
@@ -21,7 +22,7 @@ function HerdTopActions({ view, actions }: { view: HerdViewModel; actions: HerdA
           disabled={view.create.disabled}
           aria-label={view.create.aria}
         >
-          {view.create.label}
+          <Plus size={16} aria-hidden="true" />{view.create.label}
         </Button>
       )}
       {view.computers && (

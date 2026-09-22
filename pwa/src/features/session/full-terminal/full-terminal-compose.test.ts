@@ -1,3 +1,5 @@
+import { applySnapshot as seedPadSnapshot } from "../../dashboard/catalog-store";
+import { selectPane as selectPadPane } from "../session-store";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act, createElement } from "react";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
@@ -290,10 +292,10 @@ describe("complete-terminal compose input", () => {
     const root = appRoot();
     act(() => { (root.querySelector('[aria-label="更多按键"]') as HTMLButtonElement).click(); });
     expect(root.querySelector(".full-terminal-compose-input") !== null).toBeTrue();
-    const commandMode = [...root.querySelectorAll<HTMLButtonElement>(".pad-mode button")]
-      .find((el) => el.textContent === "命令");
+    const commandMode = root.querySelector<HTMLButtonElement>(".pad-mode");
     act(() => { commandMode?.click(); });
     expect(root.querySelector(".full-terminal-compose-input") !== null).toBeTrue();
+    act(() => { seedPadSnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] }); selectPadPane("shortcut-test"); });
     act(() => { (root.querySelector('[aria-label="插入 /goal，接着填目标"]') as HTMLButtonElement).click(); });
     expect(composeDraft()).toBe("/goal ");
     expect((root.querySelector(".full-terminal-compose-input") as HTMLTextAreaElement).value).toBe("/goal ");

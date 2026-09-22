@@ -104,8 +104,9 @@ describe("domain owner manifest", () => {
   });
 
   test("owners import only the shared model primitive, read-only libs and (App) the transition", () => {
-    // One feature-local read-only pure model, allowed for exactly one owner.
+    // Feature-local pure models, each pinned to its owning domain.
     const PURE_FEATURE_MODELS: Record<string, string> = {
+      "features/settings/preferences-store": "features/settings/quick-command-model",
       "features/session/attachments/attachments-store": "features/session/attachments/attach-model",
     };
     for (const id of OWNER_IDS) {

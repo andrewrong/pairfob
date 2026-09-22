@@ -215,3 +215,5 @@ em {
 .desk-row em {
   margin-left: 0;
 }
+
+.swap svg { vertical-align: middle; }

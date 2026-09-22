@@ -93,8 +93,7 @@ describe("Tab stays a focus key outside the compose field", () => {
 
   test("the keypad still offers a literal Tab", async () => {
     const pad = await Bun.file(new URL("./session-keypad.tsx", import.meta.url)).text();
-    expect(pad).toContain("SECONDARY_KEYS");
-    expect(pad).toContain("TERTIARY_KEYS");
+    expect(pad).toContain("EXPANDED_KEYS");
     const tables = await Bun.file(new URL("../keypad/keys.ts", import.meta.url)).text();
     expect(tables).toContain('{ key: "tab", label: "Tab" }');
     expect(tables).toContain('{ key: "up", label: "↑"');

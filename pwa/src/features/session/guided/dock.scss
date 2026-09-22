@@ -117,18 +117,59 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
   transform: none;
 }
 
-.pad-mode {
-  --seg-pad: 3px;
-  margin: 6px 0 2px;
-  padding: var(--seg-pad);
+.keys:has(> .pad-mode) {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) 56px 32px;
+  grid-auto-columns: auto;
+  gap: 4px;
 }
 
-.slash-pad {
+.key.pad-mode {
+  gap: 3px;
+  padding: 0 3px;
+  font: 560 var(--text-caption) var(--font);
+  color: var(--accent);
+}
+
+.pad-pages { margin-top: 6px; }
+.pad-page {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, 44px);
   gap: 6px;
-  padding: 2px 0;
+  touch-action: pan-y;
 }
+.pad-page .key { touch-action: pan-y; }
+.pad-page[data-columns="7"] {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  column-gap: 4px;
+}
+.pad-page[data-columns="7"] .key {
+  padding-inline: 0;
+  font-size: clamp(10px, 3vw, 13px);
+}
+.pad-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+}
+.pad-page-dot {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.pad-page-dot span {
+  width: 5px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--muted);
+}
+.pad-page-dot[aria-current="page"] span { width: 14px; background: var(--accent); }
+.pad-page-dot:focus-visible, .pad-mode:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .slash-cmd {
   min-height: 44px;
@@ -236,3 +277,13 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
   stroke: currentColor;
   stroke-width: 1.6;
 }
+
+.pad-pagination { position: relative; }
+.pad-manage {
+  position: absolute; right: 0; top: 0; height: 24px;
+  border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11px;
+  padding: 0 6px; cursor: pointer;
+}
+.quick-cmd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+.pad-pagination:has(.pad-manage) { padding-right: 100px; }

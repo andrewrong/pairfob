@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { t } from "../../../lib/i18n";
 import { ModalFrame, presentModal } from "./modal";
 
@@ -27,7 +28,7 @@ export function showHelp(title: string, blocks: HelpBlock[]): void {
     return <ModalFrame modal={modal} title={title} className="modal help" describedBy={ids.join(" ") || undefined}
       focus={form => form.querySelector<HTMLButtonElement>(".help-close")!.focus()}
       heading={<div className="help-head"><h2 id={modal.titleId} className="modal-title">{title}</h2>
-        <button type="button" className="icon-btn help-close" aria-label={t("close")} onClick={modal.dismiss}>×</button>
+        <button type="button" className="icon-btn help-close" aria-label={t("close")} onClick={modal.dismiss}><X size={20} aria-hidden="true" /></button>
       </div>}>
       {blocks.map((block, i) => <p key={i} id={ids[i]} className="help-copy">
         {typeof block === "string" ? block : <>{block.before}<code>{block.code}</code>{block.after}</>}

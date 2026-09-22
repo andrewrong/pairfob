@@ -247,7 +247,7 @@ test("ordered mixed blocks retain text, truncation, fold keys, and working expan
       busy: "false", role: "log",
       outer: [...prefix,
         block("DETAILS", "agent-process agent-reply-fold",
-          "执行过程 · 3 步思考Start by checkingStart by checkingIntermediate\n✓Read结果done"),
+          "执行过程 · 3 步思考Start by checkingStart by checkingIntermediate\nRead结果done"),
         block("ARTICLE", "agent-assistant agent-assistant-final", "Final one\nFinal two\n")],
       details: [
         detail("f:u:12:Inspect this:s:thinking::", "agent-process agent-reply-fold"),
@@ -259,7 +259,7 @@ test("ordered mixed blocks retain text, truncation, fold keys, and working expan
       outer: [...prefix,
         block("DETAILS", "agent-process", "思考过程思考Start by checkingStart by checking"),
         block("ARTICLE", "agent-assistant agent-assistant-intermediate", "Intermediate\n"),
-        block("DETAILS", "agent-process", "正在执行✓Read结果done"),
+        block("DETAILS", "agent-process", "正在执行Read结果done"),
         block("ARTICLE", "agent-assistant agent-assistant-intermediate", "Final one\nFinal two\n"),
         block("DIV", "agent-run-status", "正在执行 · 5 步", "status")],
       details: [
