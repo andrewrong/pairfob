@@ -10,7 +10,7 @@ import { useDashboard } from "../../dashboard/hooks";
 import { usePreferences } from "../../settings/hooks";
 import { useSession } from "../hooks";
 import { openPaneId } from "../session-store";
-import { SelectionRow, EmptyState, StatusGlyph } from "../../../shared/ui/primitives";
+import { SelectionRow, EmptyState } from "../../../shared/ui/primitives";
 import { MenuItem, showActionSheet, type ActionSheetController } from "../../../shared/ui/overlay/action-sheet";
 
 /**
@@ -40,7 +40,7 @@ function PaneSwitcherBody({ modal }: { modal: ActionSheetController }): ReactEle
         title={agentTitle(agent, group)} description={meta}
         titleLeading={<>
           {paneIsPinned(preferences.panePinned, agent.paneId) && <Pin className="pin-mark" size={12} aria-hidden="true" />}
-          <StatusGlyph status={stale ? "unknown" : agent.status} small />
+          <span className={`agent-dot agent-${stale ? "unknown" : agent.status}`} />
         </>} />;
     }) : <EmptyState spec={{ figure: "link", title: t("home.switcherEmptyTitle"), sub: t("home.switcherEmpty") }} />}</div>
     <MenuItem modal={modal}>{t("cancel")}</MenuItem>

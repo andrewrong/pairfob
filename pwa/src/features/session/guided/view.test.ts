@@ -199,17 +199,17 @@ describe("pane header keeps status surfaces in step", () => {
     const title = appRoot().querySelector(".chrome-title")!;
     const name = title.querySelector(".chrome-name");
     const meta = appRoot().querySelector(".chrome-secondary .chrome-meta");
-    const dot = meta?.querySelector(".status-glyph");
+    const dot = meta?.querySelector(".agent-dot");
     expect(name !== null).toBeTrue();
     expect(meta !== null).toBeTrue();
     expect(dot !== null).toBeTrue();
     expect(name!.nextElementSibling?.tagName.toLowerCase()).toBe("svg");
-    expect(meta!.querySelector(".status-glyph") === dot).toBeTrue();
+    expect(meta!.querySelector(".agent-dot") === dot).toBeTrue();
     expect(meta!.querySelector(".chrome-meta-text") !== null).toBeTrue();
     expect(title.querySelector(".chrome-name-row")).toBeNull();
     expect(chromeSource).toContain("chrome-name");
     expect(chromeSource).toContain("chrome-meta-text");
-    expect(chromeSource).toContain("StatusGlyph");
+    expect(chromeSource).toContain("agent-dot");
     expect(chromeSource).not.toContain("chrome-name-row");
   });
 

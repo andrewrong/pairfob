@@ -17,7 +17,7 @@ import { t } from "../../lib/i18n";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
 import { goToScreen } from "../../app/navigation-store";
 import { commitView } from "../../app/host";
-import { Button, SetNavRow, Spinner } from "../../shared/ui/primitives";
+import { Button, Spinner } from "../../shared/ui/primitives";
 
 function laterDismissed(key: string): boolean {
   try {
@@ -106,7 +106,10 @@ function CompactBody({ view, laterKey, onHide }: { view: DaemonVersion; laterKey
         <Button
           className="btn btn-small"
           onClick={() => {
-            openDaemonUpdatePage();
+            goToScreen("settings");
+            commitView();
+            document.querySelector<HTMLElement>("[data-react-daemon-detailed='true'], [data-detailed='true']")
+              ?.scrollIntoView({ block: "nearest" });
             void checkDaemonRelease();
             void refreshDaemonUpdate();
           }}
@@ -195,26 +198,6 @@ function DetailedBody({ view }: { view: DaemonVersion }) {
       </div>
     </section>
   );
-}
-
-/** The computer update has its own settings page; every entry lands there. */
-export function openDaemonUpdatePage(): void {
-  goToScreen("update");
-  commitView();
-}
-
-/**
- * The settings row for the computer update: what the computer runs and whether
- * a newer build waits, one tap from the page that updates it.
- */
-export function DaemonUpdateRow() {
-  useSyncExternalStore(subscribeDaemonUpdates, daemonUpdateRevision);
-  const view = daemonVersion();
-  const value = !view ? t("update.versionUnknown")
-    : needsDaemonUpdate(view) ? t("update.availableTitle")
-    : legacyBuild(view.build) ? t("update.versionUnknown")
-    : view.build;
-  return <SetNavRow label={t("update.title")} value={value} onClick={openDaemonUpdatePage} />;
 }
 
 export function DaemonUpdate({ compact = false }: { compact?: boolean }) {

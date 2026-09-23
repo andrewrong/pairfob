@@ -22,8 +22,6 @@ import {
 } from "../../../lib/ranking";
 import type { RuntimeLiveness } from "../../../lib/runtime-liveness";
 import { emptySessionCopy, type EmptySessionAction } from "../../../lib/ui-model";
-import type { BoardSpace, BoardTab, TabLayout } from "../../../lib/layout";
-import { buildHerdLayout, type HerdLayoutSection } from "./herd-layout";
 
 /** Status tone vocabulary of the app chrome; core publishes the same union. */
 export type HerdTone = "live" | "warn" | "off" | "demo" | "pending";
@@ -50,11 +48,6 @@ export type HerdModelInput = {
   computerCount: number;
   /** Pane whose title currently shares the view-transition name, if any. */
   morphingPaneId: string | null;
-  /** Home presentation; absent means the ranked list. */
-  homeView?: "list" | "layout";
-  /** Board catalog for the layout view; only read when that view is shown. */
-  board?: { workspaces: readonly BoardSpace[]; tabs: readonly BoardTab[]; layouts: readonly TabLayout[] };
-  createTab?: boolean;
 };
 
 export type HerdCardView = {
@@ -66,8 +59,6 @@ export type HerdCardView = {
   title: string;
   meta: string;
   pill: { className: string; text: string } | null;
-  /** Status glyph: shape and colour carry the state; "unknown" while stale. */
-  glyph: AgentCard["status"] | "unknown";
   pinned: boolean;
   pinnedLabel: string;
   selected: boolean;
@@ -108,12 +99,6 @@ export type HerdViewModel = {
   status: HerdStatus;
   doneCount: number;
   pendingCount: number;
-  sessionCount: number;
-  homeView: "list" | "layout";
-  /** Current grouping, as the list header names it. */
-  grouping: { label: string };
-  /** Workspace/tab thumbnails; null while the list view is shown. */
-  layout: HerdLayoutSection[] | null;
   create: { label: string; aria: string; disabled: boolean } | null;
   computers: { label: string } | null;
   board: { label: string };
@@ -191,7 +176,6 @@ function cardView(
     pill: stale
       ? herdCardPill(agent.status, true)
       : { className: `pill pill-${agent.status}`, text: agentStatusLabel(agent) },
-    glyph: stale ? "unknown" : agent.status,
     pinned,
     pinnedLabel: t("home.pinned"),
     selected: agent.paneId === input.selectedPaneId,
@@ -242,15 +226,9 @@ export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
     status: input.status,
     doneCount: stale ? 0 : herdDoneCount(input.agents),
     pendingCount: stale ? 0 : input.agents.filter(agent => agent.status === "blocked").length,
-    sessionCount: input.agents.length,
-    homeView: input.homeView ?? "list",
-    grouping: { label: t(input.listGroup === "space" ? "list.space" : input.listGroup === "agent" ? "list.agent" : "list.flat") },
-    layout: input.homeView === "layout" && input.board
-      ? buildHerdLayout({ ...input.board, agents: input.agents, stale, canCreateTab: input.createTab === true })
-      : null,
     create: input.createConversation
       ? {
-          label: input.operationBusy ? t("home.creating") : t("form.newConversation"),
+          label: input.operationBusy ? t("home.creating") : t("home.new"),
           aria: t("home.newAria"),
           disabled: input.operationBusy || !input.connected,
         }

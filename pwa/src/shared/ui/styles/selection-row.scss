@@ -1,23 +1,21 @@
-/* A picker row is an object-list row: hairline-separated, not a card. */
 .switch-item {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 52px; /* = --row-min */
-  margin: 0;
-  padding: var(--row-pad-y) 6px;
-  border: 0;
-  border-bottom: 1px solid var(--hairline);
-  border-radius: 0;
-  background: transparent;
+  min-height: 52px;
+  margin: 7px 0 0;
+  padding: 9px 13px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid transparent;
   color: var(--ink);
   text-align: left;
 }
 
-.switch-item.on { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
+.switch-item.on { border-color: rgba(110, 168, 254, 0.5); background: rgba(110, 168, 254, 0.1); }
 
-.switch-item:active { background: var(--surface-2); }
+.switch-item:active { background: #232c38; }
 
 .switch-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 

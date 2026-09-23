@@ -8,13 +8,13 @@
     justify-content: center;
     gap: 9px;
     width: 100%;
-    min-height: 46px; /* = --h-primary */
+    min-height: 52px;
     padding: 0 18px;
     border: 1px solid transparent;
-    border-radius: var(--group-radius);
+    border-radius: 14px;
     background: var(--surface-2);
     color: var(--ink);
-    font-size: var(--text-subhead);
+    font-size: 1rem;
     font-weight: 640;
     transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease), opacity var(--dur-1) var(--ease);
   }
@@ -34,16 +34,11 @@
     background: transparent;
   }
 
-  /* Danger is red words on a quiet fill: it never outranks the one primary. */
-  .btn-danger {
-    border-color: rgba(255, 107, 94, 0.35);
-    background: rgba(255, 107, 94, 0.12);
-    color: var(--danger-bright);
-  }
+  .btn-danger { background: var(--danger); color: #fff; }
 
   .btn-small {
     width: auto;
-    min-height: 44px; /* = --h-control */
+    min-height: 44px;
     padding: 0 14px;
     font-size: var(--text-body);
     border-radius: 10px;

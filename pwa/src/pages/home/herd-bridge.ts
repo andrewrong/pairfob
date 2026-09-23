@@ -25,13 +25,11 @@ import { capabilityEnabled, operationBusy } from "../../features/operations/capa
 import { computersStore, liveSession } from "../../features/computers/catalog-store";
 import { networkOnline } from "../../features/connection/connection-store";
 import { dashboardStore, liveAgents } from "../../features/dashboard/catalog-store";
-import { homeView, listGroup, listGroupCollapsed, panePinned, paneTouched, preferencesStore, setListGroupCollapsed } from "../../features/settings/preferences-store";
-import { boardStore } from "../../features/board/layout-store";
+import { listGroup, listGroupCollapsed, panePinned, paneTouched, preferencesStore, setListGroupCollapsed } from "../../features/settings/preferences-store";
 import { runtimeStore } from "../../features/connection/runtime-store";
 import { openPaneId } from "../../features/session/session-store";
 import type { HerdActionPorts } from "../../features/dashboard/actions";
 import type { DashboardAgentCard } from "../../lib/dashboard";
-import type { TabLayout } from "../../lib/layout";
 import type { HerdPaint, StatusMark } from "../../lib/herd-attention";
 import { openHerdPaint } from "../../lib/herd-attention";
 import { groupAgents, syncGroupCollapsed, toggleCollapsedForIds } from "../../lib/ranking";
@@ -132,16 +130,7 @@ export function readHerdInput(painted: HerdPaint): HerdModelInput {
     operationBusy: operationBusy(),
     computerCount: computers.computers.length,
     morphingPaneId: morphingPane(),
-    homeView: homeView(),
-    board: homeView() === "layout" ? readBoardCatalog() : undefined,
-    createTab: capabilityEnabled("create_tab"),
   };
-}
-
-/** The published board catalog the home layout view draws its thumbnails from. */
-function readBoardCatalog(): NonNullable<HerdModelInput["board"]> {
-  const board = boardStore.get();
-  return { workspaces: board.workspaceList, tabs: board.tabList, layouts: board.layouts as TabLayout[] };
 }
 
 /**
@@ -191,8 +180,8 @@ export function herdActionPorts(): HerdActionPorts {
     // refused once a mutation is in flight or the session dropped.
     canOpenMenu: () => !operationBusy() && liveSession()?.isConnected() === true,
     toggleGroup: toggleHerdGroup,
-    openBoard: (target) => {
-      void openBoard(target);
+    openBoard: () => {
+      void openBoard();
     },
     shareTitle,
     openPaneMenu: openListPaneMenu,

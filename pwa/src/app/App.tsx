@@ -9,7 +9,6 @@ import { ComputersScreen } from "../pages/computers/computers-page";
 import { ConnectScreen } from "../pages/connect/connect-page";
 import { HomePage } from "../pages/home";
 import { QuotaScreen } from "../pages/quota/quota-page";
-import { UpdateScreen } from "../pages/update/update-page";
 import { SettingsScreen } from "../pages/settings/settings-page";
 import { WorkspaceScreen } from "../pages/workspace/screen";
 import { sessionHandlers } from "../features/session/pane-actions";
@@ -74,8 +73,6 @@ export function pageFor(layout: ShellLayout, frame: FrameSnapshot): ReactNode {
       return <SettingsScreen />;
     case "quota":
       return <QuotaScreen />;
-    case "update":
-      return <UpdateScreen />;
     case "computers":
       return <ComputersScreen />;
     case "home":

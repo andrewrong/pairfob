@@ -28,22 +28,17 @@ export type ObjectMenuKind =
   | "closeWorkspace"
   | "newTabInWorkspace";
 
-/** Which object an action belongs to; the sheet shows one object at a time. */
-export type ObjectMenuScope = "pane" | "tab" | "workspace";
-
-export type ObjectMenuItem = { kind: ObjectMenuKind; label: string; danger?: boolean; scope: ObjectMenuScope };
+export type ObjectMenuItem = { kind: ObjectMenuKind; label: string; danger?: boolean };
 
 export type ObjectMenuModel = {
   title: string;
-  /** Workspace › tab › session names for the pane menu; empty for a heading menu. */
-  path: string[];
   facts: AgentDetailRow[];
   items: ObjectMenuItem[];
 };
 
 /**
- * The card menu, one object at a time: this session, its tab, its workspace.
- * A tab is only renamable/closable when it is named or split.
+ * The card menu. A workspace-grouped list moves the parent management to the
+ * heading, and a tab is only renamable/closable when it is named or split.
  */
 export function paneMenuModel(input: {
   agent: AgentCard;
@@ -55,22 +50,21 @@ export function paneMenuModel(input: {
   const { agent, agents, listGroup } = input;
   const split = tabIsSplit(agent, agents);
   const items: ObjectMenuItem[] = [
-    { kind: "pin", label: t(input.pinned ? "menu.unpin" : "menu.pin"), scope: "pane" },
-    { kind: "renamePane", label: t("menu.renamePane"), scope: "pane" },
-    { kind: "closePane", label: t("op.closePane"), danger: true, scope: "pane" },
+    { kind: "pin", label: t(input.pinned ? "menu.unpin" : "menu.pin") },
   ];
-  if (agent.workspaceId) items.push({ kind: "openBoard", label: t("menu.board"), scope: "tab" });
-  if (visibleTabLabel(agent.tabLabel) || split) items.push({ kind: "renameTab", label: t("menu.renameTab"), scope: "tab" });
-  if (split) items.push({ kind: "closeTab", label: t("op.closeTab"), danger: true, scope: "tab" });
-  if (agent.workspaceId) {
-    if (input.createTab) items.push({ kind: "newTabBeside", label: t("menu.newTabBeside"), scope: "workspace" });
-    items.push({ kind: "renameWorkspace", label: t("menu.renameWorkspace"), scope: "workspace" });
-    items.push({ kind: "closeWorkspace", label: t("op.closeWorkspace"), danger: true, scope: "workspace" });
+  if (agent.workspaceId && input.createTab) items.push({ kind: "newTabBeside", label: t("menu.newTabBeside") });
+  if (agent.workspaceId) items.push({ kind: "openBoard", label: t("menu.board") });
+  items.push({ kind: "renamePane", label: t("menu.renamePane") });
+  items.push({ kind: "closePane", label: t("op.closePane"), danger: true });
+  if (visibleTabLabel(agent.tabLabel) || split) items.push({ kind: "renameTab", label: t("menu.renameTab") });
+  if (split) items.push({ kind: "closeTab", label: t("op.closeTab"), danger: true });
+  if (agent.workspaceId && listGroup !== "space") {
+    items.push({ kind: "renameWorkspace", label: t("menu.renameWorkspace") });
+    items.push({ kind: "closeWorkspace", label: t("op.closeWorkspace"), danger: true });
   }
   return {
     // The sheet title is the card title the reader pressed.
     title: agentTitle(agent, listGroup),
-    path: [agent.workspaceLabel?.trim() || "", visibleTabLabel(agent.tabLabel), agentTitle(agent, listGroup)].filter(Boolean),
     facts: agentDetailRows(agent, agents, listGroup),
     items,
   };
@@ -81,8 +75,8 @@ export function workspaceMenuModel(input: { agent: AgentCard; createTab: boolean
   const { agent } = input;
   if (!agent.workspaceId) return null;
   const items: ObjectMenuItem[] = [];
-  if (input.createTab) items.push({ kind: "newTabInWorkspace", label: t("menu.newTabInWorkspace"), scope: "workspace" });
-  items.push({ kind: "renameWorkspace", label: t("menu.renameWorkspace"), scope: "workspace" });
-  items.push({ kind: "closeWorkspace", label: t("op.closeWorkspace"), danger: true, scope: "workspace" });
-  return { title: agent.workspaceLabel || t("workspace.unnamed"), path: [], facts: [], items };
+  if (input.createTab) items.push({ kind: "newTabInWorkspace", label: t("menu.newTabInWorkspace") });
+  items.push({ kind: "renameWorkspace", label: t("menu.renameWorkspace") });
+  items.push({ kind: "closeWorkspace", label: t("op.closeWorkspace"), danger: true });
+  return { title: agent.workspaceLabel || t("workspace.unnamed"), facts: [], items };
 }

@@ -38,7 +38,7 @@ export function showHelp(title: string, blocks: HelpBlock[]): void {
 }
 
 export function askConfirm(message: string, confirmLabel?: string): Promise<boolean> {
-  return presentModal<boolean>(modal => <ModalFrame modal={modal} title={t("op.dangerTitle")} className="modal confirm-modal"
+  return presentModal<boolean>(modal => <ModalFrame modal={modal} title={t("op.dangerTitle")}
     focus={form => form.querySelector<HTMLButtonElement>(".btn-ghost")!.focus()}>
     <p className="lede">{message}</p>
     <div className="action-row">

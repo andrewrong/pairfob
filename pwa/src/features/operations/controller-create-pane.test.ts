@@ -91,22 +91,6 @@ function boot(): void {
   paint();
 }
 
-/** The pane type is a tile group of native radios; choosing checks one. */
-function kindRadios(): InstanceType<typeof happy.HTMLInputElement>[] {
-  return [...happy.document.querySelectorAll('input[type="radio"][name="agent_kind"]')]
-    .filter((node): node is InstanceType<typeof happy.HTMLInputElement> => node instanceof happy.HTMLInputElement);
-}
-
-function kindValue(): string {
-  return kindRadios().find((radio) => radio.checked)?.value ?? "";
-}
-
-function chooseKind(value: string): void {
-  const radio = kindRadios().find((node) => node.value === value);
-  if (!radio) throw new Error(`missing pane type ${value}`);
-  radio.checked = true;
-}
-
 async function submitOperationForm(options: { cwd?: string; agentKind?: string } = {}): Promise<void> {
   const dialog = happy.document.querySelector("dialog.operation-modal");
   if (!(dialog instanceof happy.HTMLDialogElement)) throw new Error("missing operation dialog");
@@ -116,7 +100,9 @@ async function submitOperationForm(options: { cwd?: string; agentKind?: string }
     field.value = options.cwd;
   }
   if (options.agentKind !== undefined) {
-    chooseKind(options.agentKind);
+    const kind = dialog.querySelector('select[name="agent_kind"]');
+    if (!(kind instanceof happy.HTMLSelectElement)) throw new Error("missing agent kind field");
+    kind.value = options.agentKind;
   }
   const form = dialog.querySelector("form");
   if (!(form instanceof happy.HTMLFormElement)) throw new Error("missing form");
@@ -212,7 +198,7 @@ describe.each(["", "codex"])("new tabs and splits with pane kind %s", (agentKind
       },
     });
     const done = createSelectedTab(dashboardStore.get().agents[0]);
-    expect(kindRadios().length).toBeGreaterThan(0);
+    expect(happy.document.querySelector('select[name="agent_kind"]')?.getAttribute("name")).toBe("agent_kind");
     await submitOperationForm({ agentKind });
     await done;
     expect(created).toEqual([{ workspace_id: "w1", cwd: "/tmp/demo", ...(agentKind ? { agent_kind: agentKind } : {}) }]);
@@ -239,7 +225,7 @@ describe.each(["", "codex"])("new tabs and splits with pane kind %s", (agentKind
       },
     });
     const done = splitSelectedPane();
-    expect(kindRadios().length).toBeGreaterThan(0);
+    expect(happy.document.querySelector('select[name="agent_kind"]')?.getAttribute("name")).toBe("agent_kind");
     await submitOperationForm({ agentKind });
     await done;
     expect(created).toEqual([{ pane_id: "p1", direction: "right", ratio: 0.5, cwd: "/tmp/demo", ...(agentKind ? { agent_kind: agentKind } : {}) }]);
@@ -254,10 +240,10 @@ describe.each(["tab", "split"])("%s pane type form", (operation) => {
     return operation === "tab" ? createSelectedTab() : splitSelectedPane();
   }
 
-  function kindGroup(): Element {
-    const group = happy.document.querySelector('[role="radiogroup"][data-field="agent_kind"]');
-    if (!group) throw new Error("missing pane type");
-    return group as unknown as Element;
+  function kindField(): InstanceType<typeof happy.HTMLSelectElement> {
+    const field = happy.document.querySelector('select[name="agent_kind"]');
+    if (!(field instanceof happy.HTMLSelectElement)) throw new Error("missing pane type");
+    return field;
   }
 
   function cancel(): void {
@@ -271,9 +257,9 @@ describe.each(["tab", "split"])("%s pane type form", (operation) => {
     applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_conversation: true, create_tab: true, split_pane: true, history: true }, ["codex", "claude"]);
     localStorage.setItem(LAST_AGENT_KIND_KEY, "claude");
     const done = open();
-    expect(kindRadios().map((radio) => radio.value)).toEqual(["", "codex", "claude"]);
-    expect(kindValue()).toBe("claude");
-    chooseKind("codex");
+    expect([...kindField().options].map((option) => option.value)).toEqual(["", "codex", "claude"]);
+    expect(kindField().value).toBe("claude");
+    kindField().value = "codex";
     cancel();
     await done;
     expect(localStorage.getItem(LAST_AGENT_KIND_KEY)).toBe("claude");
@@ -285,8 +271,8 @@ describe.each(["tab", "split"])("%s pane type form", (operation) => {
     applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_conversation: true, create_tab: true, split_pane: true, history: true }, []);
     localStorage.setItem(LAST_AGENT_KIND_KEY, "codex");
     const done = open();
-    expect(kindRadios().map((radio) => radio.value)).toEqual([""]);
-    expect(kindValue()).toBe("");
+    expect([...kindField().options].map((option) => option.value)).toEqual([""]);
+    expect(kindField().value).toBe("");
     await submitOperationForm();
     await done;
     expect(openPaneId()).toBe("p2");
@@ -295,14 +281,11 @@ describe.each(["tab", "split"])("%s pane type form", (operation) => {
   test("rejects an unadvertised kind before creating anything", async () => await act(async () => {
     boot();
     const done = open();
-    // A tampered choice: a radio the computer never advertised.
-    const tampered = happy.document.createElement("input");
-    tampered.type = "radio";
-    tampered.name = "agent_kind";
-    tampered.value = "unavailable";
-    kindGroup().querySelector(".operation-tiles")!.append(tampered as unknown as Node);
+    const option = happy.document.createElement("option");
+    option.value = "unavailable";
+    kindField().append(option);
     await submitOperationForm({ agentKind: "unavailable" });
-    expect(kindGroup().getAttribute("aria-invalid")).toBe("true");
+    expect(kindField().getAttribute("aria-invalid")).toBe("true");
     expect(openPaneId()).toBe("p1");
     expect(localStorage.getItem(LAST_AGENT_KIND_KEY)).toBeNull();
     cancel();

@@ -178,7 +178,7 @@ describe("herd chrome gates", () => {
   test("create follows its capability, then busy and connection", () => {
     expect(buildHerdViewModel(input()).create).toBeNull();
     const advertised = buildHerdViewModel(input({ createConversation: true }));
-    expect(advertised.create).toEqual({ label: t("form.newConversation"), aria: t("home.newAria"), disabled: false });
+    expect(advertised.create).toEqual({ label: t("home.new"), aria: t("home.newAria"), disabled: false });
     expect(buildHerdViewModel(input({ createConversation: true, operationBusy: true })).create)
       .toEqual({ label: t("home.creating"), aria: t("home.newAria"), disabled: true });
     expect(buildHerdViewModel(input({ createConversation: true, connected: false })).create?.disabled).toBe(true);

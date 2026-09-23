@@ -95,7 +95,7 @@ test("status publication keeps header identity while updating visible status, ac
   expect(title.getAttribute("aria-label")).toContain(agentStatusLabel({ paneId: "p1", agent: "codex", status: "idle", cwd: "", workspaceId: "" }));
   connected = false;
   act(notifySessionUI);
-  expect(appRoot().querySelector(".chrome-meta .glyph-unknown") !== null).toBeTrue();
+  expect(appRoot().querySelector(".chrome-meta .agent-unknown") !== null).toBeTrue();
   expect(title.getAttribute("aria-label")).toContain(t("status.unverifiable"));
 });
 

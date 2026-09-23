@@ -97,8 +97,8 @@ test("split targets the pressed pane while preserving the current session and bo
   expect(boardInteractionStore.get().createdPaneId).toBe("p3");
 });
 
-test("inline resize stays open, acts on p2 and rechecks capabilities before another command", async () => {
-  await open(); await click(t("form.wider"));
+test("resize stays open, acts on p2 and rechecks capabilities before another command", async () => {
+  await open(); await click(t("boardMenu.resize")); await click(t("form.wider"));
   expect(calls).toEqual([{ method: "resize", value: { pane_id: "p2", direction: "right", amount: 0.15 } }]);
   expect(document.querySelector("dialog")?.textContent).toContain(t("boardMenu.done"));
   await act(async () => applyCapabilities(NO_OPERATION_CAPABILITIES, []));
@@ -120,7 +120,7 @@ test("changing tabs closes the menu and invalidates a pending split form even if
 
 test("unknown outcome refreshes without repeating the mutation and keeps the panel usable", async () => {
   failure = true;
-  await open(); await click(t("form.wider"));
+  await open(); await click(t("boardMenu.resize")); await click(t("form.wider"));
   expect(calls).toHaveLength(1);
   expect(document.querySelector("dialog")?.textContent).toContain(t("boardMenu.done"));
   expect(document.querySelectorAll("dialog button:disabled").length).toBeLessThan(document.querySelectorAll("dialog button").length);

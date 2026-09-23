@@ -164,20 +164,7 @@ test("on a phone, back from settings returns to the list even if a pane is remem
   await click("返回");
   expect(currentScreen()).toBe("home");
   expect(appRoot().querySelector(".settings-page")).toBeNull();
-  expect(appRoot().querySelector(".herd-title")?.textContent).toBe(t("group.sessions"));
-});
-
-test("the computer update is a settings sub-page that returns to settings", async () => {
-  bootHome();
-  await click(t("home.settings"));
-  expect(appRoot().querySelector(".daemon-update-entry .set-nav")).not.toBeNull();
-  expect(appRoot().querySelector(".settings-page [data-react-daemon-detailed='true']")).toBeNull();
-  await click(t("update.title"));
-  expect(currentScreen()).toBe("update");
-  expect(appRoot().querySelector(".update-page .topbar-title")?.textContent).toBe(t("update.title"));
-  expect(appRoot().querySelector(".update-page [data-react-daemon-detailed='true']")).not.toBeNull();
-  await click("返回");
-  expect(currentScreen()).toBe("settings");
+  expect(appRoot().querySelector(".wordmark")?.textContent).toBe("pairfob");
 });
 
 test("settings offers auto and the three explicit views, then persists an override", async () => {

@@ -13,7 +13,7 @@ import { canInterruptAgent, herdLiveness } from "../../connection/runtime-status
 import type { SessionHandlers } from "./view";
 import { queueKey } from "./keys";
 import { morphingPane, shareTitle } from "../../../app/transition";
-import { BackButton, Button, StatusGlyph } from "../../../shared/ui/primitives";
+import { BackButton, Button } from "../../../shared/ui/primitives";
 
 /** Shared trailing actions for guided, terminal and agent chat chrome. */
 export function SessionActions({ onWorkspace, onMenu, onStop, working }: {
@@ -58,7 +58,7 @@ export function SessionChrome({ selected, includeBack, handlers, mode = "guided"
     </div>
     <div className="chrome-secondary">
       <span className="chrome-meta" title={meta}>
-        {selected && <StatusGlyph status={stale ? "unknown" : selected.status} small />}
+        {selected && <span className={`agent-dot agent-${stale ? "unknown" : selected.status}`} />}
         <span className={`chrome-meta-text${mode === "full" ? " full-terminal-status" : ""}`}>{meta}</span>
       </span>
       <Button className="chrome-mode" aria-haspopup="dialog" aria-label={`${t("mode.aria")} · ${TERM_MODE_LABEL[mode]}`}

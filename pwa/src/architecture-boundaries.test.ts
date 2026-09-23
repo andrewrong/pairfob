@@ -42,7 +42,7 @@ const layers: LayerPolicy[] = [
     root: "shared",
     allowedRoots: ["shared/"],
     allowedModules: ["lib/i18n", "lib/i18n-en", "lib/i18n-zh",
-      "lib/i18n-en-workspace", "lib/i18n-zh-workspace", "lib/i18n-en-agent-info", "lib/i18n-zh-agent-info", "lib/i18n-board-menu", "lib/i18n-home"],
+      "lib/i18n-en-workspace", "lib/i18n-zh-workspace", "lib/i18n-en-agent-info", "lib/i18n-zh-agent-info", "lib/i18n-board-menu"],
     prohibitedModules: applicationModules,
     prohibitedRoots: ["ui/", "pages/", "app/", "features/", "lib/protocol/"],
   },

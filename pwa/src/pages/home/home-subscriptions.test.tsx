@@ -21,7 +21,6 @@ import { NO_OPERATION_CAPABILITIES } from "../../lib/operations";
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { presentHerdView, resetHerdAttentionSnapshot, toggleHerdGroup } from "./herd-bridge";
 import { selectPane } from "../../features/session/session-store";
-import { chooseListGroup } from "../../features/dashboard/components/herd-controls";
 
 const vibrations: number[] = [];
 const originalVibrate = Object.getOwnPropertyDescriptor(happy.navigator, "vibrate");
@@ -298,8 +297,10 @@ describe("mounted home updates from typed domain actions", () => {
     commitTest();
     const counts = observeCommits();
     try {
-      // The grouping sheet routes its choice to the same typed action.
-      act(() => chooseListGroup("space"));
+      const group = [...appRoot().querySelectorAll<HTMLButtonElement>("[role=radio]")].find(
+        (node) => node.textContent === t("list.space"),
+      )!;
+      act(() => group.click());
       expect([...appRoot().querySelectorAll(".group-title")].map((node) => node.getAttribute("aria-expanded"))).toEqual([
         "true",
         "false",

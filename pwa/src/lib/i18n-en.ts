@@ -1,6 +1,5 @@
 import { enAgentInfo } from "./i18n-en-agent-info";
 import { enBoardMenu } from "./i18n-board-menu";
-import { enHome } from "./i18n-home";
 import { enWorkspace } from "./i18n-en-workspace.ts";
 import type { zh } from "./i18n-zh.ts";
 
@@ -8,7 +7,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   ...enWorkspace,
   ...enAgentInfo,
   ...enBoardMenu,
-  ...enHome,
   "fileActions.rename": "Rename",
   "fileActions.delete": "Delete file",
   "fileActions.confirmDelete": "Delete “{name}”? This removes the file from your computer and cannot be undone here.",
@@ -253,7 +251,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "home.new": "New",
   "home.computers": "Computers",
   "home.board": "Board",
-  "board.title": "Layout",
+  "board.title": "Board",
   "board.back": "Back to list",
   "board.fit": "Fit",
   "board.fitAria": "Fit the whole tab on screen",
@@ -440,7 +438,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   "form.projectDir": "Project directory",
   "form.kind": "Pane type",
   "form.plainTerminal": "Terminal only (no agent)",
-  "form.plainTerminalShort": "Terminal",
   "form.noAgentKinds": "No agent kinds listed. This still creates a terminal session.",
   "form.labelOptional": "Name (optional)",
   "form.labelExample": "e.g. fix login",
@@ -738,7 +735,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   "ft.kbHide": "Hide keyboard",
   "ft.kbOpen": "Open the keyboard",
 
-  "update.title": "Computer update",
   "update.helpTitle": "Computer outdated or unable to connect?",
   "update.helpBody": "Connection failures may also mean the computer is offline or the network is unavailable. If the computer software is outdated, run this command there, then reconnect.",
   "update.copyCommand": "Copy update command",

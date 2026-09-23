@@ -75,12 +75,6 @@ dialog.modal.help > form { animation: help-in var(--dur-2) var(--ease); }
   font-size: 0.86em;
 }
 
-/* A destructive confirm sits at the bottom on phones, next to the thumb that
-   asked for it; the confirm and cancel stay stacked full width. */
-@media (max-width: 899.98px) {
-  dialog.modal.confirm-modal { margin: auto auto calc(16px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); }
-}
-
 dialog.modal::backdrop {
   background: rgba(4, 6, 10, 0.66);
   backdrop-filter: blur(4px);
@@ -216,22 +210,16 @@ dialog.modal.sheet > form {
   border-radius: var(--r-sm);
 }
 
-/*
-  Menu items read as grouped cards: consecutive items share one card split by
-  hairlines, a section title or any other element starts a new card, danger
-  items form their own card after the rest, and the plain cancel stands apart.
-  The same grouping the home object menu draws with explicit wrappers.
-*/
 .menu-item {
   display: flex;
   align-items: center;
   width: 100%;
   min-height: 48px;
-  margin: 0;
+  margin: 7px 0 0;
   padding: 0 14px;
-  border: 0;
-  border-radius: 0;
-  background: var(--group-bg);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid transparent;
   color: var(--ink);
   font-size: var(--text-lead);
   font-weight: 560;
@@ -239,35 +227,7 @@ dialog.modal.sheet > form {
   transition: background var(--dur-1) var(--ease);
 }
 
-.menu-item + .menu-item { border-top: 1px solid var(--hairline); }
-.menu-item:first-child,
-:not(.menu-item) + .menu-item,
-.menu-item:not(.menu-danger) + .menu-danger,
-.menu-item + .menu-group + .menu-group { margin-top: 6px; }
-
-.menu-cancel {
-  margin-top: 10px;
-  border-top: 0;
-  border-top-left-radius: var(--group-radius);
-  border-top-right-radius: var(--group-radius);
-}
-.menu-item:first-child { margin-top: 4px; }
-.menu-item:last-child,
-.menu-item:has(+ :not(.menu-item)),
-.menu-item:not(.menu-danger):has(+ .menu-danger),
-.menu-item:has(+ .menu-cancel) {
-  border-bottom-left-radius: var(--group-radius);
-  border-bottom-right-radius: var(--group-radius);
-}
-
-.menu-cancel {
-  justify-content: center;
-  border-radius: var(--group-radius);
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.menu-item:active { background: var(--surface); }
+.menu-item:active { background: #232c38; }
 
 .menu-danger { color: var(--danger-bright); }
 

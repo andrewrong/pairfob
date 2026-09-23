@@ -30,7 +30,7 @@ import { AppNotice } from "../../app/notice";
 import { ListGroupControl } from "../../features/dashboard/components/herd-controls";
 import { BackBar, Button, SegmentedControl, SegmentedOption, EmptyState, Feedback, SetHeading, SetNavRow, SetRow } from "../../shared/ui/primitives";
 import { LanguageControl } from "../../features/settings/language";
-import { DaemonUpdateRow } from "../../features/settings/daemon-update-view";
+import { DaemonUpdate } from "../../features/settings/daemon-update-view";
 import { settingsNetworkHelp, settingsNetworkP2PFail, settingsNetworkPath } from "../../features/settings/model";
 
 const NETWORK_MODE_COPY: Record<NetworkMode, "settings.networkAuto" | "settings.networkP2P" | "settings.networkRelay"> = {
@@ -287,9 +287,7 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
       {runtime.devicesError || runtime.pushConfigError ? (
         <Button className="btn btn-small btn-ghost retry" onClick={() => void refreshSettings()}>{t("retry")}</Button>
       ) : null}
-      <div className="set-card daemon-update-entry">
-        <DaemonUpdateRow />
-      </div>
+      <DaemonUpdate />
     </>
   );
 }

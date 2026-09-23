@@ -271,7 +271,7 @@ describe("herd presenter", () => {
     expect(view.groups[0].cards[0].sharesTransition).toBe(true);
     expect(view.doneCount).toBe(1);
     expect(view.computers).toEqual({ label: t("home.computers") });
-    expect(view.create).toEqual({ label: t("form.newConversation"), aria: t("home.newAria"), disabled: false });
+    expect(view.create).toEqual({ label: t("home.new"), aria: t("home.newAria"), disabled: false });
     // Another pane morphing leaves this card's title alone.
     nextTransition("expand", "other");
     expect(presentHerdView().groups[0].cards[0].sharesTransition).toBe(false);

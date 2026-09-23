@@ -102,12 +102,12 @@ describe("home new session", () => {
     const app = appRoot();
     const create = () => app.querySelector<HTMLButtonElement>(".topbar-create")!;
     expect(create().disabled).toBe(false);
-    expect(create().textContent).toBe(t("form.newConversation"));
+    expect(create().textContent).toBe(t("home.new"));
     act(() => create().click());
     expect(document.querySelector("dialog .modal-title")?.textContent).toBe(t("form.newConversation"));
     expect(document.querySelector<HTMLInputElement>('dialog [name="cwd"]')?.value).toBe("/tmp/alpha");
-    expect([...document.querySelectorAll('dialog [data-field="agent_kind"] .operation-tile-label')].map(label => label.textContent))
-      .toEqual([t("form.plainTerminalShort")]);
+    expect([...document.querySelectorAll('dialog [name="agent_kind"] option')].map(option => option.textContent))
+      .toEqual([t("form.plainTerminal")]);
     act(closeTestDialogs);
     expect(app.textContent).not.toContain("电脑没有提供可用的 Agent 类型");
     expect(app.querySelector(".home-create") === null).toBe(true);
@@ -140,7 +140,7 @@ describe("home chrome", () => {
     const page = app.querySelector(".page")!;
     const children = [...page.children];
     const noticeAt = children.findIndex(node => node.matches("[data-react-notice]"));
-    const listAt = children.findIndex(node => node.matches(".herd-body"));
+    const listAt = children.findIndex(node => node.matches(".herd-list"));
     expect(noticeAt).toBeGreaterThan(-1);
     expect(listAt).toBeGreaterThan(noticeAt);
   });

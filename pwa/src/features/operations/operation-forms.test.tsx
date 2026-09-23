@@ -11,14 +11,6 @@ import { showWorktrees } from "./worktree-dialog";
 beforeEach(async () => { await resetTestDOM(); setLang("zh"); localStorage.removeItem(LAST_AGENT_KIND_KEY); });
 afterEach(closeTestDialogs);
 const form = () => document.querySelector<HTMLFormElement>("dialog.operation-modal form")!;
-function chooseKind(value: string) {
-  const radio = [...form().querySelectorAll<HTMLInputElement>('input[type="radio"][name="agent_kind"]')].find(item => item.value === value);
-  if (!radio) throw new Error(`missing pane type ${value}`);
-  radio.checked = true;
-}
-function kindValue() {
-  return form().querySelector<HTMLInputElement>('input[type="radio"][name="agent_kind"]:checked')?.value ?? "";
-}
 function field(name: string) { return form().elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement; }
 function submit() { act(() => form().dispatchEvent(new happy.Event("submit", { bubbles: true, cancelable: true }) as unknown as Event)); }
 function click(label: string) {
@@ -43,13 +35,13 @@ test("conversation validation keeps the field stable and returns a trimmed typed
   act(() => cwd.dispatchEvent(new happy.Event("input", { bubbles: true }) as unknown as Event));
   expect(field("cwd")).toBe(cwd);
   expect(cwd.hasAttribute("aria-invalid")).toBeFalse();
-  chooseKind("claude");
+  field("agent_kind").value = "claude";
   field("label").value = " Review ";
   submit();
   expect(await result).toEqual({ cwd: "/work/project", agent_kind: "claude", label: "Review" });
   expect(localStorage.getItem(LAST_AGENT_KIND_KEY)).toBe("claude");
   act(() => { result = askCreateConversation(["codex", "claude"], "/work"); });
-  expect(kindValue()).toBe("claude");
+  expect(field("agent_kind").value).toBe("claude");
   click(t("cancel"));
   expect(await result).toBeNull();
 });
@@ -64,7 +56,7 @@ test("plain tabs omit optional fields and split panes keep fixed half ratios", a
   act(() => { split = askSplitPane(["codex"], "/work"); });
   expect(form().querySelector('[name="ratio"]')).toBeNull();
   field("direction").value = "down";
-  chooseKind("codex");
+  field("agent_kind").value = "codex";
   submit();
   expect(await split).toEqual({ direction: "down", ratio: 0.5, cwd: "/work", agent_kind: "codex" });
 });

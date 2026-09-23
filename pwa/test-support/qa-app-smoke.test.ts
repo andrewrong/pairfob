@@ -297,9 +297,9 @@ test("language switch re-renders visible copy through the same App", async () =>
     expect(document.documentElement.lang).toBe("en");
     // Visible localized copy, not only the <html lang> attribute.
     const copy = document.body.textContent ?? "";
-    expect(copy).toContain(t("form.newConversation"));
-    expect(copy).toContain("New session");
-    expect(copy).not.toContain("新建会话");
+    expect(copy).toContain(t("home.computers"));
+    expect(copy).toContain("Computers");
+    expect(copy).not.toContain("电脑");
   } finally {
     await teardownScene(session, false);
   }

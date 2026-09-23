@@ -21,10 +21,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: calc(52px + env(safe-area-inset-top, 0px));
+  min-height: calc(58px + env(safe-area-inset-top, 0px));
   padding: env(safe-area-inset-top, 0px) 10px 0;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  background: rgba(10, 12, 16, 0.96);
   flex: none;
 }
 
@@ -45,7 +45,7 @@
   white-space: nowrap;
 }
 
-.workspace-name { font-size: var(--text-subhead); font-weight: 650; }
+.workspace-name { font-size: var(--text-lead); font-weight: 700; }
 .workspace-root { margin-top: 3px; color: var(--muted); font-size: 0.68rem; }
 
 .workspace-actions {
@@ -180,11 +180,10 @@
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: var(--row-min);
-  gap: 12px;
-  padding: 8px 8px;
-  border-bottom: 1px solid var(--hairline);
-  border-radius: 0;
+  min-height: 48px;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 9px;
   text-align: left;
 }
 
@@ -326,12 +325,11 @@
   min-height: 50px;
   gap: 10px;
   padding: 6px 12px 6px 30px;
-  border-bottom: 1px solid var(--hairline);
   color: var(--ink);
   text-align: left;
 }
 .workspace-change:active,
-.workspace-change.active { background: var(--surface-2); }
+.workspace-change.active { background: rgba(110, 168, 254, 0.12); }
 .workspace-change-head { gap: 2px; }
 .workspace-rename { overflow: hidden; color: var(--muted); font-size: 0.65rem; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-change-mark {

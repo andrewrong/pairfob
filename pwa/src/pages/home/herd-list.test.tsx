@@ -323,9 +323,8 @@ test("worktree cards retry only on request and cancel locally before a late resu
   };
   act(() => { startWorktreeJob(driver, { workspace_id: "alpha", branch: "feature/review", path: "/work/review" }); });
   expect(app().querySelector(".worktree-job-working .spinner")).not.toBeNull();
-  expect([...app().querySelector(".herd-body")!.children].map(node => node.className))
-    .toEqual(["herd-activity", "empty"]);
-  expect(app().querySelector(".herd-activity > .worktree-jobs")).not.toBeNull();
+  expect([...app().querySelector(".page")!.children].map(node => node.className).slice(-3))
+    .toEqual(["worktree-jobs", "seg", "empty"]);
   await act(async () => { pending[0].reject(new Error("fetch failed")); await Promise.resolve(); });
   expect(app().querySelector(".worktree-job-error")?.textContent).toContain("fetch failed");
   expect(events.filter(event => event === "create")).toHaveLength(1);
@@ -345,14 +344,14 @@ describe("React desktop routing", () => {
     seed([agent("p1")]);
     act(() => showStatus("choose a pane", true));
     paint();
-    expect([...app().children].map(node => node.className)).toEqual(["rail herd-screen", "main"]);
+    expect([...app().children].map(node => node.className)).toEqual(["rail", "main"]);
     expect([...app().children].every(reactOwned)).toBe(true);
     expect(app().classList.contains("desk")).toBe(true);
     expect(app().querySelector(".rail .notice")).toBeNull();
     expect(app().querySelector(".main .notice")?.textContent).toBe("choose a pane");
     expect(app().querySelector(".main-empty")).not.toBeNull();
     expect(app().querySelectorAll(".daemon-update-host")).toHaveLength(1);
-    expect(app().querySelector(".rail .herd-activity > .daemon-update-host")).not.toBeNull();
+    expect(app().querySelector(".rail .daemon-update-host + .seg")).not.toBeNull();
   });
 
   test("desktop settings pages take precedence over a remembered selected pane", () => {

@@ -1,4 +1,3 @@
-import { ArrowUpRight, Circle, Crop, Hash, Type, type LucideIcon } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../../../shared/ui/primitives/button";
 import { ModalFrame, presentModal, type ModalController } from "../../../../shared/ui/overlay/modal";
@@ -30,12 +29,12 @@ import {
   type LoadedImage,
 } from "./image-render";
 
-const TOOLS: ReadonlyArray<{ id: EditorTool; copy: Parameters<typeof attachT>[0]; icon: LucideIcon }> = [
-  { id: "cropRect", copy: "editor.cropRect", icon: Crop },
-  { id: "ellipse", copy: "editor.ellipse", icon: Circle },
-  { id: "arrow", copy: "editor.arrow", icon: ArrowUpRight },
-  { id: "text", copy: "editor.text", icon: Type },
-  { id: "marker", copy: "editor.marker", icon: Hash },
+const TOOLS: ReadonlyArray<{ id: EditorTool; copy: Parameters<typeof attachT>[0] }> = [
+  { id: "cropRect", copy: "editor.cropRect" },
+  { id: "ellipse", copy: "editor.ellipse" },
+  { id: "arrow", copy: "editor.arrow" },
+  { id: "text", copy: "editor.text" },
+  { id: "marker", copy: "editor.marker" },
 ];
 
 /**
@@ -281,6 +280,16 @@ function ImageEditorBody({ modal, input }: { modal: ModalController<unknown>; in
   }
 
   return <div className="imgedit">
+    <div className="imgedit-tools" role="toolbar" aria-label={attachT("editor.title")}>
+      {TOOLS.map((entry) => (
+        <Button
+          key={entry.id}
+          className={`imgedit-tool${tool === entry.id ? " on" : ""}`}
+          aria-pressed={tool === entry.id}
+          onClick={() => { setTool(entry.id); haptic(2); }}
+        >{attachT(entry.copy)}</Button>
+      ))}
+    </div>
     {tool === "text" && <input
       ref={textInputRef}
       className="imgedit-text"
@@ -295,17 +304,6 @@ function ImageEditorBody({ modal, input }: { modal: ModalController<unknown>; in
       />}
     </div>
     <p className="imgedit-hint">{attachT("editor.hint")}</p>
-    {/* Tools under the image, where the thumb that draws already is. */}
-    <div className="imgedit-tools" role="toolbar" aria-label={attachT("editor.title")}>
-      {TOOLS.map((entry) => (
-        <Button
-          key={entry.id}
-          className={`imgedit-tool${tool === entry.id ? " on" : ""}`}
-          aria-pressed={tool === entry.id}
-          onClick={() => { setTool(entry.id); haptic(2); }}
-        ><entry.icon size={18} aria-hidden="true" /><span>{attachT(entry.copy)}</span></Button>
-      ))}
-    </div>
     {errorLine && <p className="imgedit-error" role="alert" aria-live="assertive">{errorLine}</p>}
     <div className="imgedit-actions">
       <div className="imgedit-actions-secondary">

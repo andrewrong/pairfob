@@ -1,6 +1,5 @@
 import { zhAgentInfo } from "./i18n-zh-agent-info";
 import { zhBoardMenu } from "./i18n-board-menu";
-import { zhHome } from "./i18n-home";
 import { zhWorkspace } from "./i18n-zh-workspace.ts";
 
 /**
@@ -11,7 +10,6 @@ export const zh = {
   ...zhWorkspace,
   ...zhAgentInfo,
   ...zhBoardMenu,
-  ...zhHome,
   "fileActions.rename": "重命名",
   "fileActions.delete": "删除文件",
   "fileActions.confirmDelete": "确定删除「{name}」？文件将直接从电脑中删除，无法在此撤销。",
@@ -256,7 +254,7 @@ export const zh = {
   "home.new": "新建",
   "home.computers": "电脑",
   "home.board": "画板",
-  "board.title": "布局",
+  "board.title": "画板",
   "board.back": "返回列表",
   "board.fit": "适配",
   "board.fitAria": "适配整页布局",
@@ -443,7 +441,6 @@ export const zh = {
   "form.projectDir": "项目目录",
   "form.kind": "Pane 类型",
   "form.plainTerminal": "纯终端（不启动 Agent）",
-  "form.plainTerminalShort": "纯终端",
   "form.noAgentKinds": "电脑没有可用的 Agent 类型，将创建纯终端会话。",
   "form.labelOptional": "名称（可选）",
   "form.labelExample": "例如：修复登录问题",
@@ -741,7 +738,6 @@ export const zh = {
   "ft.kbHide": "收起键盘",
   "ft.kbOpen": "打开键盘输入",
 
-  "update.title": "电脑端更新",
   "update.helpTitle": "电脑端很久没更新或无法连接？",
   "update.helpBody": "连接失败也可能由网络或电脑离线引起。若电脑端长期未更新，请在那台电脑执行下方命令，然后重新连接。",
   "update.copyCommand": "复制更新命令",

@@ -28,8 +28,8 @@
   gap: 8px;
   min-height: calc(52px + env(safe-area-inset-top, 0px));
   padding: env(safe-area-inset-top, 0px) 8px 0;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  background: rgba(10, 12, 16, 0.96);
   flex: none;
 }
 
@@ -43,7 +43,7 @@
 
 .board-name {
   font-size: var(--text-subhead);
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .board-sub {
@@ -287,49 +287,3 @@
 .board-shell .statusline { margin: 6px 12px 0; }
 .board-shell .notice,
 .board-shell .banner { margin: 8px 12px 0; }
-
-/* --- Layout redesign ---------------------------------------------------------------
-   Workspace chips read as filters (solid when chosen), tabs as a quieter row, and
-   zoom floats over the canvas at the bottom right.
-   ---------------------------------------------------------------------------------- */
-
-
-.board-canvas-wrap {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  border-top: 1px solid var(--line);
-}
-
-.board-canvas-wrap > .board-zoom {
-  position: absolute;
-  right: 12px;
-  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  z-index: 4;
-  padding: 3px;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: rgba(20, 24, 31, 0.94);
-  box-shadow: var(--shadow-1);
-}
-
-.board-canvas-wrap > .board-zoom .icon-btn { width: 38px; height: 38px; min-height: 38px; }
-.board-canvas-wrap > .board-zoom .text-link { min-height: 38px; padding: 0 10px; border-radius: 9px; background: var(--surface-2); }
-
-.board-chip.on > span {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
-}
-
-.board-tab > span { border-radius: 9px; border-color: transparent; background: transparent; color: var(--muted); }
-.board-tab.on > span { background: var(--surface-2); border-color: var(--line-strong); color: var(--ink); }
-.board-tab-new > span { border-radius: 9px; }
-
-/* Status reads from the glyph alone; the tile's words and border stay neutral. */
-.board-pane.status-blocked,
-.board-pane.status-working,
-.board-pane.status-done { border-color: var(--line-strong); }
-.board-pane-head .pill { padding: 0; border: 0; background: transparent; color: var(--muted); letter-spacing: 0; }

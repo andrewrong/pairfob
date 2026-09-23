@@ -2,14 +2,13 @@ import { t } from "../../lib/i18n";
 import { fitOperationPrompt, type CreateConversationInput, type CreateTabInput, type CreateWorktreeInput,
   type LayoutDirection, type OpenWorktreeInput, type SplitDirection, type SplitPaneInput, type WorktreeDraft } from "../../lib/operations";
 import { accepted, loadLastAgentKind, openWorktreeTargetError, readAgentKind, rejected } from "./operation-form-model";
-import { formDialog, OperationChoice, OperationField, OperationFrame, OperationPrompt, OperationSelect } from "./operation-form";
+import { formDialog, OperationField, OperationFrame, OperationPrompt, OperationSelect } from "./operation-form";
 import { presentModal } from "../../shared/ui/overlay/modal";
 
 function AgentKindField({ kinds }: { kinds: string[] }) {
   return <>
-    <OperationChoice label={t("form.kind")} name="agent_kind" selected={loadLastAgentKind(kinds)} choices={[
-      { value: "", label: t("form.plainTerminalShort"), mark: ">_" },
-      ...kinds.map(kind => ({ value: kind, label: kind, mark: kind.slice(0, 2).toUpperCase() })),
+    <OperationSelect label={t("form.kind")} name="agent_kind" selected={loadLastAgentKind(kinds)} choices={[
+      { value: "", label: t("form.plainTerminal") }, ...kinds.map(kind => ({ value: kind, label: kind })),
     ]} />
     {!kinds.length && <p className="operation-hint">{t("form.noAgentKinds")}</p>}
   </>;

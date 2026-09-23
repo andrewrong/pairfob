@@ -346,7 +346,7 @@ export async function openPaneWithOwner(paneId: string): Promise<PaneNavigation 
     resolvedTermMode: resolvedPaneTermMode,
     queuedKind,
     nextTransition: (kind, id) => nextTransition(kind as "fade" | "push" | "pop" | "expand", id),
-    transitionFor: (from, to) => transitionFor(from as "home" | "pane" | "workspace" | "settings" | "quota" | "update" | "computers" | "board", to as "pane"),
+    transitionFor: (from, to) => transitionFor(from as "home" | "pane" | "workspace" | "settings" | "quota" | "computers" | "board", to as "pane"),
     currentScreen,
     isFullTerminal,
     findAgent: (id) => dashboardStore.get().agents.find((item) => item.paneId === id),
