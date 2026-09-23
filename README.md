@@ -96,15 +96,46 @@ A second computer runs the same installer; pair it from the phone with
 
 ## Develop
 
+Install PWA dependencies with `(cd pwa && bun install --frozen-lockfile)`.
+Choose checks by change scope and stage; see [verification rules](AGENTS.md#verify):
+
+- During local iteration, run affected module tests and relevant type/format
+  checks. Include affected consumers when shared code changes.
+- For UI behavior/layout changes, check the changed interactions and viewports
+  in a browser. Documentation/copy-only changes need relevant diff, link or
+  rendering checks, not unrelated code suites.
+- Before delivering backend, protocol, cross-module contract or release-tooling
+  changes, run `./scripts/verify.sh` once on the final candidate. This includes
+  gofmt, vet, Go tests (including race), vulnerability checks, PWA / Worker /
+  site tests, typechecks and production builds. Regenerate changed protocol
+  vectors with `go run ./cmd/genvectors` first.
+- Reuse passed checks while their inputs, dependencies, configuration and
+  relevant environment remain unchanged. Rerun checks affected by later edits;
+  a new commit or status request alone does not require another full run.
+
+For a PWA UI-only production release, use an isolated release checkout and
+compare against a known verified release commit:
+
 ```
-(cd pwa && bun install)
-./scripts/verify.sh
+(cd pwa && bun install --frozen-lockfile)
+PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>
 ```
 
-`scripts/verify.sh` is the gate before sending a change: gofmt, vet, Go tests
-(including race), vuln check, PWA / Worker / site tests, typecheck, and the
-production build. If your change touches protocol primitives or test vectors,
-regenerate them with `go run ./cmd/genvectors` first.
+Set the origin's `BUILD` stamp before this command. The scope check includes
+committed, staged, unstaged and untracked changes; it permits only PWA changes
+and a BUILD-only origin config edit. Protocol files in `pwa/src/lib/protocol/`
+require the full gate, as do backend, site, release-tooling or other changes.
+Any protocol/cross-language behavior change needs the full gate regardless of
+its location. Do not choose an unverified `HEAD` just to satisfy the scope check.
+
+This path retains all PWA tests, QA, typechecks, fresh builds and Worker
+integration checks, while reusing the unchanged backend's prior verification.
+It prints timings for each web stage. `dist/dl/` must contain the existing
+shippable binaries; this command validates and packs them without rebuilding.
+After success, deploy the packed tree directly with `wrangler deploy --keep-vars`
+from `workers/pairfob-origin`; do not repeat the pack/docs build if inputs have
+not changed. Verify the live BUILD and asset hashes before declaring it live.
+The default full gate remains unchanged in coverage.
 
 Local pairing against the same Worker as production:
 
@@ -169,8 +200,10 @@ terminal emulator: read the rendered pane, send keys back to the PTY.
 ## Contributing
 
 Issues and pull requests are welcome at
-[github.com/arronKler/pairfob](https://github.com/arronKler/pairfob). Make
-`./scripts/verify.sh` pass before sending a change. The envelope, vectors, and
+[github.com/arronKler/pairfob](https://github.com/arronKler/pairfob). Follow the
+[verification rules](AGENTS.md#verify) for the change and report the checks run;
+submitting a commit or PR alone does not require unrelated full-suite tests.
+The envelope, vectors, and
 RPC fields under `proto/` are frozen by design — a change there needs its own
 discussion, not an incidental tweak; see [Protocol](#protocol).
 

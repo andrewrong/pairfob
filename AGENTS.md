@@ -108,11 +108,37 @@ package can express that duty.
 
 ## Verify
 
-After protocol or cross-language primitive changes, run `go run ./cmd/genvectors`
-first if vectors would change, then:
+Choose verification by **change scope and task stage**. Do not run the full
+repository gate after every local edit or merely because a task is ending.
+
+| Change / stage | Required verification |
+| --- | --- |
+| Documentation or copy-only edit | Check the diff, links and affected rendering as relevant; no unrelated code suites. |
+| Local implementation iteration | Run affected module tests and relevant type/format checks. For shared code, include its affected consumers. |
+| UI behavior or layout change | Add focused browser checks for the changed interaction or viewport; fixtures, live transport and physical-device acceptance are distinct. |
+| PWA UI-only production release | Run `PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>` against a trustworthy baseline in the release checkout. |
+| Backend, protocol, cross-module contract or release-tooling delivery | Run the full `./scripts/verify.sh` once on the final candidate before handoff/merge/release. Use focused checks during iteration. |
+| Production release outside the guarded PWA-only scope, or without a trustworthy baseline | Run the full gate on the final release candidate. |
+
+For ordinary non-release changes, submitting a commit or PR does not itself
+require unrelated full-repository tests. Finish the checks appropriate to the
+actual change. Escalate when dependencies or failures show broader impact; if
+scope cannot be established, use the full gate and state why.
+
+Reuse a passed check when its source inputs, dependencies, configuration and
+relevant environment are unchanged. A new commit ID or a request to report
+status is not a reason to rerun it. After further edits, rerun affected checks;
+repeat the full gate only when those edits invalidate the required full-gate
+evidence. Before release, confirm the final source and packed artifacts match
+the verified snapshot. Never treat a partial/failed run as a passed full gate.
+Report what was checked and any remaining acceptance gaps.
+
+After protocol or cross-language primitive changes, regenerate vectors with
+`go run ./cmd/genvectors` if they would change, then run the full gate on the
+final candidate:
 
 ```
-(cd pwa && bun install)
+(cd pwa && bun install --frozen-lockfile)
 ./scripts/verify.sh
 ```
 

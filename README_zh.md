@@ -91,14 +91,36 @@ pairfob version
 
 ## 开发
 
+用 `(cd pwa && bun install --frozen-lockfile)` 安装 PWA 依赖。
+按改动范围和任务阶段选择检查，完整规则见 [验证约定](AGENTS.md#verify)：
+
+- 日常迭代运行受影响模块的测试，以及相关类型、格式检查；共享代码改动还需覆盖受影响的调用方。
+- UI 行为或布局变化，补充对应交互和视口的浏览器检查。仅文档或文案变化，检查相关差异、链接或渲染，不运行无关代码测试。
+- 后端、协议、跨模块契约或发布工具改动，在最终候选版本交付前运行一次 `./scripts/verify.sh`。
+  全量检查包含 gofmt、vet、Go 测试（含 race）、漏洞检查、PWA / Worker / 站点测试、类型检查和生产构建。
+  如果协议向量需要变化，先用 `go run ./cmd/genvectors` 重新生成。
+- 检查的源码输入、依赖、配置和相关环境未变时复用通过结果；后续改动只重跑受影响的检查。
+  新的提交编号或一次进度询问，不是重复全量检查的理由。
+
+仅 PWA UI 的生产发布，在独立发布目录中与已验证的发布提交比较：
+
 ```
-(cd pwa && bun install)
-./scripts/verify.sh
+(cd pwa && bun install --frozen-lockfile)
+PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>
 ```
 
-`scripts/verify.sh` 是提交改动前的门槛：gofmt、vet、Go 测试（含
-race）、漏洞检查、PWA / Worker / 站点测试、typecheck 和生产构建。如果改动
-涉及协议原语或测试向量，先用 `go run ./cmd/genvectors` 重新生成。
+先设置 origin 的 `BUILD`。范围检查包含已提交、暂存、未暂存和未跟踪文件，
+只允许 PWA 改动及 origin 配置中仅 `BUILD` 的变化。
+`pwa/src/lib/protocol/`、后端、站点、发布脚本或其他范围的变化，需要全量检查；
+任何位置的协议或跨语言行为变化也需要全量检查。没有可信基线时走全量，
+不能用未经验证的 `HEAD` 绕过范围检查。
+
+这条路径保留全部 PWA 测试、QA、类型检查、重新构建和 Worker 集成检查，
+复用未变化后端的既有验证，并输出各阶段耗时。
+`dist/dl/` 必须已有可发布的二进制；脚本校验并打包它们，不重新编译。
+检查通过且输入未变后，在 `workers/pairfob-origin` 中直接用
+`wrangler deploy --keep-vars` 发布，不重复打包或构建文档。
+发布后核对线上 BUILD 和资源哈希。默认全量检查的覆盖范围不变。
 
 本地配对走的是与生产同一份 Worker 代码：
 
@@ -157,7 +179,8 @@ PTY。
 ## 参与贡献
 
 欢迎在 [github.com/arronKler/pairfob](https://github.com/arronKler/pairfob)
-提 issue 和 PR。提交改动前请先让 `./scripts/verify.sh` 通过。`proto/` 下的
+提 issue 和 PR。按 [验证约定](AGENTS.md#verify) 完成与改动范围相符的检查，并说明验证结果；
+创建提交或 PR 本身不要求运行无关的全量测试。`proto/` 下的
 信封、向量和 RPC 字段按设计冻结——改动那里需要单独讨论，不能顺手改；见
 [协议](#协议)。
 

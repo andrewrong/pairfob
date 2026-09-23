@@ -4,6 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+if [[ "${1:-}" == "--pwa-only" && $# == 2 ]]; then
+  bun "$ROOT/scripts/pwa-release-scope.ts" "$2"
+  exec bash "$ROOT/scripts/verify-web.sh"
+elif [[ $# != 0 ]]; then
+  echo "usage: $0 [--pwa-only <previously-verified-commit>]" >&2
+  exit 2
+fi
+
 unformatted="$(gofmt -l ./cmd ./internal)"
 if [[ -n "$unformatted" ]]; then
   echo "gofmt required:" >&2
@@ -15,6 +23,7 @@ bash -n "$ROOT/scripts/install.sh"
 bash -n "$ROOT/scripts/release.sh"
 bash -n "$ROOT/scripts/pack-origin-assets.sh"
 bash -n "$ROOT/scripts/ship-guard.sh"
+bash -n "$ROOT/scripts/verify-web.sh"
 bash -n "$ROOT/scripts/dev-acme.sh"
 bash -n "$ROOT/scripts/dev-up.sh"
 bash -n "$ROOT/scripts/dev-down.sh"
@@ -29,26 +38,8 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 bun test scripts/load-mux.test.ts
 bun test scripts/dev-acme.test.ts
 bun test scripts/ship-guard.test.ts
+bun test scripts/pwa-release-scope.test.ts
 bun test plugin/herdr/plugin.test.ts
 (cd "$ROOT/site/doc" && bun test)
 
-(
-  cd pwa
-  bun test src
-  bun run test:qa
-  bun run typecheck
-  bun run typecheck:qa
-  bun run build
-)
-
-"$ROOT/scripts/pack-origin-assets.sh"
-test -f "$ROOT/workers/pairfob-origin/public-dist/install.sh"
-test -f "$ROOT/workers/pairfob-origin/public-dist/doc/index.html"
-
-(
-  cd workers/pairfob-origin
-  bun test src
-  bun test e2e
-  bun run typecheck
-  bun run e2e:wrangler
-)
+bash "$ROOT/scripts/verify-web.sh"
