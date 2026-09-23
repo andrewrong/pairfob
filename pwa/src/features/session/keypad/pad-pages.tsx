@@ -14,6 +14,19 @@ export function PadPages({ items, kind, label, columns = 4, className = "", foot
   const page = Math.min(positions[kind] ?? 0, count - 1);
   const ref = useRef<HTMLDivElement>(null);
   const suppressClick = useRef(false);
+  const previous = useRef({ kind, page });
+  useLayoutEffect(() => {
+    const before = previous.current;
+    previous.current = { kind, page };
+    const root = ref.current;
+    if (!root || before.kind !== kind || before.page === page
+      || root.ownerDocument.defaultView?.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const animation = root.animate?.([
+      { opacity: 0.4, transform: `translateX(${page > before.page ? 20 : -20}px)` },
+      { opacity: 1, transform: "translateX(0)" },
+    ], { duration: 180, easing: "ease-out" });
+    return () => animation?.cancel();
+  }, [kind, page]);
   const selectRef = useRef<(next: number) => void>(() => undefined);
   selectRef.current = (next) => {
     const target = Math.max(0, Math.min(count - 1, next));

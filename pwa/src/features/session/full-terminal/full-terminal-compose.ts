@@ -162,6 +162,17 @@ export function setFullTerminalComposeText(root: ParentNode, text: string): void
   setComposeText(root, text);
 }
 
+/** Insert at the current selection without submitting the batch draft. */
+export function insertFullTerminalNewline(root: ParentNode): void {
+  const field = root.querySelector<HTMLTextAreaElement>(".full-terminal-compose-input");
+  if (!field) return;
+  const start = field.selectionStart;
+  const end = field.selectionEnd;
+  const text = field.value.slice(0, start) + "\n" + field.value.slice(end);
+  setComposeText(root, text);
+  field.setSelectionRange(start + 1, start + 1);
+}
+
 /**
  * Controller-owned field/form: value, height, IME reducer, pad Enter, microtask
  * submit. Idempotent: a second bind on the same form disposes the first.

@@ -10,6 +10,7 @@ import { t } from "../../../lib/i18n";
 import {
   type FullTerminalControlsOptions,
   requestFullTerminalPadEnter,
+  insertFullTerminalNewline,
   setFullTerminalComposeText,
   setFullTerminalInputMode,
 } from "./full-terminal-compose";
@@ -182,8 +183,15 @@ function FullTerminalPadControls({
       });
       if (padRef.current) setFullTerminalComposeText(padRef.current, text);
     }} keyItems={[
-      ...EXPANDED_KEYS.map((spec) => <FullTerminalKeyButton key={spec.key} spec={spec} onKey={onKey} />),
-      <span key="page-space" aria-hidden="true" />,
+      ...EXPANDED_KEYS.map((spec) => spec.key === "ctrl+c"
+        ? <PadChromeButton key="newline" type="button" className="key"
+        aria-label={t("keys.newlineAria")} onClick={() => {
+          if (composeLive()) optionsRef.current.sendKey("enter");
+          else if (padRef.current) insertFullTerminalNewline(padRef.current);
+        }}>{t("keys.newline")}</PadChromeButton>
+        : <FullTerminalKeyButton key={spec.key} spec={spec} onKey={onKey} />),
+      ...EXPANDED_KEYS.filter((spec) => spec.key === "ctrl+c")
+        .map((spec) => <FullTerminalKeyButton key={spec.key} spec={spec} onKey={onKey} />),
       ...EXTRA_KEYS.map((spec) => <FullTerminalKeyButton key={spec.key} spec={spec} onKey={onKey} />),
     ]} />}
   </div>;

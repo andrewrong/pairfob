@@ -361,7 +361,7 @@ describe("complete-terminal remembers its mode per pane", () => {
     expect([...root.children]).toEqual([chrome, host, expandedPad]);
     expect(host.contains(rail)).toBeTrue();
     expect(expandedPad.querySelectorAll(".keys")).toHaveLength(1);
-    expect(expandedPad.querySelectorAll(".pad-page .key")).toHaveLength(13);
+    expect(expandedPad.querySelectorAll(".pad-page .key")).toHaveLength(14);
 
     click('.full-terminal-pad [aria-label="更多按键"]');
     const collapsedPad = root.querySelector<HTMLElement>(".full-terminal-pad")!;

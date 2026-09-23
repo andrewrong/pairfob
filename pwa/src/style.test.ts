@@ -266,7 +266,7 @@ describe("UI accessibility guardrails", () => {
 
   test("compose is a growing textarea, not a single-line input", () => {
     expect(rule(".dock-form textarea")).toMatch(/min-height:\s*46px/);
-    expect(rule(".dock-form textarea")).toMatch(/max-height:\s*8\.5rem/);
+    expect(rule(".dock-form textarea")).toMatch(/max-height:\s*calc\(4lh \+ 22px\)/);
     expect(rule(".dock-form textarea")).toMatch(/resize:\s*none/);
     expect(css).not.toMatch(/\.dock-form input\[type=["']text["']\]/);
   });

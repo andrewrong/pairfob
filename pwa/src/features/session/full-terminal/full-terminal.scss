@@ -326,7 +326,7 @@ html.page-zoomed .full-terminal-host .full-terminal-pan {
   width: auto;
   min-width: 0;
   min-height: 46px;
-  max-height: 8.5rem;
+  max-height: calc(4lh + 22px);
   height: 46px;
   margin: 0;
   padding: 10px 14px;

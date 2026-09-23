@@ -10,7 +10,8 @@ import { defaultComposeLive, paneComposeLive } from "../settings/preferences-sto
  * screen is doing right now.
  */
 export const COMPOSE_MIN_PX = 46;
-export const COMPOSE_MAX_PX = 136;
+// Four 16px × 1.3 text lines, 20px padding, and two 1px borders.
+export const COMPOSE_MAX_PX = 105.2;
 
 export type ComposeRecord = {
   composeDraft: string;

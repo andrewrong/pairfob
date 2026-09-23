@@ -148,9 +148,28 @@ test("a touch hold repeats, stops on movement, and does not become a page swipe"
 test("keys fit fourteen per page while commands keep four columns", () => {
   paint();
   expect(appRoot().querySelector(".pad-page")?.getAttribute("data-columns")).toBe("7");
-  expect(appRoot().querySelectorAll(".pad-page .key")).toHaveLength(originalKeyCount);
+  expect(appRoot().querySelectorAll(".pad-page .key")).toHaveLength(originalKeyCount + 1);
   expect(appRoot().querySelectorAll(".pad-page-dot")).toHaveLength(2);
   act(() => { appRoot().querySelector<HTMLButtonElement>(".pad-mode")!.click(); });
   expect(appRoot().querySelector(".pad-page")?.getAttribute("data-columns")).toBe("4");
   expect(appRoot().querySelectorAll(".slash-cmd")).toHaveLength(8);
+});
+
+test("full terminal first page keeps newline available and inserts at the draft selection", () => {
+  const sent = paint();
+  const field = appRoot().querySelector<HTMLTextAreaElement>("textarea")!;
+  act(() => {
+    field.value = "hello world";
+    field.dispatchEvent(new (field.ownerDocument.defaultView!).Event("input", { bubbles: true }));
+    field.setSelectionRange(5, 6);
+    button("换行").click();
+  });
+  expect(field.value).toBe("hello\nworld");
+  expect(composeDraft()).toBe("hello\nworld");
+  expect(field.selectionStart).toBe(6);
+  expect(document.activeElement).toBe(field);
+  expect(sent).toEqual([]);
+  act(() => { setComposeLive(true); });
+  act(() => { button("换行").click(); });
+  expect(sent).toEqual(["enter"]);
 });
