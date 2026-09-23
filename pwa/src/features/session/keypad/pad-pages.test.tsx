@@ -20,7 +20,7 @@ beforeEach(async () => {
   setKeysExpanded(true); setPadKind("keys"); setComposeLive(false);
 });
 afterEach(() => {
-  unmountReact(); clearModifiers(); setKeysExpanded(false); setPadKind("keys"); setComposeDraft("");
+  unmountReact(); clearModifiers(); setKeysExpanded(false); setPadKind("keys"); setComposeDraft(""); setComposeLive(false);
 });
 function paint() {
   const sent: string[] = [];
