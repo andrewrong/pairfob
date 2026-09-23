@@ -35,6 +35,15 @@ function openHelp(topic: string): HTMLDialogElement {
   return dialog;
 }
 
+/** Overview rows open the sub-pages; the computer card opens Connection. */
+function openSection(label: string | "connection"): void {
+  const target = label === "connection"
+    ? appRoot().querySelector<HTMLButtonElement>(".set-hero")
+    : [...appRoot().querySelectorAll<HTMLButtonElement>(".set-nav")].find((el) => el.getAttribute("aria-label") === label);
+  if (!(target instanceof HTMLButtonElement)) throw new Error(`missing settings entry ${label}`);
+  act(() => target.click());
+}
+
 function mountSettings(): void {
   act(() => {
     batch(() => {
@@ -113,16 +122,15 @@ describe("settings help copy (actual App)", () => {
         help: row.querySelector(".set-help") !== null,
       })),
     ).toEqual([
-      { title: "连接", help: true },
       { title: "订阅余量", help: true },
-      { title: "语言", help: true },
-      { title: "会话列表", help: true },
       { title: "会话默认", help: true },
       { title: "通知", help: false },
-      { title: "已配对设备", help: false },
+      { title: "这台手机", help: false },
       { title: "危险操作", help: false },
     ]);
-    expect(app.querySelectorAll(".set-help").length).toBe(5);
+    // The overview is one line per choice; the list grouping lives on the list.
+    expect(app.querySelectorAll(".set-help").length).toBe(2);
+    expect(app.textContent).not.toContain("会话列表");
     expect(app.textContent).not.toContain("会话内切换只记住当前会话");
     expect(app.textContent).not.toContain("默认平铺全部会话");
     expect(app.textContent).not.toContain("跟随浏览器会按系统语言切换");
@@ -150,6 +158,10 @@ describe("settings help copy (actual App)", () => {
     mountSettings();
     act(() => applyOriginConfig({ protocol: 2, p2p: false }));
     const app = appRoot();
+    // The overview keeps the explanation off the page.
+    expect(app.textContent).not.toContain("自动优先走 P2P");
+    openSection("connection");
+    expect(app.querySelector(".topbar-title")?.textContent).toBe("连接");
     expect(app.querySelector(".network-mode-row")?.textContent).toContain("当前站点未开放 P2P");
     expect(app.textContent).not.toContain("自动优先走 P2P");
     expect(openHelp("连接").textContent).toContain("自动优先走 P2P");
@@ -158,10 +170,10 @@ describe("settings help copy (actual App)", () => {
   test("a later help tap replaces the open dialog", () => {
     mountSettings();
     openHelp("会话默认");
-    const second = openHelp("语言");
+    const second = openHelp("订阅余量");
     expect(document.querySelectorAll("dialog.help")).toHaveLength(1);
-    expect(second.querySelector(".modal-title")?.textContent).toBe("语言");
-    expect(second.textContent).toContain("跟随浏览器会按系统语言切换");
+    expect(second.querySelector(".modal-title")?.textContent).toBe("订阅余量");
+    expect(second.textContent).toContain("概览环显示已报告窗口中最低的剩余比例");
     expect(second.textContent).not.toContain("会话内切换只记住当前会话");
   });
 
@@ -190,6 +202,9 @@ describe("settings help copy (actual App)", () => {
     expect(app.textContent).not.toContain("PAIRFOB_PUSH=1");
     expect(app.textContent).not.toContain("pairfob forget N");
     expect(openHelp("通知").textContent).toContain("PAIRFOB_PUSH=1");
+    closeTestDialogs();
+    openSection("已配对设备");
+    expect(app.textContent).not.toContain("pairfob forget N");
     expect(openHelp("已配对设备").textContent).toContain("pairfob forget N");
     expect(document.querySelectorAll("dialog.help")).toHaveLength(1);
   });

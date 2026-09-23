@@ -163,10 +163,12 @@ describe("home list while unverifiable", () => {
     leftoverAgent();
     renderHome();
     const app = appRoot();
-    const statusline = app.querySelector(".statusline-text");
+    // The phone header's connection line carries the status sentence.
+    const statusline = app.querySelector(".host-title-line");
     expect(statusline?.textContent).toBe("连接中断，正在自动重连");
     expect(statusline?.textContent).not.toContain("已连接");
     expect(statusline?.textContent).not.toContain("Herdr 不可用");
+    expect(app.querySelector(".host-title.is-warn")).not.toBeNull();
     // Cards survive the drop; they are dimmed, not wiped.
     const card = app?.querySelector(".card");
     expect((card) !== null).toBe(true);
@@ -174,8 +176,9 @@ describe("home list while unverifiable", () => {
     expect(card?.textContent).toContain("build");
     expect((app?.querySelector(".empty")) === null).toBe(true);
     // Last-known done never paints as a fresh fact.
-    expect((card?.querySelector(".pill-done")) === null).toBe(true);
-    expect(card?.querySelector(".pill-unknown")?.textContent).toBe("未知");
+    expect((card?.querySelector(".card-status.is-done")) === null).toBe(true);
+    expect(card?.className).not.toContain("is-unread");
+    expect(card?.querySelector(".card-status.is-unknown")?.textContent).toBe("未知");
     expect((app?.querySelector(".banner-warn")) === null).toBe(true);
   });
 
@@ -187,7 +190,7 @@ describe("home list while unverifiable", () => {
     const app = appRoot();
     const card = app.querySelector(".card");
     expect(card?.className).not.toContain("unverifiable");
-    expect(card?.querySelector(".pill-done")?.textContent).toBe(t("status.done"));
+    expect(card?.querySelector(".card-status.is-done")?.textContent).toBe(t("status.done"));
     expect((app.querySelector(".banner-warn")) === null).toBe(true);
   });
 

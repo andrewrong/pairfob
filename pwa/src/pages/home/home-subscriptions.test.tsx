@@ -271,7 +271,7 @@ describe("mounted home updates from typed domain actions", () => {
     }
   });
 
-  test("choosing workspace grouping prepares the default accordion with no repaint", () => {
+  test("choosing workspace grouping prepares the default accordion with no repaint", async () => {
     act(() => {
       attachLiveSession({ isConnected: () => true, paneRead: async () => ({ text: "", hash: "" }) } as unknown as LiveSession);
       applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_conversation: true }, []);
@@ -297,10 +297,17 @@ describe("mounted home updates from typed domain actions", () => {
     commitTest();
     const counts = observeCommits();
     try {
-      const group = [...appRoot().querySelectorAll<HTMLButtonElement>("[role=radio]")].find(
-        (node) => node.textContent === t("list.space"),
+      // The header button opens the grouping sheet; picking a grouping closes it
+      // and applies the choice on the next task.
+      act(() => appRoot().querySelector<HTMLButtonElement>(".herd-mode")!.click());
+      const group = [...document.querySelectorAll<HTMLButtonElement>(".sheet-body .menu-choice")].find(
+        (node) => node.querySelector(".menu-choice-title")?.textContent === t("list.modeSpace"),
       )!;
-      act(() => group.click());
+      await act(async () => {
+        group.click();
+        await Promise.resolve();
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      });
       expect([...appRoot().querySelectorAll(".group-title")].map((node) => node.getAttribute("aria-expanded"))).toEqual([
         "true",
         "false",

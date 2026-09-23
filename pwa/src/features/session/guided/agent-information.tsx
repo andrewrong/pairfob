@@ -1,8 +1,6 @@
 import { useSession } from "../hooks";
 import { useState } from "react";
-import { liveSession } from "../../computers/catalog-store";
 import { useComputers } from "../../computers/hooks";
-import { selectedAgent } from "../../dashboard/catalog-store";
 import { useDashboard } from "../../dashboard/hooks";
 import { capabilityEnabled } from "../../operations/capabilities-store";
 import { useCapabilities } from "../../operations/hooks";
@@ -12,7 +10,6 @@ import { agentObservationKey, type AgentInspection } from "../../../lib/agent-in
 import type { AgentCard } from "../../../lib/ranking";
 import type { LiveSession } from "../../../lib/protocol/session-types";
 import { Button } from "../../../shared/ui/primitives";
-import { showActionSheet } from "../../../shared/ui/overlay/action-sheet";
 
 function Tokens({ title, values }: { title: string; values?: Readonly<Record<string, string>> }) {
   if (!values || !Object.keys(values).length) return null;
@@ -68,9 +65,4 @@ export function AgentInformation({ agent, session }: { agent: AgentCard; session
       </>}
     </>}
   </div>;
-}
-export function openAgentInformation(): void {
-  const agent = selectedAgent(), session = liveSession();
-  if (!agent || !session) return;
-  showActionSheet(t("agentInfo.title"), () => <AgentInformation agent={agent} session={session} />);
 }

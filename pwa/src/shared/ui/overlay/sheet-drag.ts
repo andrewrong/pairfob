@@ -24,12 +24,26 @@ const ENGAGE_PX = 8;
 const UP_DAMPING = 0.22;
 const UP_LIMIT = 34;
 
+/** Upward travel that asks an expandable sheet for its taller height. */
+const EXPAND_PX = 48;
+
 /** Safety net for a transitionend that never arrives (element removed mid-flight). */
 const CLOSE_FALLBACK_MS = 420;
 
 export function sheetRelease(travel: number, height: number, velocity: number): "close" | "spring" {
   if (travel <= 0) return "spring";
   return travel > height * TRAVEL_RATIO || velocity > FLICK_PX_PER_MS ? "close" : "spring";
+}
+
+/**
+ * Release for a sheet with two heights. Up expands a collapsed sheet; down from
+ * the expanded height collapses it first, and only a collapsed sheet closes.
+ */
+export function sheetDetentRelease(dy: number, height: number, velocity: number,
+  expanded: boolean): "expand" | "collapse" | "close" | "spring" {
+  if (dy < 0) return !expanded && (-dy > EXPAND_PX || velocity < -FLICK_PX_PER_MS) ? "expand" : "spring";
+  const release = sheetRelease(dy, height, velocity);
+  return release === "close" && expanded ? "collapse" : release;
 }
 
 export function sheetTravel(dy: number): number {
@@ -43,9 +57,11 @@ export type SheetDrag = {
   /** The element that scrolls, if any. A drag from inside it only starts at the top. */
   scroller?: HTMLElement | null;
   close: () => void;
+  /** Two heights instead of one; the owner renders the expanded state. */
+  detents?: { expanded(): boolean; set(expanded: boolean): void };
 };
 
-export function bindSheetDrag({ dialog, form, scroller, close }: SheetDrag): () => void {
+export function bindSheetDrag({ dialog, form, scroller, close, detents }: SheetDrag): () => void {
   const bindings = new AbortController();
   const signal = bindings.signal;
   let retired = false;
@@ -73,6 +89,7 @@ export function bindSheetDrag({ dialog, form, scroller, close }: SheetDrag): () 
   let lastAt = 0;
   let velocity = 0;
   let travel = 0;
+  let pull = 0;
   let tracking = false;
   let engaged = false;
   /** Measured once per gesture: reading it per move would lay out on every frame. */
@@ -124,6 +141,7 @@ export function bindSheetDrag({ dialog, form, scroller, close }: SheetDrag): () 
       tracking = true;
       engaged = false;
       travel = 0;
+      pull = 0;
       velocity = 0;
       startX = touch.clientX;
       startY = touch.clientY;
@@ -142,8 +160,10 @@ export function bindSheetDrag({ dialog, form, scroller, close }: SheetDrag): () 
       const dx = touch.clientX - startX;
       if (!engaged) {
         if (Math.abs(dy) < ENGAGE_PX || Math.abs(dy) < Math.abs(dx) * 1.2) return;
-        if (dy < 0 && scroller && scroller.scrollTop <= 0 && scroller.scrollHeight > scroller.clientHeight) {
-          // Upward from the top of a scrollable list is still a scroll.
+        const expanding = !!detents && !detents.expanded();
+        if (dy < 0 && !expanding && scroller && scroller.scrollTop <= 0 && scroller.scrollHeight > scroller.clientHeight) {
+          // Upward from the top of a scrollable list is still a scroll, unless
+          // the sheet can still grow: then the first pull expands it.
           tracking = false;
           return;
         }
@@ -157,6 +177,7 @@ export function bindSheetDrag({ dialog, form, scroller, close }: SheetDrag): () 
       velocity = (touch.clientY - lastY) / span;
       lastY = touch.clientY;
       lastAt = event.timeStamp;
+      pull = dy;
       travel = sheetTravel(dy);
       form.style.transform = `translateY(${travel}px)`;
       // The further the sheet goes, the more of the page behind comes back.
@@ -170,9 +191,15 @@ export function bindSheetDrag({ dialog, form, scroller, close }: SheetDrag): () 
     tracking = false;
     if (!engaged) return;
     engaged = false;
-    if (sheetRelease(travel, height, velocity) === "close") dismiss();
-    else settle();
+    const release = detents ? sheetDetentRelease(pull, height, velocity, detents.expanded())
+      : sheetRelease(travel, height, velocity);
+    if (release === "close") dismiss();
+    else {
+      settle();
+      if (release === "expand" || release === "collapse") detents?.set(release === "expand");
+    }
     travel = 0;
+    pull = 0;
   };
 
   dialog.addEventListener("touchend", release, { signal });

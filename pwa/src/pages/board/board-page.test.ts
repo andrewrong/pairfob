@@ -19,6 +19,31 @@ import { clearBoardPreviews } from "../../features/board/preview/store";
 import { lang, setLang } from "../../lib/i18n";
 import { click, commitTest, mountTestApp, unmountTestApp } from "../../../test-support/react-harness";
 
+const settleSheet = async () => {
+  await Promise.resolve();
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+};
+
+/** The workspace switcher lives behind the board title. */
+function openWorkspaces(): HTMLButtonElement[] {
+  act(() => appRoot().querySelector<HTMLButtonElement>(".board-ws")!.click());
+  return [...document.querySelectorAll<HTMLButtonElement>(".sheet-body .menu-choice")];
+}
+
+function workspaceTitle(row: Element): string {
+  return row.querySelector(".menu-choice-title")?.textContent?.trim() ?? "";
+}
+
+async function pickWorkspace(label: string): Promise<void> {
+  const row = openWorkspaces().find((item) => workspaceTitle(item) === label);
+  if (!row) throw new Error(`missing workspace ${label}`);
+  await act(async () => {
+    row.click();
+    await settleSheet();
+  });
+}
+
+
 const AGENT_KINDS = ["codex", "claude", "grok", "pi"];
 
 // Per-case ambient language capture: resetBoardTestDOM does not set an explicit
@@ -116,13 +141,15 @@ describe("react board screen", () => {
     expect(panes).toHaveLength(2);
     expect((panes[0] as HTMLElement).style.width).toBe("480px");
     expect((panes[1] as HTMLElement).style.left).toBe("480px");
-    expect(app.textContent).toContain("alpha");
-    expect(app.textContent).toContain("beta");
+    // The title names the selected workspace; the others are one tap away.
+    expect(app.querySelector(".board-ws-name")?.textContent).toBe("alpha");
+    expect(openWorkspaces().map(workspaceTitle)).toEqual(["alpha", "beta"]);
+    act(closeTestDialogs);
     expect(app.querySelector(".board-tab-new")?.textContent).toContain("新建标签页");
     expect(app.querySelectorAll(".board-pane-screen")).toHaveLength(2);
     expect(app.querySelectorAll(".board-pane")[0].getAttribute("data-pane-id")).toBe("w1:p1");
     expect(app.querySelector(".board-pane")?.hasAttribute("data-react-board-preview")).toBe(true);
-    expect(app.querySelector(".board-zoom .text-link")?.getAttribute("aria-label")).toBe("适配整页布局");
+    expect(app.querySelector(".board-zoom .board-zoom-fit")?.getAttribute("aria-label")).toBe("适配整页布局");
   });
 
   test("switching workspace is local and does not call the session", async () => {
@@ -135,7 +162,7 @@ describe("react board screen", () => {
         return { pane_id: "x", workspace_id: "w1", tab_id: "x", operation_id: "op_1", outcome: "applied" };
       },
     } as unknown as LiveSession));
-    click("beta");
+    await pickWorkspace("beta");
     expect(boardStore.get().boardWorkspaceId).toBe("w2");
     expect(boardStore.get().boardTabId).toBe("w2:t1");
     expect(calls).toEqual([]);
@@ -204,7 +231,8 @@ describe("react board screen", () => {
       ],
     }));
     commitTest();
-    const chips = [...appRoot().querySelectorAll(".board-chip")].map((el) => el.textContent);
+    const chips = openWorkspaces().map(workspaceTitle);
+    act(closeTestDialogs);
     expect(chips).toContain("pairfob · test/pairfob");
     expect(chips).toContain("pairfob · github/pairfob");
     expect([...appRoot().querySelectorAll(".board-tab")].map((el) => el.textContent)).toContain("第 1 页");

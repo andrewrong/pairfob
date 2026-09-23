@@ -98,16 +98,25 @@ afterEach(async () => {
 });
 
 describe("home new session", () => {
-  test("create conversation is not gated on advertised agent kinds", () => {
+  test("create conversation is not gated on advertised agent kinds", async () => {
     const app = appRoot();
-    const create = () => app.querySelector<HTMLButtonElement>(".topbar-create")!;
+    const create = () => app.querySelector<HTMLButtonElement>(".create-fab")!;
     expect(create().disabled).toBe(false);
     expect(create().textContent).toBe(t("home.new"));
-    act(() => create().click());
-    expect(document.querySelector("dialog .modal-title")?.textContent).toBe(t("form.newConversation"));
-    expect(document.querySelector<HTMLInputElement>('dialog [name="cwd"]')?.value).toBe("/tmp/alpha");
-    expect([...document.querySelectorAll('dialog [name="agent_kind"] option')].map(option => option.textContent))
-      .toEqual([t("form.plainTerminal")]);
+    await act(async () => {
+      create().click();
+      await Promise.resolve();
+    });
+    // The one create sheet. This computer grants create_conversation but not
+    // create_tab, so it starts on a new workspace; with no agent kinds
+    // advertised the only thing on offer is a terminal.
+    const sheet = document.querySelector("dialog.create-sheet");
+    expect(sheet?.querySelector(".modal-title")?.textContent).toBe(t("create.title"));
+    expect([...(sheet?.querySelectorAll(".create-chip") ?? [])].map(node => node.textContent)).toEqual([t("create.newWorkspace")]);
+    expect(sheet?.querySelector(".create-chip.on")?.textContent).toBe(t("create.newWorkspace"));
+    expect(sheet?.querySelector(".create-dirs")?.textContent).toContain("/tmp/alpha");
+    expect([...(sheet?.querySelectorAll(".create-kind-name") ?? [])].map(node => node.textContent)).toEqual([t("create.terminal")]);
+    expect(sheet?.textContent).toContain(t("create.noKinds"));
     act(closeTestDialogs);
     expect(app.textContent).not.toContain("电脑没有提供可用的 Agent 类型");
     expect(app.querySelector(".home-create") === null).toBe(true);

@@ -6,14 +6,19 @@ type DialogLifecycle = {
   dialog: ElementRef<HTMLDialogElement>;
   onDismiss: () => void;
   onClose: () => void;
+  /** Escape; defaults to dismiss. A stacked sheet steps back a page instead. */
+  onCancel?: () => void;
   focus?: () => void;
   restoreFocus?: boolean;
   cancelGuardMs?: number;
   sheet?: { form: ElementRef<HTMLFormElement>; scroller: ElementRef<HTMLElement> };
+  /** Two sheet heights; read through the latest callbacks so the binding stays put. */
+  detents?: { expanded(): boolean; set(expanded: boolean): void };
 };
 
 /** Native dialog ownership shared by promise dialogs and state-controlled portals. */
 export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancelGuardMs = 400, ...callbacks }: DialogLifecycle) {
+  const expandable = !!callbacks.detents;
   const latest = useRef(callbacks);
   latest.current = callbacks;
   const form = sheet?.form;
@@ -26,7 +31,7 @@ export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancel
     const dismiss = () => latest.current.onDismiss();
     const cancel = (event: Event) => {
       event.preventDefault();
-      if (performance.now() - openedAt >= cancelGuardMs) dismiss();
+      if (performance.now() - openedAt >= cancelGuardMs) (latest.current.onCancel ?? dismiss)();
     };
     const backdrop = (event: MouseEvent) => {
       if (event.target === element && performance.now() - openedAt >= 400) dismiss();
@@ -38,6 +43,10 @@ export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancel
     element.showModal();
     const disposeDrag = form?.current ? bindSheetDrag({
       dialog: element, form: form.current, scroller: scroller?.current ?? null, close: dismiss,
+      detents: expandable ? {
+        expanded: () => latest.current.detents?.expanded() ?? false,
+        set: (next) => latest.current.detents?.set(next),
+      } : undefined,
     }) : undefined;
     latest.current.focus?.();
     return () => {
@@ -50,5 +59,5 @@ export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancel
         if (trigger?.isConnected) trigger.focus({ preventScroll: true });
       });
     };
-  }, [dialog, form, scroller, restoreFocus, cancelGuardMs]);
+  }, [dialog, form, scroller, restoreFocus, cancelGuardMs, expandable]);
 }

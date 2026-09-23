@@ -24,12 +24,12 @@ import {
   closePane,
   closeTab,
   closeWorkspace,
-  createSelectedTab,
   renamePane,
   renameTab,
   renameWorkspace,
 } from "../../features/operations/controller";
 import { openBoard } from "../board/board-bridge";
+import { openCreateSheet } from "./create-bridge";
 
 export function openListPaneMenu(agent: AgentCard): void {
   const model = paneMenuModel({
@@ -57,7 +57,7 @@ function runObjectMenuAction(kind: ObjectMenuKind, agent: AgentCard): void | Pro
       return;
     case "newTabBeside":
     case "newTabInWorkspace":
-      return createSelectedTab(agent);
+      return openCreateSheet({ workspaceId: agent.workspaceId });
     case "openBoard":
       return openBoard({ workspaceId: agent.workspaceId, tabId: agent.tabId });
     case "renamePane":

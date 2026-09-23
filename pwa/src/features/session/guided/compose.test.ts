@@ -136,16 +136,20 @@ describe("compose live vs batch", () => {
     expect(composeView).toContain('aria-live="polite"');
     const dock = await Bun.file(new URL("./session-dock.tsx", import.meta.url)).text();
     expect(dock).not.toContain("composeLiveControl");
-    const settings = await Bun.file(new URL("../../../pages/settings/settings-page.tsx", import.meta.url)).text();
-    expect(settings).toContain("function ComposeLiveControl");
+    // The default input lives on the Settings overview row and its choice sheet.
+    const settings = await Bun.file(new URL("../../../pages/settings/settings-overview.tsx", import.meta.url)).text();
     expect(settings).toContain('t("settings.input")');
-    expect(settings).toContain("setDefaultComposeLive(option.live)");
+    expect(settings).toContain("openComposeSheet(input.defaultComposeLive)");
+    const controls = await Bun.file(new URL("../../../pages/settings/settings-controls.tsx", import.meta.url)).text();
+    expect(controls).toContain("export function openComposeSheet");
+    expect(controls).toContain("setDefaultComposeLive(live)");
     const menu = await Bun.file(new URL("./pane-menu.tsx", import.meta.url)).text();
     expect(menu).toContain("export function fillSelectedPane");
     expect(menu).toContain("export function openPaneMenu");
-    expect(menu).toContain('t("menu.input")');
-    expect(menu).toContain('selected={composeLive() === option.live}');
-    expect(menu).toContain('else void setComposeLive(option.live)');
+    const quick = await Bun.file(new URL("./pane-menu-settings.tsx", import.meta.url)).text();
+    expect(quick).toContain('t("menu.input")');
+    expect(quick).toContain('selected={composeLive === option.live}');
+    expect(quick).toContain('else await setComposeLive(option.live)');
   });
 
   test("live keystrokes send text without waiting for guarded Enter", () => {

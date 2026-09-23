@@ -1,5 +1,5 @@
 import { parseAnsi } from "../../lib/ansi";
-import { agentTitle, canPromptAgent, tabSiblings, workspaceSiblings } from "../../lib/dashboard";
+import { agentStatusLabel, agentTitle, canPromptAgent, tabSiblings, workspaceSiblings } from "../../lib/dashboard";
 import {
   beginDiffNoteSend,
   composeDiffNotesPrompt,
@@ -18,16 +18,19 @@ import {
   OPERATION_INPUT_LIMITS,
   openWorktreeFromSummary,
   worktreeScope,
+  type CreateConversationInput,
+  type CreateWorktreeInput,
   type ListWorktreesInput,
+  type CreateTabInput,
   type WorktreeDraft,
   type SplitDirection,
+  type SplitPaneInput,
 } from "../../lib/operations";
 import { type GitLayer } from "../../lib/workspace";
 import {
   askAgentPrompt,
   askCreateConversation,
   askCreateTab,
-  askLayout,
   askSplitPane,
   askWorktree,
   showWorktrees,
@@ -69,7 +72,8 @@ export async function revokeSelf(): Promise<void> {
   const credential = computersStore.get().credential;
   if (!session || !credential) return;
   const owner = operationOwner(session);
-  if (!(await askConfirm(t("live.unpairAsk"), t("settings.unpair"))) || !ownsOperationView(owner)) return;
+  if (!(await askConfirm({ title: t("confirm.unpairSelfTitle"), message: t("live.unpairAsk"), confirmLabel: t("settings.unpair") }))
+    || !ownsOperationView(owner)) return;
   try {
     await session.revokeDevice(credential.deviceId);
     if (!ownsOperationView(owner)) return;
@@ -90,7 +94,8 @@ export async function revokeDevice(device: DeviceSummary): Promise<void> {
   const name = displayDeviceLabel(device.label || "") || t("device.unnamed");
   if (!session || !computersStore.get().credential) return;
   const owner = operationOwner(session);
-  if (!(await askConfirm(t("live.unpairDeviceAsk", { name }), t("settings.unpairOther"))) || !ownsOperationView(owner)) return;
+  if (!(await askConfirm({ title: t("confirm.unpairDeviceTitle"), subject: { name }, message: t("confirm.unpairDeviceEffect"),
+    confirmLabel: t("settings.unpairOther") })) || !ownsOperationView(owner)) return;
   try {
     await session.revokeDevice(device.device_id);
     if (!ownsOperationView(owner)) return;
@@ -207,23 +212,26 @@ function worktreeJobDriver(session: LiveSession, scope: ListWorktreesInput): Wor
   };
 }
 
-export async function startNewConversation(): Promise<void> {
+/** `prepared` is input the create sheet already collected. */
+export async function startNewConversation(prepared?: CreateConversationInput): Promise<void> {
   const session = liveSession();
   if (!session || !capabilityEnabled("create_conversation")) return;
   const defaults = selectedAgent()?.cwd || dashboardStore.get().agents.find((agent) => agent.cwd)?.cwd || "";
   const owner = operationOwner(session);
-  const input = await askCreateConversation([...advertisedAgentKinds()], defaults);
+  const input = prepared ?? await askCreateConversation([...advertisedAgentKinds()], defaults);
   if (!input || !ownsOperationView(owner) || !capabilityEnabled("create_conversation")) return;
   await runHerdOperation(t("op.creatingConversation"), t("op.createdConversation"), () => session.createConversation(input), {
     owner, capability: "create_conversation", conflictMessage: t("err.createPaneConflict"), after: selectCreatedPane,
   });
 }
 
-export async function createSelectedTab(agent: AgentCard | undefined = selectedAgent()): Promise<void> {
+/** `prepared` is input a caller already collected in its own form (the pane sheet). */
+export async function createSelectedTab(agent: AgentCard | undefined = selectedAgent(),
+  prepared?: Omit<CreateTabInput, "workspace_id">): Promise<void> {
   const session = liveSession();
   if (!session || !agent?.workspaceId || !capabilityEnabled("create_tab")) return;
   const owner = operationOwner(session);
-  const input = await askCreateTab([...advertisedAgentKinds()], agent.cwd);
+  const input = prepared ?? await askCreateTab([...advertisedAgentKinds()], agent.cwd);
   if (!input || !ownsOperationView(owner) || !capabilityEnabled("create_tab")) return;
   const workspaceId = agent.workspaceId;
   await runHerdOperation(
@@ -239,6 +247,8 @@ export type PaneOperationOptions = {
   valid?: () => boolean;
   direction?: SplitDirection;
   created?: (paneId: string) => void;
+  /** Split input a caller already collected in its own form (the pane sheet). */
+  input?: Omit<SplitPaneInput, "pane_id">;
 };
 
 function requirePaneTarget(agent: AgentCard, options: PaneOperationOptions): void {
@@ -252,7 +262,7 @@ export async function splitSelectedPane(selected = selectedAgent(), options: Pan
   const session = liveSession();
   if (!session || !selected || !capabilityEnabled("split_pane") || options.valid?.() === false) return;
   const owner = operationOwner(session);
-  const input = await askSplitPane([...advertisedAgentKinds()], selected.cwd,
+  const input = options.input ?? await askSplitPane([...advertisedAgentKinds()], selected.cwd,
     options.direction ? { direction: options.direction, title: agentTitle(selected) } : undefined);
   if (!input || !ownsOperationView(owner) || !capabilityEnabled("split_pane")) return;
   await runHerdOperation(
@@ -387,6 +397,20 @@ export async function createSelectedWorktree(): Promise<void> {
   }
 }
 
+/**
+ * Create a worktree the create sheet described, scoped by the repository
+ * directory it names. Runs as the same background job card as the menu path.
+ */
+export function createWorktreeFrom(input: CreateWorktreeInput): void {
+  const session = liveSession();
+  const scope = worktreeScope(input.workspace_id, input.cwd);
+  if (!session || !scope || !capabilityEnabled("create_worktree")) return;
+  if (!startWorktreeJob(worktreeJobDriver(session, scope), input)) {
+    showError(t("op.worktreeJobLimit"));
+    commitView();
+  }
+}
+
 export async function openSelectedWorktree(): Promise<void> {
   const session = liveSession();
   const defaults = selectedWorktreeDefaults();
@@ -419,8 +443,9 @@ export async function layoutSelectedPane(kind: "resize" | "swap" | "zoom", selec
     );
     return;
   }
-  const choice = options.choice ?? await askLayout(kind);
-  if (!choice || !ownsOperationView(owner)) return;
+  // Resize and swap are picked in a live panel (pane sheet or board menu) that passes the choice.
+  const choice = options.choice;
+  if (!choice || choice.kind !== kind || !ownsOperationView(owner)) return;
   if (choice.kind === "resize") {
     await runHerdOperation(t("op.resizing"), t("op.resized"), () => {
       requirePaneTarget(selected, options);
@@ -451,12 +476,14 @@ export async function renamePane(agent: AgentCard | undefined = selectedAgent(),
   const session = liveSession();
   if (!session || !agent?.paneId || options.valid?.() === false) return;
   const owner = operationOwner(session);
-  const label = await askText(
-    t("op.renamePane"),
-    agent.paneLabel || "",
-    OPERATION_INPUT_LIMITS.label,
-    t("op.paneName"),
-  );
+  const label = await askText({
+    title: t("menu.renamePane"),
+    initial: agent.paneLabel || "",
+    maxLength: OPERATION_INPUT_LIMITS.label,
+    label: t("op.paneName"),
+    hint: t("text.paneHint"),
+    emptyHint: t("text.paneEmptyHint"),
+  });
   if (label === null || !ownsOperationView(owner)) return;
   try {
     requirePaneTarget(agent, options);
@@ -472,7 +499,8 @@ export async function renameTab(agent: AgentCard | undefined = selectedAgent()):
   const session = liveSession();
   if (!session || !agent?.tabId) return;
   const owner = operationOwner(session);
-  const label = await askText(t("op.renameTab"), agent.tabLabel || "", OPERATION_INPUT_LIMITS.label, t("op.tabName"));
+  const label = await askText({ title: t("op.renameTab"), initial: agent.tabLabel || "", maxLength: OPERATION_INPUT_LIMITS.label,
+    label: t("op.tabName"), allowEmpty: false });
   if (label === null || !ownsOperationView(owner)) return;
   const normalized = label.trim();
   if (!normalized) {
@@ -492,7 +520,8 @@ export async function renameWorkspace(agent: AgentCard | undefined = selectedAge
   const session = liveSession();
   if (!session || !agent?.workspaceId) return;
   const owner = operationOwner(session);
-  const label = await askText(t("op.renameWorkspace"), agent.workspaceLabel, OPERATION_INPUT_LIMITS.label, t("op.workspaceName"));
+  const label = await askText({ title: t("op.renameWorkspace"), initial: agent.workspaceLabel, maxLength: OPERATION_INPUT_LIMITS.label,
+    label: t("op.workspaceName"), allowEmpty: false });
   if (label === null || !ownsOperationView(owner)) return;
   const normalized = label.trim();
   if (!normalized) {
@@ -512,10 +541,14 @@ export async function closePane(agent: AgentCard | undefined = selectedAgent(), 
   const session = liveSession();
   if (!session || !agent?.paneId || options.valid?.() === false) return;
   const owner = operationOwner(session);
-  const question = options.valid ? t("boardMenu.closeAsk", { title: agentTitle(agent) }) +
-    (agent.status === "working" || agent.status === "blocked" ? ` ${t("boardMenu.closeRunning")}` : "")
-    : t("op.closePaneAsk", { title: agentTitle(agent) });
-  if (!(await askConfirm(question, t("op.closePane")))) return;
+  const running = agent.status === "working" || agent.status === "blocked";
+  if (!(await askConfirm({
+    title: t("confirm.closePaneTitle"),
+    subject: { name: agentTitle(agent), detail: agent.cwd || undefined, status: agentStatusLabel(agent) },
+    message: t("confirm.closePaneEffect"),
+    warning: running ? t("confirm.closeRunning") : undefined,
+    confirmLabel: t("op.closePane"),
+  }))) return;
   if (!ownsOperationView(owner)) return;
   const paneId = agent.paneId;
   await runHerdOperation(t("op.closingPane"), t("op.closedPane"), async () => {
@@ -550,7 +583,9 @@ export async function closeTab(agent: AgentCard | undefined = selectedAgent()): 
   if (!session || !agent?.tabId) return;
   const label = agent.tabLabel || agent.tabId;
   const owner = operationOwner(session);
-  if (!(await askConfirm(t("op.closeTabAsk", { title: label }), t("op.closeTab")))) return;
+  const count = tabSiblings(agent, [...dashboardStore.get().agents]).length;
+  if (!(await askConfirm({ title: t("confirm.closeTabTitle"), subject: { name: label, status: t("confirm.paneCount", { n: count }) },
+    message: t("confirm.closeGroupEffect"), confirmLabel: t("op.closeTab") }))) return;
   if (!ownsOperationView(owner)) return;
   const tabId = agent.tabId;
   const siblings = tabSiblings(agent, [...dashboardStore.get().agents]);
@@ -572,7 +607,10 @@ export async function closeWorkspace(agent: AgentCard | undefined = selectedAgen
   if (!session || !agent?.workspaceId) return;
   const label = agent.workspaceLabel || t("workspace.unnamed");
   const owner = operationOwner(session);
-  if (!(await askConfirm(t("op.closeWorkspaceAsk", { title: label }), t("op.closeWorkspace")))) return;
+  const count = workspaceSiblings(agent, [...dashboardStore.get().agents]).length;
+  if (!(await askConfirm({ title: t("confirm.closeWorkspaceTitle"),
+    subject: { name: label, status: t("confirm.paneCount", { n: count }) },
+    message: t("confirm.closeGroupEffect"), confirmLabel: t("op.closeWorkspace") }))) return;
   if (!ownsOperationView(owner)) return;
   const workspaceId = agent.workspaceId;
   const siblings = workspaceSiblings(agent, [...dashboardStore.get().agents]);

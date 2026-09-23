@@ -49,6 +49,8 @@ export type ShellFlags = {
   workspace: boolean;
   board: boolean;
   booting: boolean;
+  /** Phone tab roots (home / board / settings) carry the bottom tab bar. */
+  tabs: boolean;
 };
 
 export type LayoutDescriptor = {
@@ -78,6 +80,8 @@ export function computeLayout(input: LayoutInput): LayoutDescriptor {
     ? input.agentChat ? "chat" : "session"
     : null;
 
+  const tabs = live && !input.desk && !input.fullTerminal
+    && (input.screen === "home" || input.screen === "board" || input.screen === "settings");
   const mode: LayoutMode = booting ? "boot"
     : input.phase === "connect" || input.phase === "pairing" ? "connect"
     : input.phase === "pick" ? "pick"
@@ -95,12 +99,12 @@ export function computeLayout(input: LayoutInput): LayoutDescriptor {
     mode,
     deskPage,
     deskChild,
-    shell: { session, desk, workspace, board, booting },
+    shell: { session, desk, workspace, board, booting, tabs },
     lockScroll: session || desk || workspace || board || booting,
     termFontPx: input.termFontPx,
     termLineHeightPx: termLineHeightPx(input.termFontPx),
     operationBusy: input.operationBusy,
-    key: `${mode}:${input.phase}:${deskPage ?? "-"}:${deskChild ?? "-"}`,
+    key: `${mode}:${input.phase}:${deskPage ?? "-"}:${deskChild ?? "-"}${tabs ? ":tabs" : ""}`,
   };
 }
 
@@ -119,5 +123,6 @@ export function layoutsEqual(left: LayoutDescriptor | null | undefined, right: L
     && left.shell.desk === right.shell.desk
     && left.shell.workspace === right.shell.workspace
     && left.shell.board === right.shell.board
-    && left.shell.booting === right.shell.booting;
+    && left.shell.booting === right.shell.booting
+    && left.shell.tabs === right.shell.tabs;
 }

@@ -113,32 +113,45 @@ test("settings status stays on the published snapshot while the composition comm
   expect(appHost()).not.toBeNull();
 });
 
-test("the settings language button updates the simultaneously mounted desktop rail", () => {
+test("the settings language choice updates the simultaneously mounted desktop rail", async () => {
   happy.happyDOM.setWindowSize({ width: 1200, height: 900 });
   act(() => setLangPref("zh"));
   mountSettingsLive();
   const app = appRoot();
   const before = app.querySelector(".rail")?.textContent;
   expect(typeof before).toBe("string");
-  const english = [...app.querySelectorAll<HTMLButtonElement>("button")]
+  // The language row opens a choice sheet; picking applies on the next task.
+  act(() => app.querySelector<HTMLButtonElement>(`.set-nav[aria-label="${t("settings.language")}"]`)!.click());
+  const english = [...document.querySelectorAll<HTMLButtonElement>(".sheet-body .menu-choice")]
     .find((el) => el.textContent === "English");
   expect(Boolean(english)).toBeTrue();
-  act(() => english!.click());
+  await act(async () => {
+    english!.click();
+    await Promise.resolve();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
   expect(app.querySelector(".main .topbar-title")?.textContent).toBe("Settings");
   expect(app.querySelector(".rail")?.textContent === before).toBeFalse();
 });
 
-test("mobile settings compose the page chrome with a back bar", () => {
+test("mobile settings is a tab root: a page title, no back bar, and the tab bar", () => {
   mountSettingsLive();
   const app = appRoot();
   expect(app.querySelector(".page.settings-page")).not.toBeNull();
-  expect(app.querySelector(".topbar-title")?.textContent).toBe("Settings");
-  expect([...app.querySelectorAll("button")].some((el) => el.getAttribute("aria-label") === t("chrome.back"))).toBeTrue();
+  expect(app.querySelector(".settings-title")?.textContent).toBe("Settings");
+  expect([...app.querySelectorAll("button")].some((el) => el.getAttribute("aria-label") === t("chrome.back"))).toBeFalse();
+  expect(app.querySelector(".tab-bar .tab-bar-item.on")?.textContent).toContain(t("tabs.settings"));
+  // A sub-page brings its own back bar, which returns to the overview.
+  act(() => app.querySelector<HTMLButtonElement>(".set-hero")!.click());
+  expect(app.querySelector(".topbar-title")?.textContent).toBe(t("settings.connection"));
+  act(() => app.querySelector<HTMLButtonElement>(`button[aria-label="${t("chrome.back")}"]`)!.click());
+  expect(app.querySelector(".settings-title")?.textContent).toBe("Settings");
 });
 
 test("a domain-driven re-render keeps focus on the network radio", () => {
   mountSettingsLive();
   const app = appRoot();
+  act(() => app.querySelector<HTMLButtonElement>(".set-hero")!.click());
   const relay = app.querySelector<HTMLButtonElement>(".network-mode-row button[role=radio]:nth-child(3)");
   if (!(relay instanceof HTMLButtonElement) || relay.textContent !== "Relay") {
     throw new Error("missing Relay radio");

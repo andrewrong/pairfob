@@ -179,11 +179,14 @@ describe("session list object controls", () => {
     const card = cardNamed("one").closest("article.card");
     expect(card?.classList.contains("status-unknown")).toBe(true);
     expect(card?.classList.contains("status-blocked")).toBe(false);
-    const pill = card?.querySelector(".pill-unknown");
+    const pill = card?.querySelector(".card-status.is-unknown");
     expect(pill).not.toBeNull();
     expect(pill?.textContent).toBe("未知");
     expect(pill?.textContent).not.toBe("空闲");
-    expect(card?.querySelector(".pill-idle")).toBeNull();
+    expect(card?.querySelector(".card-status.is-idle")).toBeNull();
+    // Unknown is never "needs you": no strip ticket, no waiting mark.
+    expect(card?.classList.contains("is-blocked")).toBe(false);
+    expect(document.querySelector(".attn-strip")).toBeNull();
   }));
 
   test("a default tab is not offered rename; a named or split tab is", async () => await act(async () => {

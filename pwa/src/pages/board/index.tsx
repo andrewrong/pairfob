@@ -9,7 +9,8 @@ import { BoardScreenView } from "../../features/board/components/board-screen";
 import { buildBoardViewModel } from "../../features/board/model/board-view";
 import { createDomainUpdates, useDomainUpdates, type DomainWatch } from "../domain-updates";
 import { boardActions, boardCanvasController, readBoardInput } from "./board-bridge";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import { publishedLayout, subscribeLayout } from "../../app/layout-store";
 import { boardInteractionStore, clearBoardInteraction } from "../../features/board/interaction-store";
 import { t } from "../../lib/i18n";
 
@@ -48,6 +49,8 @@ const updates = createDomainUpdates(watches);
 
 export function BoardPage() {
   useDomainUpdates(updates);
+  // A phone tab root leaves through the tab bar; elsewhere the board keeps back.
+  const tabRoot = useSyncExternalStore(subscribeLayout, () => publishedLayout()?.shell.tabs === true);
   const view = buildBoardViewModel(readBoardInput());
   const attention = boardInteractionStore.get();
   const sameTab = attention.tabId === view.canvas.tabId;
@@ -61,6 +64,7 @@ export function BoardPage() {
       view={view}
       actions={boardActions}
       controller={boardCanvasController}
+      showBack={!tabRoot}
     />
     {created && <div className="board-created-notice" role="status">
       <span>{t("boardMenu.created")}</span>

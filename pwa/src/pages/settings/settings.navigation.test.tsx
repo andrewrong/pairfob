@@ -46,6 +46,28 @@ async function click(label: string): Promise<void> {
   });
 }
 
+/** Pick a choice in the open sheet; the sheet closes and applies on the next task. */
+async function choose(label: string): Promise<void> {
+  const el = [...document.querySelectorAll<HTMLButtonElement>(".sheet-body .menu-choice")]
+    .find((button) => button.querySelector(".menu-choice-title")?.textContent === label);
+  if (!(el instanceof HTMLButtonElement)) throw new Error(`missing choice ${label}`);
+  await act(async () => {
+    el.click();
+    await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+  });
+}
+
+function sheetChoices(): Array<{ title: string; current: boolean }> {
+  return [...document.querySelectorAll<HTMLButtonElement>(".sheet-body .menu-choice")].map((el) => ({
+    title: el.querySelector(".menu-choice-title")?.textContent ?? "",
+    current: el.getAttribute("aria-current") === "true",
+  }));
+}
+
+function rowValue(label: string): string {
+  return appRoot().querySelector(`.set-nav[aria-label="${label}"] .set-val`)?.textContent ?? "";
+}
+
 function bootHome(): void {
   act(() => {
     batch(() => {
@@ -144,27 +166,28 @@ test("one computer row opens the list that both switches and adds, and back retu
   bootHome();
   await click(t("home.settings"));
   const app = appRoot();
-  expect(app.querySelector("button.set-nav")?.getAttribute("aria-label")).toBe("电脑");
-  expect([...app.querySelectorAll("button")].map((el) => el.textContent)).not.toContain("切换电脑");
+  // The computer card leads the overview; the row beneath it switches computers.
+  expect(app.querySelector(".set-hero")).not.toBeNull();
+  expect(app.querySelector("button.set-nav")?.getAttribute("aria-label")).toBe("切换电脑");
   expect([...app.querySelectorAll("button")].map((el) => el.textContent)).not.toContain("添加另一台电脑");
-  await click("电脑");
+  await click("切换电脑");
   expect(currentScreen()).toBe("computers");
   expect(computersFrom()).toBe("settings");
   expect(Boolean(appRoot().querySelector(".computer-add"))).toBe(true);
   await click("返回");
   expect(currentScreen()).toBe("settings");
-  expect(appRoot().querySelector(".topbar-title")?.textContent).toBe("设置");
+  expect(appRoot().querySelector(".settings-title")?.textContent).toBe("设置");
 });
 
-test("on a phone, back from settings returns to the list even if a pane is remembered", async () => {
+test("on a phone, the Sessions tab leaves settings for the list even if a pane is remembered", async () => {
   bootHome();
   await click(t("home.settings"));
   expect(currentScreen()).toBe("settings");
-  expect(appRoot().querySelector(".topbar-title")?.textContent).toBe("设置");
-  await click("返回");
+  expect(appRoot().querySelector(".settings-title")?.textContent).toBe("设置");
+  await click(t("tabs.sessions"));
   expect(currentScreen()).toBe("home");
   expect(appRoot().querySelector(".settings-page")).toBeNull();
-  expect(appRoot().querySelector(".wordmark")?.textContent).toBe("pairfob");
+  expect(appRoot().querySelector(".host-title")).not.toBeNull();
 });
 
 test("settings offers auto and the three explicit views, then persists an override", async () => {
@@ -173,16 +196,16 @@ test("settings offers auto and the three explicit views, then persists an overri
   const app = appRoot();
   const defaults = [...app.querySelectorAll(".set-heading")].find((row) => row.querySelector(".set-title")?.textContent === "会话默认");
   const card = defaults?.nextElementSibling;
-  expect(card?.querySelector('[aria-label="默认模式"]')).toBeTruthy();
-  expect(card?.querySelector('[aria-label="终端输入方式"]')).toBeTruthy();
-  const group = app.querySelector('[aria-label="默认模式"]');
-  expect(Boolean(group)).toBe(true);
-  expect([...group!.querySelectorAll("button")].map((el) => el.textContent)).toEqual(["自动", "控制", "终端", "对话"]);
-  expect(group!.querySelector('[aria-checked="true"]')?.textContent).toBe("自动");
-  await click("终端");
+  expect(card?.querySelector('.set-nav[aria-label="模式"]')).toBeTruthy();
+  expect(card?.querySelector('.set-nav[aria-label="输入"]')).toBeTruthy();
+  expect(rowValue("模式")).toBe("自动");
+  await click("模式");
+  expect(sheetChoices().map((choice) => choice.title)).toEqual(["自动", "控制", "终端", "对话"]);
+  expect(sheetChoices().find((choice) => choice.current)?.title).toBe("自动");
+  await choose("终端");
   expect(paneTermMode("p2")).toBe("full");
   expect(localStorage.getItem(DEFAULT_TERM_MODE_KEY)).toBe("full");
-  expect(appRoot().querySelector('[aria-label="默认模式"] [aria-checked="true"]')?.textContent).toBe("终端");
+  expect(rowValue("模式")).toBe("终端");
 });
 
 test("settings changes only the default input while pane choices remain independent", async () => {
@@ -192,10 +215,11 @@ test("settings changes only the default input while pane choices remain independ
     setPaneComposeLive("p2", false);
   });
   await click(t("home.settings"));
-  const app = appRoot();
-  const group = app.querySelector('[aria-label="终端输入方式"]');
-  expect(group?.querySelector('[aria-checked="true"]')?.textContent).toBe("组字");
-  await click("实时");
+  expect(rowValue("输入")).toBe("组字");
+  await click("输入");
+  expect(sheetChoices().find((choice) => choice.current)?.title).toBe("组字");
+  await choose("实时");
+  expect(rowValue("输入")).toBe("实时");
   expect(localStorage.getItem(DEFAULT_COMPOSE_LIVE_KEY)).toBe("1");
   expect(paneComposeLive("p1")).toBeTrue();
   expect(paneComposeLive("p2")).toBeFalse();
@@ -205,15 +229,15 @@ test("settings changes only the default input while pane choices remain independ
 test("settings can pin english and follow the browser again", async () => {
   bootHome();
   await click(t("home.settings"));
-  const app = appRoot();
-  const group = app.querySelector('[aria-label="语言"]');
-  expect(Boolean(group)).toBe(true);
-  expect([...group!.querySelectorAll("button")].map((el) => el.textContent)).toEqual(["跟随浏览器", "中文", "English"]);
-  await click("English");
+  await click("语言");
+  expect(sheetChoices().map((choice) => choice.title)).toEqual(["跟随浏览器", "中文", "English"]);
+  await choose("English");
   expect(lang()).toBe("en");
-  expect(appRoot().querySelector(".topbar-title")?.textContent).toBe("Settings");
-  expect(appRoot().querySelector('[aria-label="Language"] [aria-checked="true"]')?.textContent).toBe("English");
-  await click("Browser default");
+  expect(appRoot().querySelector(".settings-title")?.textContent).toBe("Settings");
+  expect(rowValue("Language")).toBe("English");
+  await click("Language");
+  expect(sheetChoices().find((choice) => choice.current)?.title).toBe("English");
+  await choose("Browser default");
   expect(document.documentElement.lang === "en" || document.documentElement.lang === "zh-CN").toBe(true);
   await act(async () => { setLangPref("zh"); });
   expect(t("home.settings")).toBe("设置");

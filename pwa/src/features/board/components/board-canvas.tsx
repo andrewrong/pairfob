@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, type CSSProperties, type RefObject } from "react";
-import { Button, EmptyState } from "../../../shared/ui/primitives";
+import { Button, EmptyState, AgentAvatar } from "../../../shared/ui/primitives";
 import type { PaneBox, TabLayout } from "../../../lib/layout";
 import { tileFillScale } from "../model/camera";
 import type { BoardCanvasModel, BoardTileView } from "../model/board-view";
@@ -124,6 +124,7 @@ function BoardPaneTile({
         aria-haspopup="menu" onClick={(event) => { event.stopPropagation(); menu(); }}>⋯</Button>
       <span className="board-pane-head">
         <span className={`agent-dot agent-${tile.status}`} />
+        <AgentAvatar kind={tile.agentKind} size="sm" />
         <span className="board-pane-name">{tile.title}</span>
         {tile.pill ? <span className={`pill pill-${tile.status}`}>{tile.pill}</span> : null}
         {tile.zoomed ? <span className="board-pane-zoom">{zoomedLabel}</span> : null}

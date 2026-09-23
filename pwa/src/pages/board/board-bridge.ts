@@ -59,7 +59,7 @@ import type { BoardScreenActions } from "../../features/board/components/board-s
 import type { DashboardAgentCard } from "../../lib/dashboard";
 import type { BoardSpace, BoardTab, TabLayout } from "../../lib/layout";
 import { openPane, wakeLiveReads } from "../../features/connection/controller";
-import { createSelectedTab } from "../../features/operations/controller";
+import { openCreateSheet } from "../home/create-bridge";
 import { leaveAgentChat } from "../../features/session/chat/agent-chat-controller";
 import { leaveFullTerminal } from "../../features/session/full-terminal/full-terminal";
 import { dropQueuedKeys } from "../../features/session/guided/keys";
@@ -319,10 +319,18 @@ export async function openBoard(from?: { workspaceId?: string; tabId?: string })
 }
 
 export function closeBoard(): void {
-  releaseBoardScroll();
-  setBoardReturn(false);
+  leaveBoardForTab();
   goToScreen("home");
   commitView();
+}
+
+/**
+ * Drop the board's scroll ownership and return flag before a sibling tab takes
+ * the screen. The caller navigates; nothing here commits.
+ */
+export function leaveBoardForTab(): void {
+  releaseBoardScroll();
+  setBoardReturn(false);
 }
 
 /** In-screen selection: the page is subscribed, so publishing is the repaint. */
@@ -341,11 +349,12 @@ export function selectTab(tabId: string): void {
   void refreshBoardPreviews();
 }
 
+/** The board's "+ tab" opens the shared create sheet on the board's workspace. */
 export function newTabInBoard(): void {
   const catalog = liveCatalog();
   const agent =
     boardTabAnchor(liveAgents() as DashboardAgentCard[], catalog.workspaceId, catalog.tabId) || selectedAgent();
-  void createSelectedTab(agent);
+  void openCreateSheet({ workspaceId: agent?.workspaceId || catalog.workspaceId });
 }
 
 export function boardScreenActions(): BoardScreenActions {

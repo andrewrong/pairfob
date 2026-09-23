@@ -7,9 +7,12 @@
  * composes that lifetime without touching application state.
  */
 export { ModalFrame, presentModal, type ModalController } from "./modal";
-export { askConfirm, askText, showHelp, type HelpBlock } from "./basic-dialogs";
+export { askConfirm, askText, showHelp, type ConfirmRequest, type HelpBlock, type TextRequest } from "./basic-dialogs";
 export { bindSheetDrag, sheetRelease, sheetTravel, type SheetDrag } from "./sheet-drag";
 export { MenuItem, MenuRadio, MenuSection, showActionSheet,
-  type ActionSheetController, type SheetAction } from "./action-sheet";
+  type ActionSheetController, type ActionSheetOptions, type SheetAction } from "./action-sheet";
+export { MenuChoice } from "./menu-choice";
+export { MenuGroup, MenuRow, MenuSetting, MenuStepper, MenuSwitch, MenuTile, MenuTiles } from "./menu-controls";
+export { useSheetNav, type SheetNav, type SheetPage } from "./sheet-stack";
 export { bindObjectPress } from "./object-press";
 export { useObjectPress } from "./use-object-press";

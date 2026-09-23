@@ -18,6 +18,7 @@ import { applyComposeDraft, bumpViewIncarnation, parkComposeView } from "../sess
 import { isDesk } from "../../app/viewport";
 import { acceptDaemonVersion, checkDaemonRelease, markDaemonConfigIncompatible } from "./daemon-update";
 import { refreshAgentQuota } from "../agent-quota/actions";
+import { setSettingsSection, type SettingsSection } from "./settings-section";
 
 /**
  * Settings controller — the feature's one connected adapter for settings reads,
@@ -34,6 +35,12 @@ export function settingsReadStillOwned(request: number, session: object | null):
 
 export function sessionStillOwned(session: object | null): boolean {
   return session !== null && liveSession() === session;
+}
+
+/** Open Settings on one of its pages (the overview unless asked otherwise). */
+export function openSettingsSection(section: SettingsSection): void {
+  setSettingsSection(section);
+  if (currentScreen() !== "settings") openSettings();
 }
 
 export function openSettings(): void {
@@ -54,6 +61,7 @@ export function openSettings(): void {
  * through the application port so the arriving screen is composed synchronously.
  */
 export function leaveSettings(): void {
+  setSettingsSection("overview");
   if (isDesk() && openPaneId()) {
     bumpViewIncarnation();
     goToScreen("pane");

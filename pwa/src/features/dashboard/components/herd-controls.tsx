@@ -1,4 +1,6 @@
+import { Bot, Folder, List, Plus } from "lucide-react";
 import { useSyncExternalStore } from "react";
+import { useObjectPress } from "../../../shared/ui/overlay";
 import { batch } from "../../../shared/model/domain-store";
 import { dashboardStore } from "../catalog-store";
 import { listGroup, preferencesStore, setListGroup, setListGroupCollapsed } from "../../settings/preferences-store";
@@ -85,6 +87,36 @@ export function CompletionCount({ count, onActivate }: { count: number; onActiva
       }}
     >
       {t("home.doneCount", { count: String(count) })}
+    </Button>
+  );
+}
+
+/** Header control naming the current grouping; it opens the grouping sheet. */
+export function GroupModeButton({ mode, onOpen }: { mode: ListGroup; onOpen: () => void }) {
+  const label = t(mode === "space" ? "list.modeSpace" : mode === "agent" ? "list.modeAgent" : "list.modeFlat");
+  const Icon = mode === "space" ? Folder : mode === "agent" ? Bot : List;
+  return (
+    <Button className="herd-mode" aria-haspopup="dialog" aria-label={t("list.modeAria", { mode: label })} onClick={onOpen}>
+      <Icon size={16} aria-hidden="true" />
+      <span>{label}</span>
+    </Button>
+  );
+}
+
+/**
+ * The floating create button. A tap opens the create sheet; a hold offers the
+ * recent agent + workspace combinations to start again in one step.
+ */
+export function CreateFab({ create, onCreate, onQuick }: {
+  create: { label: string; aria: string; disabled: boolean };
+  onCreate: () => void;
+  onQuick: () => void;
+}) {
+  const press = useObjectPress(onQuick, !create.disabled);
+  return (
+    <Button ref={press} className="create-fab" aria-label={create.aria} disabled={create.disabled} onClick={onCreate}>
+      <Plus size={20} aria-hidden="true" />
+      <span className="create-fab-label">{create.label}</span>
     </Button>
   );
 }

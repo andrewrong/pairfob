@@ -55,11 +55,101 @@
   white-space: nowrap;
 }
 
-.board-zoom {
+.board-ws {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 10px;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.board-ws-mark {
   flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(110, 168, 254, 0.14);
+}
+
+.board-ws-text { min-width: 0; display: flex; flex-direction: column; }
+
+.board-ws-name {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--text-title);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board-ws-name svg { flex: none; color: var(--muted); }
+
+.board-ws-path {
+  font: 500 var(--text-caption) var(--mono);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board-marks { flex: none; display: inline-flex; gap: 6px; padding-right: 8px; }
+.board-marks .group-mark { min-height: 0; }
+
+.board-tab-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.board-tab-dot.is-blocked { background: var(--warn); }
+
+.board-body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* Zoom floats over the canvas, bottom-right, where a thumb already rests. */
+.board-zoom {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-md);
+  background: rgba(26, 32, 41, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+
+.board-zoom .icon-btn { color: var(--ink); }
+
+.board-zoom-fit {
+  min-height: 40px;
+  border: 0;
+  border-block: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  font: 650 var(--text-caption) var(--font);
+  cursor: pointer;
 }
 
 .board-rail {

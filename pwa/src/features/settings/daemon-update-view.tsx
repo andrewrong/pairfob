@@ -183,7 +183,8 @@ function DetailedBody({ view }: { view: DaemonVersion }) {
                 disabled={!!view.requesting || !!view.uncertain || updateInProgress(status) || !liveSession()?.isConnected()}
                 onClick={() => {
                   const session = liveSession();
-                  void askConfirm(t("update.confirm")).then((yes) => {
+                  void askConfirm({ title: t("confirm.updateTitle"), message: t("confirm.updateEffect"),
+                    confirmLabel: t("update.now"), tone: "primary" }).then((yes) => {
                     if (yes && session === liveSession()) void startDaemonUpdate();
                   });
                 }}

@@ -297,9 +297,10 @@ test("language switch re-renders visible copy through the same App", async () =>
     expect(document.documentElement.lang).toBe("en");
     // Visible localized copy, not only the <html lang> attribute.
     const copy = document.body.textContent ?? "";
-    expect(copy).toContain(t("home.computers"));
-    expect(copy).toContain("Computers");
-    expect(copy).not.toContain("电脑");
+    // The phone tab bar carries the localized navigation copy.
+    expect(copy).toContain(t("tabs.board"));
+    expect(copy).toContain("Board");
+    expect(copy).not.toContain("画板");
   } finally {
     await teardownScene(session, false);
   }

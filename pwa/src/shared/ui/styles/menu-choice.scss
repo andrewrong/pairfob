@@ -1,0 +1,16 @@
+// Sheet choice rows: leading mark, title, detail and a check on the current one.
+@mixin menu-choice {
+  .menu-choice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-align: left;
+  }
+
+  .menu-choice-icon { flex: none; display: grid; place-items: center; color: var(--muted); }
+  .menu-choice-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .menu-choice-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu-choice-detail { font-size: var(--text-secondary); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu-choice-check { flex: none; color: var(--accent); }
+  .menu-choice.menu-danger .menu-choice-icon { color: inherit; }
+}
