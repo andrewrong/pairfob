@@ -1,191 +1,39 @@
-import { exportConnectionDiagnostics } from "../../features/settings/connection-diagnostics";
-import { useSyncExternalStore, type ReactNode } from "react";
-import { openComputers } from "../../features/computers/actions";
+import { useEffect, useSyncExternalStore } from "react";
 import { useComputers } from "../../features/computers/hooks";
 import { useConnection, useRuntime } from "../../features/connection/hooks";
 import { usePreferences } from "../../features/settings/hooks";
-import type { ConnectionRecord } from "../../features/connection/connection-store";
-import type { PreferencesRecord } from "../../features/settings/preferences-store";
-import type { RuntimeRecord } from "../../features/connection/runtime-store";
-import type { DomainView } from "../../shared/model/domain-store";
 import { computerTitle } from "../../lib/computer-catalog";
-import { langRevision, subscribeLang, t } from "../../lib/i18n";
-import { NETWORK_MODE_OPTIONS, type NetworkMode } from "../../lib/network-mode";
-import { type DeviceSummary } from "../../lib/protocol/client";
-import { TERM_MODE_OPTIONS, type TermMode } from "../../lib/terminal-mode";
-import {
-  displayDeviceLabel,
-  formatDeviceAge,
-  notificationAction,
-  shortDeviceId,
-  TERM_MODE_LABEL,
-  visiblePairedDevices,
-} from "../../lib/ui-model";
-import { revokeDevice, revokeSelf } from "../../features/operations/controller";
-import { enablePush, leaveSettings, refreshSettings, selectNetworkMode } from "../../features/settings/actions";
-import { setDefaultComposeLive, setDefaultTermMode } from "../../features/settings/preferences-store";
+import { t } from "../../lib/i18n";
+import { displayDeviceLabel, notificationAction, visiblePairedDevices } from "../../lib/ui-model";
+import { leaveSettings, refreshSettings } from "../../features/settings/actions";
+import { settingsNetworkHelp, settingsNetworkPath } from "../../features/settings/model";
+import { setSettingsSection, settingsSection, subscribeSettingsSection } from "../../features/settings/settings-section";
 import { herdStatusOf } from "../../features/connection/herd-status";
-import { AgentQuotaSummary } from "../../pages/quota/quota-summary";
 import { AppNotice } from "../../app/notice";
-import { ListGroupControl } from "../../features/dashboard/components/herd-controls";
-import { BackBar, Button, SegmentedControl, SegmentedOption, EmptyState, Feedback, SetHeading, SetNavRow, SetRow } from "../../shared/ui/primitives";
-import { LanguageControl } from "../../features/settings/language";
-import { DaemonUpdate } from "../../features/settings/daemon-update-view";
-import { settingsNetworkHelp, settingsNetworkP2PFail, settingsNetworkPath } from "../../features/settings/model";
+import { BackBar, Button, Feedback, HelpButton } from "../../shared/ui/primitives";
+import { helpWithCode, useLang } from "./settings-controls";
+import { ConnectionSection } from "./settings-connection";
+import { DevicesSection, devicesHelp } from "./settings-devices";
+import { SettingsOverview } from "./settings-overview";
 
-const NETWORK_MODE_COPY: Record<NetworkMode, "settings.networkAuto" | "settings.networkP2P" | "settings.networkRelay"> = {
-  auto: "settings.networkAuto",
-  p2p: "settings.networkP2P",
-  relay: "settings.networkRelay",
-};
-
-function helpWithCode(before: string, code: string, after: string) {
-  return { before, code, after };
-}
-
-/** Re-render mounted copy on the i18n revision (advances on every applied language action). */
-function useLang(): void {
-  useSyncExternalStore(subscribeLang, langRevision);
-}
-
-function NetworkModeControl({ connection }: { connection: ConnectionRecord }) {
-  return (
-    <SegmentedControl aria-label={t("settings.networkAria")} aria-busy={connection.transportSwitching || undefined}>
-      {NETWORK_MODE_OPTIONS.map((id) => {
-        const selected = connection.networkMode === id;
-        return (
-          <SegmentedOption
-            key={id}
-            selected={selected}
-            disabled={id === "p2p" && !connection.p2pEnabled}
-            onClick={() => void selectNetworkMode(id)}
-          >{t(NETWORK_MODE_COPY[id])}</SegmentedOption>
-        );
-      })}
-    </SegmentedControl>
-  );
-}
-
-function DefaultTermModeControl({ defaultTermMode }: { defaultTermMode: TermMode }) {
-  return (
-    <SegmentedControl aria-label={t("mode.defaultAria")}>
-      {TERM_MODE_OPTIONS.map((id) => {
-        const selected = defaultTermMode === id;
-        return (
-          <SegmentedOption
-            key={id}
-            selected={selected}
-            onClick={() => {
-              if (defaultTermMode === id) return;
-              setDefaultTermMode(id);
-            }}
-          >{TERM_MODE_LABEL[id]}</SegmentedOption>
-        );
-      })}
-    </SegmentedControl>
-  );
-}
-
-function ComposeLiveControl({ defaultComposeLive }: { defaultComposeLive: boolean }) {
-  return (
-    <SegmentedControl className="compose-live" aria-label={t("pane.inputAria")}>
-      {(
-        [
-          { live: false, label: t("compose.batch") },
-          { live: true, label: t("compose.live") },
-        ] as const
-      ).map((option) => {
-        const selected = defaultComposeLive === option.live;
-        return (
-          <SegmentedOption
-            key={option.live ? "1" : "0"}
-            data-live={option.live ? "1" : "0"}
-            selected={selected}
-            onClick={() => {
-              if (defaultComposeLive === option.live) return;
-              setDefaultComposeLive(option.live);
-            }}
-          >{option.label}</SegmentedOption>
-        );
-      })}
-    </SegmentedControl>
-  );
-}
-
-function LabeledStack({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="set-row set-row-stack set-field">
-      <span className="set-key">{label}</span>
-      {children}
-    </div>
-  );
-}
-
-function DeviceRow({ device, connected }: { device: DeviceSummary; connected: boolean }) {
-  const name = displayDeviceLabel(device.label || "") || t("device.unnamed");
-  const activity = t("device.lastUsed", { when: formatDeviceAge(device.last_seen || device.created_at) });
-  const notifications = device.subscription_count ? t("device.notifyOn") : t("device.notifyOff");
-  return (
-    <div className="device">
-      <div className="device-body">
-        <div className="device-head">
-          <strong className="device-name">{name}</strong>
-          {device.self ? <span className="pill pill-live">{t("device.self")}</span> : null}
-          {!device.self && device.connected === true ? <span className="pill pill-live">{t("device.connected")}</span> : null}
-          {!device.self && device.connected === false ? <span className="pill pill-idle">{t("device.offline")}</span> : null}
-        </div>
-        <code className="device-id" title={device.device_id}>
-          {shortDeviceId(device.device_id)}
-        </code>
-        <p className="device-meta">{activity + notifications}</p>
-      </div>
-      {!device.self ? (
-        <Button
-          className="device-forget"
-          aria-label={t("settings.unpairOtherAria", { name })}
-          disabled={!connected}
-          onClick={() => void revokeDevice(device)}
-        >{t("settings.unpairOther")}</Button>
-      ) : null}
-    </div>
-  );
-}
-
-function DevicesSection({ runtime, connected }: { runtime: DomainView<RuntimeRecord>; connected: boolean }) {
-  const devices = visiblePairedDevices([...runtime.deviceList]);
-  const othersHelp = devices.some((device) => !device.self)
-    ? () => [helpWithCode(t("settings.manageOthersBody"), "pairfob forget N", t("settings.sentenceEnd"))]
-    : undefined;
-  return (
-    <>
-      <SetHeading text={t("settings.devices")} help={othersHelp} />
-      {runtime.settingsLoading && !devices.length ? (
-        <Feedback value={{ text: t("settings.devicesLoading"), tone: "status" }} />
-      ) : runtime.devicesError ? (
-        <Feedback value={{ text: runtime.devicesError, tone: "error" }} />
-      ) : devices.length ? (
-        <div className="set-card device-card">
-          {devices.map((device) => (
-            <DeviceRow key={device.device_id} device={device} connected={connected} />
-          ))}
-        </div>
-      ) : (
-        <EmptyState spec={{ figure: "device", title: t("settings.noOtherDevicesTitle"), sub: t("settings.noOtherDevices") }} />
-      )}
-    </>
-  );
-}
-
+/**
+ * Settings: an overview with one line per choice, and two sub-pages — the
+ * connection page behind the computer card and the paired-devices page. On a
+ * phone the page is a tab root (no back); on the desktop it keeps its back bar.
+ */
 function useSettingsView() {
   const connection = useConnection();
   const runtime = useRuntime();
   const preferences = usePreferences();
   const computers = useComputers();
-  return { connection, runtime, preferences, computers };
+  const section = useSyncExternalStore(subscribeSettingsSection, settingsSection);
+  // However Settings is left — back, a tab, a desk page swap — it reopens on the overview.
+  useEffect(() => () => setSettingsSection("overview"), []);
+  return { connection, runtime, preferences, computers, section };
 }
 
 export function SettingsContent({ withBack }: { withBack: boolean }) {
-  const { connection, runtime, preferences, computers } = useSettingsView();
+  const { connection, runtime, preferences, computers, section } = useSettingsView();
   useLang();
   // Project the status row from the same published snapshots the surrounding
   // panel reads. The live handle is the snapshot's opaque identity; a staged
@@ -199,14 +47,14 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
     runtimeKind: runtime.runtimeKind,
     herdHost: runtime.herdHost,
   });
-  const networkInput = {
+  const network = {
     sessionTransport: connection.sessionTransport,
     relayRttMs: connection.relayRttMs,
     p2pEnabled: connection.p2pEnabled,
     networkMode: connection.networkMode,
     lastP2PAttempt: connection.lastP2PAttempt,
   };
-  const p2pFail = settingsNetworkP2PFail(networkInput);
+  const computerName = runtime.herdHost || (computers.credential ? computerTitle(computers.credential) : t("settings.currentComputer"));
   const self = runtime.deviceList.find((device) => device.self && !device.revoked_at);
   const notifyHelp =
     runtime.pushEnabled === false && !runtime.settingsLoading
@@ -214,88 +62,51 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
       : undefined;
   const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   const pushAction = notificationAction(runtime.pushEnabled, runtime.pushSubscribed, pushSupported, runtime.settingsLoading);
+  const pushNote = runtime.pushEnabled === false
+    ? t("settings.pushComputerOff")
+    : runtime.pushSubscribed === true ? t("settings.pushOn") : t("settings.pushOff");
+  const back = section === "overview" ? (withBack ? leaveSettings : null) : () => setSettingsSection("overview");
+  const title = section === "connection" ? t("settings.connection") : section === "devices" ? t("settings.devices") : t("settings.title");
+  // Long explanations stay behind the title's help button, not on the page.
+  const help = section === "devices" ? devicesHelp(runtime)
+    : section === "connection" ? [settingsNetworkHelp(network)] : undefined;
   return (
     <>
-      {withBack ? (
-        <BackBar
-          title={t("settings.title")}
-          onBack={leaveSettings}
-        />
-      ) : null}
+      {back ? <BackBar title={title} onBack={back}>{help ? <HelpButton title={title} blocks={help} /> : null}</BackBar>
+        : <h1 className="settings-title">{title}</h1>}
       <AppNotice />
-      <SetHeading text={t("settings.connection")} help={[settingsNetworkHelp(networkInput)]} />
-      <div className="set-card">
-        <SetNavRow
-          label={t("settings.computer")}
-          value={runtime.herdHost || (computers.credential ? computerTitle(computers.credential) : t("settings.currentComputer"))}
-          onClick={openComputers}
-        />
-        <SetRow label={t("settings.status")} value={status.text} tone={status.tone} />
-        <SetNavRow label={t("settings.exportConnectionDiagnostics")} value={t("settings.connectionDiagnosticsLocal")} onClick={exportConnectionDiagnostics} />
-        <SetRow label={t("settings.networkRtt")} value={settingsNetworkPath(networkInput)} />
-        <div className="set-row set-row-stack network-mode-row">
-          {p2pFail ? <p className="set-note network-p2p-fail">{p2pFail}</p> : null}
-          {!connection.p2pEnabled ? <p className="set-note">{t("settings.networkP2POff")}</p> : null}
-          <NetworkModeControl connection={connection} />
-        </div>
-        {self ? <SetRow label={t("settings.thisPhone")} value={displayDeviceLabel(self.label || "") || t("settings.pairedPhone")} /> : null}
-      </div>
-      <AgentQuotaSummary />
-      <SetHeading text={t("settings.language")} help={[t("settings.languageNote")]} />
-      <div className="set-card">
-        <div className="set-row">
-          <LanguageControl />
-        </div>
-      </div>
-      <SetHeading text={t("settings.list")} help={[t("settings.listNote")]} />
-      <div className="set-card">
-        <div className="set-row">
-          <ListGroupControl />
-        </div>
-      </div>
-      <SetHeading text={t("settings.defaults")} help={[t("settings.modeNote"), t("settings.inputNote")]} />
-      <div className="set-card">
-        <LabeledStack label={t("settings.mode")}>
-          <DefaultTermModeControl defaultTermMode={preferences.defaultTermMode} />
-        </LabeledStack>
-        <LabeledStack label={t("settings.input")}>
-          <ComposeLiveControl defaultComposeLive={preferences.defaultComposeLive} />
-        </LabeledStack>
-      </div>
-      <SetHeading text={t("settings.notifications")} help={notifyHelp} />
-      <div className="set-card">
-        <div className="set-row set-row-stack">
-          <p className="set-note">
-            {runtime.pushEnabled === false
-              ? t("settings.pushComputerOff")
-              : runtime.pushSubscribed === true
-                ? t("settings.pushOn")
-                : t("settings.pushOff")}
-          </p>
-          <Button className="btn btn-small" onClick={() => void enablePush()} disabled={pushAction.disabled}>{pushAction.label}</Button>
-        </div>
-      </div>
+      {section === "connection" ? (
+        <ConnectionSection connection={connection} network={network} status={status} computerName={computerName}
+          phoneName={self ? displayDeviceLabel(self.label || "") || t("settings.pairedPhone") : null} />
+      ) : section === "devices" ? (
+        <DevicesSection runtime={runtime} connected={connected} />
+      ) : (
+        <SettingsOverview input={{
+          computerName,
+          computerLine: status.tone === "live" ? t("settings.connectedVia", { path: settingsNetworkPath(network) }) : status.text,
+          status,
+          computerCount: computers.computers.length || 1,
+          deviceCount: visiblePairedDevices([...runtime.deviceList]).length,
+          defaultTermMode: preferences.defaultTermMode,
+          defaultComposeLive: preferences.defaultComposeLive,
+          pushNote,
+          pushAction,
+          notifyHelp,
+        }} />
+      )}
       {runtime.pushConfigError ? <Feedback value={{ text: runtime.pushConfigError, tone: "error" }} /> : null}
-      <DevicesSection runtime={runtime} connected={connected} />
-      <SetHeading text={t("settings.danger")} />
-      <div className="set-card">
-        <div className="set-row set-row-stack">
-          <p className="set-note">{t("settings.unpairNote")}</p>
-          <Button className="btn btn-small btn-danger" onClick={() => void revokeSelf()}>{t("settings.unpair")}</Button>
-        </div>
-      </div>
       {runtime.devicesError || runtime.pushConfigError ? (
         <Button className="btn btn-small btn-ghost retry" onClick={() => void refreshSettings()}>{t("retry")}</Button>
       ) : null}
-      <DaemonUpdate />
     </>
   );
 }
 
+/** The phone Settings tab root. The desktop mounts `SettingsContent` in the desk shell. */
 export function SettingsScreen() {
   return (
     <div className="page settings-page">
-      <SettingsContent withBack />
+      <SettingsContent withBack={false} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { SettingsScreen } from "../pages/settings/settings-page";
 import { WorkspaceScreen } from "../pages/workspace/screen";
 import { sessionHandlers } from "../features/session/pane-actions";
 import { DeskShell } from "./layout/desk";
+import { TabBar } from "./layout/tab-bar";
 import { getAppFrame, subscribeAppFrame, type FrameSnapshot, type SessionScroll } from "./frame";
 import { useAppShell, type ShellLayout } from "./shell";
 
@@ -49,7 +50,7 @@ export function App() {
 
   const layout = frame.layout;
   if (!layout) return null;
-  return <>{pageFor(layout, frame)}</>;
+  return <>{pageFor(layout, frame)}{layout.shell.tabs ? <TabBar mode={layout.mode} /> : null}</>;
 }
 
 function scrollOf(frame: FrameSnapshot): SessionScroll {

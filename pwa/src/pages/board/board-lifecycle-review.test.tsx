@@ -197,9 +197,14 @@ test("the actual board route keeps capability and connection gates before openin
   connected = true;
   commitTest();
   expect(create.disabled).toBeFalse();
-  act(() => create.click());
-  const cwd = document.querySelector<HTMLInputElement>('dialog input[name="cwd"]');
-  expect(cwd?.value).toBe("/repo");
+  await act(async () => {
+    create.click();
+    await Promise.resolve();
+  });
+  // The shared create sheet opens scoped to the board's workspace; nothing is
+  // created until the reader confirms it.
+  const sheet = document.querySelector("dialog.create-sheet");
+  expect(sheet?.querySelector(".create-chip.on")?.textContent).toBe("Workspace");
   expect(currentScreen()).toBe("board");
   expect(mutations).toBe(0);
 });

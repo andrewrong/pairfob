@@ -35,14 +35,16 @@ export function bindWorkspaceFileActions(row: HTMLElement, entry: WorkspaceEntry
     if (!current() || operationBusy() || !capabilityEnabled(capability)) return;
     let newName = "";
     if (rename) {
-      const value = await askText(t("fileActions.rename"), entry.name, 255);
+      const value = await askText({ title: t("fileActions.rename"), initial: entry.name, maxLength: 255,
+        label: t("text.fileName"), allowEmpty: false });
       if (value === null || value === entry.name) return;
       if (!value.trim() || value === "." || value === ".." || value.toLowerCase() === ".git" || /[/\\\p{Cc}]/u.test(value) || new TextEncoder().encode(value).length > 255) {
         if (current()) setWorkspaceError(t("fileActions.invalidName"));
         return;
       }
       newName = value;
-    } else if (!await askConfirm(t("fileActions.confirmDelete", { name: entry.name }), t("fileActions.delete"))) return;
+    } else if (!await askConfirm({ title: t("confirm.deleteFileTitle"), subject: { name: entry.name, detail: entry.path && entry.path !== entry.name ? entry.path : undefined },
+      message: t("confirm.deleteFileEffect"), confirmLabel: t("fileActions.delete") })) return;
     if (!current() || operationBusy() || !capabilityEnabled(capability)) return;
     setOperationBusy(true);
     clearWorkspaceError();

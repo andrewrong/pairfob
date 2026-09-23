@@ -40,6 +40,7 @@ test("content with no back bar renders no extra page wrapper", () => {
   act(() => root!.render(createElement(SettingsContent, { withBack: false })));
   expect(host.querySelector(".page")).toBeNull();
   expect(host.querySelector(".topbar")).toBeNull();
-  expect(host.querySelector(".set-heading .set-title")?.textContent).toBe("连接");
+  expect(host.querySelector(".settings-title")?.textContent).toBe("设置");
+  expect(host.querySelector(".set-hero")).toBeTruthy();
   expect(host.querySelector(".set-heading")).toBeTruthy();
 });

@@ -4,6 +4,8 @@ import { act } from "react";
 import { setLang } from "../../../lib/i18n";
 import { closeTestDialogs } from "../../../../test-support/close-dialogs";
 import { MenuItem, MenuRadio, showActionSheet } from "./action-sheet";
+import { MenuRow } from "./menu-controls";
+import { useSheetNav } from "./sheet-stack";
 
 const pause = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
 const sheet = () => document.querySelector<HTMLDialogElement>("dialog.sheet")!;
@@ -82,4 +84,50 @@ test("selected radio and disabled actions leave the sheet open without dispatch"
   act(() => { sheet().querySelector<HTMLButtonElement>("[role=radio]")!.click(); sheet().querySelector<HTMLButtonElement>(".menu-item")!.click(); });
   expect(sheet().open).toBeTrue();
   expect(calls).toBe(0);
+});
+
+function PushRow({ onPage }: { onPage: () => void }) {
+  const nav = useSheetNav()!;
+  return <MenuRow label="Details" next onClick={() => nav.push({ key: "details", title: "Details",
+    render: () => <button type="button" onClick={onPage}>Inside</button> })} />;
+}
+
+test("a pushed page replaces the body inside the same dialog and Back or Escape returns", async () => {
+  let inside = 0;
+  act(() => showActionSheet("Actions", () => <PushRow onPage={() => { inside++; }} />, { subtitle: "api-server" }));
+  const dialog = sheet();
+  expect(dialog.querySelector(".sheet-subtitle")?.textContent).toBe("api-server");
+  act(() => dialog.querySelector<HTMLButtonElement>(".menu-row")!.click());
+  expect(sheet()).toBe(dialog);
+  expect(dialog.querySelector("h2")?.textContent).toBe("Details");
+  expect(dialog.querySelector(".sheet-subtitle")).toBeNull();
+  expect(document.activeElement?.textContent).toBe("Inside");
+  act(() => dialog.querySelector<HTMLButtonElement>(".sheet-back")!.click());
+  expect(dialog.querySelector("h2")?.textContent).toBe("Actions");
+  expect(dialog.querySelector(".sheet-back")).toBeNull();
+  act(() => dialog.querySelector<HTMLButtonElement>(".menu-row")!.click());
+  await act(async () => {
+    dialog.dispatchEvent(new happy.Event("cancel", { cancelable: true }) as unknown as Event);
+    await Promise.resolve();
+  });
+  expect(dialog.open).toBeTrue();
+  expect(dialog.querySelector("h2")?.textContent).toBe("Actions");
+  expect(inside).toBe(0);
+});
+
+test("a staying radio applies in place and an expandable handle toggles the taller height", () => {
+  let picked = "";
+  act(() => showActionSheet("Width", modal => <>
+    <MenuRadio modal={modal} stay label="Fit" aria="Fit" selected={false} action={() => { picked = "fit"; }} />
+  </>, { expandable: true }));
+  const dialog = sheet();
+  act(() => dialog.querySelector<HTMLButtonElement>("[role=radio]")!.click());
+  expect(picked).toBe("fit");
+  expect(dialog.open).toBeTrue();
+  const handle = dialog.querySelector<HTMLButtonElement>("button.sheet-grab")!;
+  expect(dialog.classList.contains("is-expandable")).toBeTrue();
+  expect(handle.getAttribute("aria-expanded")).toBe("false");
+  act(() => handle.click());
+  expect(dialog.classList.contains("is-expanded")).toBeTrue();
+  expect(handle.getAttribute("aria-expanded")).toBe("true");
 });

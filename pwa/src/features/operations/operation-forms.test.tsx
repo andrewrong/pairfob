@@ -2,7 +2,7 @@ import { happy, resetTestDOM } from "../../../test-support/boot-dom";
 import { closeTestDialogs } from "../../../test-support/close-dialogs";
 import { beforeEach, afterEach, expect, test } from "bun:test";
 import { act } from "react";
-import { askAgentPrompt, askCreateConversation, askCreateTab, askLayout, askSplitPane, askWorktree } from "./operation-forms";
+import { askAgentPrompt, askCreateConversation, askCreateTab, askSplitPane, askWorktree } from "./operation-forms";
 import { LAST_AGENT_KIND_KEY } from "./operation-form-model";
 import { setLang, t } from "../../lib/i18n";
 import { messageOf } from "../../lib/notices";
@@ -95,19 +95,6 @@ test("prompt validation applies UTF-8 limits and retains the editable draft", as
   input.value = "  完成代码审查\n保留测试  ";
   submit();
   expect(await result).toBe("完成代码审查\n保留测试");
-});
-
-test("layout actions retain the daemon edge directions", async () => {
-  for (const [label, direction] of [["form.wider", "right"], ["form.narrower", "left"], ["form.taller", "up"], ["form.shorter", "down"]] as const) {
-    let result!: ReturnType<typeof askLayout>;
-    act(() => { result = askLayout("resize"); });
-    click(t(label));
-    expect(await result).toEqual({ kind: "resize", direction, amount: 0.15 });
-  }
-  let result!: ReturnType<typeof askLayout>;
-  act(() => { result = askLayout("swap"); });
-  click(t("form.swapLeft"));
-  expect(await result).toEqual({ kind: "swap", direction: "left" });
 });
 
 const trees = { worktrees: [{ path: "/repo/feature", branch: "feature", label: "Feature", is_bare: false,

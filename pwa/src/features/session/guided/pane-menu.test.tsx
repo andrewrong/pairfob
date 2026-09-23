@@ -41,7 +41,8 @@ import {
   setTermSelect,
 } from "../session-store";
 import { applyCapabilities, setOperationBusy } from "../../operations/capabilities-store";
-import { replaceAgentsFromSnapshot } from "../../dashboard/catalog-store";
+import { dashboardStore, replaceAgentsFromSnapshot } from "../../dashboard/catalog-store";
+import { projectSnapshot } from "../../board/layout-store";
 import { attachLiveSession } from "../../computers/catalog-store";
 import { openPaneMenu } from "./pane-menu";
 import { openPaneSwitcher } from "./pane-switcher";
@@ -149,52 +150,122 @@ afterEach(async () => await act(async () => {
   restoreScalars();
 }));
 
-test("guided menu shows modes, input/display and this-pane actions with capability-gated sections", () => {
+const quick = () => document.querySelector(".pane-quick")!;
+const rows = () => [...document.querySelectorAll(".sheet-body .menu-row")].map((row) => row.textContent);
+const tiles = () => [...document.querySelectorAll(".sheet-body .menu-tile")].map((tile) => tile.getAttribute("aria-label"));
+const sheetOpen = () => document.querySelector<HTMLDialogElement>("dialog.sheet")?.open === true;
+const byLabel = (label: string) => document.querySelector<HTMLButtonElement>(`.sheet-body button[aria-label="${label}"]`)!;
+
+test("guided menu leads with in-place settings, then frequent actions, pages and a separate danger zone", () => {
   act(openPaneMenu);
-  expect(document.querySelector("h2")?.textContent).toBe(t("pane.menuTitle"));
+  const dialog = document.querySelector<HTMLDialogElement>("dialog.sheet")!;
+  expect(dialog.querySelector("h2")?.textContent).toBe(t("pane.menuTitle"));
+  expect(dialog.querySelector(".sheet-subtitle")?.textContent).toBe("First");
+  expect(dialog.classList.contains("is-expandable")).toBeTrue();
   expect(radio(TERM_MODE_MENU.guided).getAttribute("aria-checked")).toBe("true");
   expect(radio(TERM_MODE_MENU.agent).disabled).toBeTrue();
-  expect(sections()).toContain(t("menu.input"));
-  expect(sections()).toContain(t("menu.display"));
-  expect(sections()).not.toContain(t("menu.new"));
-  expect(sections()).not.toContain(t("menu.worktree"));
-  expect(labels()).toContain(t("menu.renamePane"));
-  expect(labels()).toContain(t("op.closePane"));
-  expect(labels()).not.toContain(t("menu.renameWorkspace"));
-  expect(labels()).not.toContain(t("op.closeTab"));
-  expect(labels()).not.toContain(t("menu.history"));
+  expect(quick().textContent).toContain(t("menu.input"));
+  expect(quick().querySelector(".menu-stepper-value")?.textContent).toBe(t("pane.fontPx", { n: 14 }));
+  expect(quick().querySelector("[role=switch]")?.getAttribute("aria-label")).toBe(t("menu.wrap"));
+  expect(tiles()).toEqual([t("menu.copyScreen"), t("menu.selectText")]);
+  expect(rows()).toContain(t("pane.layoutPage"));
+  expect(rows()).toContain(t("menu.renamePane"));
+  expect(rows()).not.toContain(t("menu.worktree"));
+  expect(document.querySelector(".menu-danger-zone")?.textContent).toBe(t("op.closePane"));
+  expect(labels()).not.toContain(t("cancel"));
 });
 
-test("full terminal retains retry and width choices, with no wrap action", () => {
+test("text size, wrap and input apply in place and keep the sheet open", async () => {
+  act(openPaneMenu);
+  act(() => byLabel(t("menu.fontUp")).click());
+  expect(sheetOpen()).toBeTrue();
+  expect(quick().querySelector(".menu-stepper-value")?.textContent).toBe(t("pane.fontPx", { n: 15 }));
+  act(() => quick().querySelector<HTMLButtonElement>("[role=switch]")!.click());
+  expect(sheetOpen()).toBeTrue();
+  expect(termWrap()).toBeTrue();
+  expect(quick().querySelector("[role=switch]")?.getAttribute("aria-checked")).toBe("true");
+  setTermFontPx(TERM_FONT_MAX);
+  act(() => { closeTestDialogs(); });
+  act(openPaneMenu);
+  expect(byLabel(t("menu.fontUp")).disabled).toBeTrue();
+});
+
+test("full terminal keeps reconnect and applies width in place, with no wrap switch", () => {
   setFullTerminal(true);
   setPaneTermMode("p1", "full");
-  setTermGrid("pan", 120);
+  setTermGrid("fit", 120);
   act(openPaneMenu);
-  expect(labels()).toContain(t("pane.reconnect"));
-  expect(labels()).not.toContain(t("menu.wrap"));
-  expect(radio(t("pane.fitAria")).getAttribute("aria-checked")).toBe("false");
-  for (const cols of TERM_COL_PRESETS) expect(radio(t("pane.panColsAria", { cols })).getAttribute("aria-checked")).toBe(String(cols === 120));
+  expect(rows()).toContain(t("pane.reconnect"));
+  expect(quick().querySelector("[role=switch]")).toBeNull();
+  expect(radio(t("pane.fitAria")).getAttribute("aria-checked")).toBe("true");
+  act(() => radio(t("pane.panColsAria", { cols: 100 })).click());
+  expect(sheetOpen()).toBeTrue();
+  expect(termFit()).toBe("pan");
+  expect(termCols()).toBe(100);
+  for (const cols of TERM_COL_PRESETS) expect(radio(t("pane.panColsAria", { cols })).getAttribute("aria-checked")).toBe(String(cols === 100));
 });
 
-test("agent chat omits terminal input/display while retaining pane operations", () => {
+test("agent chat omits terminal settings and screen actions while retaining pane operations", () => {
   setAgentChat(true);
   setPaneTermMode("p1", "agent");
   act(openPaneMenu);
   expect(radio(TERM_MODE_MENU.agent).disabled).toBeFalse();
-  expect(sections()).not.toContain(t("menu.input"));
-  expect(sections()).not.toContain(t("menu.display"));
-  expect(labels()).toContain(t("op.closePane"));
+  expect(quick().textContent).not.toContain(t("menu.input"));
+  expect(quick().querySelector(".menu-stepper")).toBeNull();
+  expect(tiles()).toEqual([]);
+  expect(document.querySelector(".menu-danger-zone")?.textContent).toBe(t("op.closePane"));
 });
 
-test("individual capabilities reveal creation, worktree and split-layout actions", () => {
+test("capabilities reveal tiles and pages; Worktree and split open inside the same sheet", () => {
   applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_tab: true, split_pane: true, list_worktrees: true,
-    create_worktree: true, open_worktree: true, zoom_pane: true, resize_pane: true, swap_pane: true }, []);
-  seedAgents([card("p1"), card("p2")]);
-  setTermFontPx(TERM_FONT_MAX);
+    create_worktree: true, open_worktree: true }, ["codex"]);
   act(openPaneMenu);
-  for (const label of [t("menu.newTab"), t("menu.split"), t("menu.worktrees"), t("menu.newWorktree"), t("menu.openWorktree"), t("menu.zoom"), t("menu.swap")]) expect(labels()).toContain(label);
-  const grow = [...document.querySelectorAll<HTMLButtonElement>(".menu-item")].find((button) => button.textContent === t("pane.fontUpCurrent", { n: TERM_FONT_MAX }))!;
-  expect(grow.disabled).toBeTrue();
+  const dialog = document.querySelector<HTMLDialogElement>("dialog.sheet")!;
+  expect(tiles()).toEqual([t("menu.copyScreen"), t("menu.selectText"), t("menu.newTab"), t("menu.split")]);
+  const worktree = [...document.querySelectorAll<HTMLButtonElement>(".menu-row")].find((row) => row.textContent === t("menu.worktree"))!;
+  act(() => worktree.click());
+  expect(document.querySelector<HTMLDialogElement>("dialog.sheet")).toBe(dialog);
+  expect(dialog.querySelector("h2")?.textContent).toBe(t("menu.worktree"));
+  expect(rows()).toEqual([t("menu.worktrees"), t("menu.newWorktree"), t("menu.openWorktree")]);
+  act(() => dialog.querySelector<HTMLButtonElement>(".sheet-back")!.click());
+  act(() => byLabel(t("menu.split")).click());
+  expect(dialog.querySelector("h2")?.textContent).toBe(t("form.split"));
+  const submit = dialog.querySelector<HTMLButtonElement>(".sheet-form-submit")!;
+  expect(submit.textContent).toBe(t("form.splitRight"));
+  act(() => dialog.querySelector<HTMLInputElement>('input[name="direction"][value="down"]')!.click());
+  expect(submit.textContent).toBe(t("form.splitDown"));
+  expect(dialog.querySelector('select[name="agent_kind"]')).not.toBeNull();
+});
+
+test("layout page previews the tab and keeps the daemon edge directions for each step", async () => {
+  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, resize_pane: true, swap_pane: true, zoom_pane: true }, []);
+  const panes = [card("p1"), card("p2", { label: "Second" })];
+  seedAgents(panes);
+  projectSnapshot({ workspaces: [{ workspace_id: "w1", label: "One", cwd: "/one" }], tabs: [{ tab_id: "t1", workspace_id: "w1", label: "main" }],
+    panes, layouts: [{ workspace_id: "w1", tab_id: "t1", zoomed: false, area: { x: 0, y: 0, width: 100, height: 40 },
+      panes: [{ pane_id: "p1", focused: true, rect: { x: 0, y: 0, width: 50, height: 40 } },
+        { pane_id: "p2", focused: false, rect: { x: 50, y: 0, width: 50, height: 40 } }] }] } as never, dashboardStore.get().agents as never);
+  const calls: Array<Record<string, unknown>> = [];
+  attachLiveSession({ isConnected: () => true, resizePane: async (input: Record<string, unknown>) => { calls.push(input); throw new Error("stop"); },
+    swapPane: async (input: Record<string, unknown>) => { calls.push(input); throw new Error("stop"); } } as never);
+  act(openPaneMenu);
+  const layoutRow = [...document.querySelectorAll<HTMLButtonElement>(".menu-row")].find((row) => row.textContent === t("pane.layoutPage"))!;
+  act(() => layoutRow.click());
+  expect([...document.querySelectorAll(".pane-layout-cell")].map((cell) => cell.textContent)).toEqual([t("pane.thisCell"), "Second"]);
+  expect(document.querySelector(".pane-layout-resize .menu-stepper-value")?.textContent).toBe(t("layout.share", { n: 50 }));
+  expect(byLabel(t("form.swapLeft")).disabled).toBeTrue();
+  for (const [label, direction] of [["form.wider", "right"], ["form.narrower", "left"]] as const) {
+    await act(async () => { byLabel(t(label)).click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(calls.at(-1)).toMatchObject({ pane_id: "p1", direction, amount: 0.15 });
+  }
+  await act(async () => { byLabel(t("form.swapRight")).click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+  expect(calls.at(-1)).toMatchObject({ pane_id: "p1", direction: "right" });
+  expect(sheetOpen()).toBeTrue();
+  act(() => setNetworkOnline(false));
+  try {
+    expect(byLabel(t("form.wider")).disabled).toBeTrue();
+    expect(document.querySelector(".pane-layout-status")?.textContent).toBe(t("boardMenu.offline"));
+  } finally { act(() => setNetworkOnline(true)); }
 });
 
 test("switcher keeps ranked cards, pinned marker, active state and contextual metadata", () => {

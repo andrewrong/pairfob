@@ -90,6 +90,7 @@ export function mapSnapshotAgents(snapshot: SnapshotWire): DashboardAgentCard[] 
         worktree: displayWorktree(ws?.worktree),
         status: snapshotAgentStatus(hasAgent, pane.agent_status, pane.launch_pending === true),
         workspaceLabel: ws?.label?.trim() || "",
+        workspaceCwd: ws?.cwd?.trim() || undefined,
         cwd: pane.cwd || ws?.cwd || "",
         viewportRows: pane.scroll?.viewport_rows,
         historyAvailable: pane.history_available === true,

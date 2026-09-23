@@ -6,8 +6,8 @@
     flex-wrap: wrap;
   }
 
-  .herd-list .section-title:first-child,
-  .herd-list .herd-group:first-child .group-title {
+  .herd-list .herd-group:first-child .section-title,
+  .herd-list .herd-group:first-child .group-head {
     margin-top: 10px;
   }
 

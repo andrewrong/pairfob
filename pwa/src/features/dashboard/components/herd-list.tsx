@@ -1,7 +1,7 @@
-import { Fragment } from "react";
 import { EmptyState } from "../../../shared/ui/primitives";
 import { WorktreeProgressList } from "../../operations/worktree-progress";
-// Not this slice: the daemon update banner stays with its own owner.
+// Not this slice: the daemon update banner stays with its own owner. The phone
+// shows it in Settings; the desktop rail keeps the compact notice.
 import { DaemonUpdate } from "../../settings/daemon-update-view";
 import { ListGroupControl } from "./herd-controls";
 import type { HerdActions } from "../actions";
@@ -25,31 +25,35 @@ function emptySpec(view: HerdViewModel, actions: HerdActions) {
 }
 
 /**
- * The herd list: daemon update, pending worktree jobs, the grouping control and
- * then either the empty state or the projected sections.
+ * The herd list: pending worktree jobs, then either the empty state or the
+ * projected sections. The desktop rail also carries the compact daemon update
+ * and the grouping control; the phone page moves both to the header / Settings.
  */
-export function HerdList({ view, actions }: {
+export function HerdList({ view, actions, variant = "page" }: {
   view: HerdViewModel;
   actions: HerdActions;
+  variant?: "page" | "rail";
 }) {
   const groups = view.groups;
   const empty = emptySpec(view, actions);
   return (
     <>
-      <DaemonUpdate compact />
+      {variant === "rail" ? <DaemonUpdate compact /> : null}
       <WorktreeProgressList />
-      <ListGroupControl />
+      {variant === "rail" ? <ListGroupControl /> : null}
       {empty ? <EmptyState spec={empty} /> : (
         <div className={`herd-list${view.stagger ? " enter" : ""}`}>
           {groups.map((group) => view.grouped ? (
             <HerdGroup key={group.id} group={group} groupIds={groups.map((item) => item.id)} actions={actions} />
           ) : (
-            <Fragment key={group.id}>
+            <section key={group.id} className="herd-group">
               <h2 className="section-title" style={indexedStyle(group.index)}>{group.title}
                 {group.count > 0 && <span className="section-count">{group.count}</span>}
               </h2>
-              {group.cards.map((card) => <AgentCard key={card.paneId} card={card} actions={actions} />)}
-            </Fragment>
+              <div className="herd-group-body">
+                {group.cards.map((card) => <AgentCard key={card.paneId} card={card} actions={actions} />)}
+              </div>
+            </section>
           ))}
         </div>
       )}

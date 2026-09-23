@@ -106,3 +106,29 @@ describe("composition selection", () => {
     expect(computeLayout(input({ desk: true, hasSelectedPane: true })).key).not.toBe(home.key);
   });
 });
+
+describe("phone tab roots", () => {
+  test("home, board and settings carry the tab bar on a phone, and nothing else does", () => {
+    expect(computeLayout(input({ screen: "home" })).shell.tabs).toBeTrue();
+    expect(computeLayout(input({ screen: "board" })).shell.tabs).toBeTrue();
+    expect(computeLayout(input({ screen: "settings" })).shell.tabs).toBeTrue();
+    expect(computeLayout(input({ screen: "pane" })).shell.tabs).toBeFalse();
+    expect(computeLayout(input({ screen: "quota" })).shell.tabs).toBeFalse();
+    expect(computeLayout(input({ screen: "computers" })).shell.tabs).toBeFalse();
+    expect(computeLayout(input({ screen: "workspace" })).shell.tabs).toBeFalse();
+  });
+
+  test("the desk, full terminal and non-live phases never carry it", () => {
+    expect(computeLayout(input({ screen: "home", desk: true })).shell.tabs).toBeFalse();
+    expect(computeLayout(input({ screen: "board", desk: true })).shell.tabs).toBeFalse();
+    expect(computeLayout(input({ screen: "home", fullTerminal: true })).shell.tabs).toBeFalse();
+    expect(computeLayout(input({ phase: "connect" })).shell.tabs).toBeFalse();
+  });
+
+  test("the tab flag is part of the composition identity", () => {
+    const tabs = computeLayout(input({ screen: "board" }));
+    const desk = computeLayout(input({ screen: "board", desk: true }));
+    expect(tabs.mode).toBe(desk.mode);
+    expect(tabs.key).not.toBe(desk.key);
+  });
+});

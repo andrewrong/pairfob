@@ -185,8 +185,8 @@ test("actual API IME survives render and visible language changes", async () => 
   const host = appHost();
   await act(async () => { await a.setLanguage("en"); });
   expect(appHost() === host).toBeTrue();
-  expect(document.body.textContent).toContain("Computers");
-  expect(document.body.textContent).not.toContain("电脑");
+  expect(document.body.textContent).toContain("Board");
+  expect(document.body.textContent).not.toContain("画板");
 });
 
 test("actual API scene reset removes earlier pairing validation state", async () => {

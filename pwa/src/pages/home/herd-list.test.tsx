@@ -196,7 +196,7 @@ describe("React herd list", () => {
     expect(headings.map(node => node.getAttribute("aria-haspopup"))).toEqual([null, "menu", "menu"]);
     const cards = [...app().querySelectorAll<HTMLElement>(".card")];
     expect(cards[0].classList.contains("pinned")).toBe(true);
-    expect([...app().querySelectorAll<HTMLElement>(".group-title, .card")].map(node => node.style.getPropertyValue("--i")))
+    expect([...app().querySelectorAll<HTMLElement>(".group-head, .card")].map(node => node.style.getPropertyValue("--i")))
       .toEqual(["0", "1", "2", "3", "4", "5"]);
     headings[2].focus();
     act(() => headings[2].click());
@@ -218,9 +218,9 @@ describe("React herd list", () => {
     expect(card.classList.contains("unverifiable")).toBe(true);
     expect(card.classList.contains("sel")).toBe(true);
     expect(card.querySelector(".card-main")?.getAttribute("aria-pressed")).toBe("true");
-    expect(card.querySelector(".pill-unknown")?.textContent).toBe(t("status.unverifiable"));
-    expect(card.querySelector(".pill-done")).toBeNull();
-    expect(app().querySelector(".done-count")).toBeNull();
+    expect(card.querySelector(".card-status.is-unknown")?.textContent).toBe(t("status.unverifiable"));
+    expect(card.querySelector(".card-status.is-done")).toBeNull();
+    expect(app().querySelector(".attn-strip, .group-mark")).toBeNull();
   });
 
   test("a visible completion batch vibrates once and keeps attention through repaint", () => {
@@ -277,18 +277,18 @@ describe("React herd list", () => {
 
   test("new-session availability follows its capability, connection, and busy state", () => {
     paint();
-    expect(app().querySelector(".topbar-create")).toBeNull();
+    expect(app().querySelector(".create-fab")).toBeNull();
     act(() => applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_conversation: true }, []));
     paint();
-    expect(app().querySelector<HTMLButtonElement>(".topbar-create")?.disabled).toBe(false);
+    expect(app().querySelector<HTMLButtonElement>(".create-fab")?.disabled).toBe(false);
     act(() => setOperationBusy(true));
     paint();
-    expect(app().querySelector<HTMLButtonElement>(".topbar-create")?.disabled).toBe(true);
-    expect(app().querySelector(".topbar-create")?.textContent).toBe(t("home.creating"));
+    expect(app().querySelector<HTMLButtonElement>(".create-fab")?.disabled).toBe(true);
+    expect(app().querySelector(".create-fab")?.textContent).toBe(t("home.creating"));
     act(() => setOperationBusy(false));
     connected = false;
     paint();
-    expect(app().querySelector<HTMLButtonElement>(".topbar-create")?.disabled).toBe(true);
+    expect(app().querySelector<HTMLButtonElement>(".create-fab")?.disabled).toBe(true);
   });
 
   test("pin and unpin menu actions regroup the current React list", async () => {
@@ -324,7 +324,7 @@ test("worktree cards retry only on request and cancel locally before a late resu
   act(() => { startWorktreeJob(driver, { workspace_id: "alpha", branch: "feature/review", path: "/work/review" }); });
   expect(app().querySelector(".worktree-job-working .spinner")).not.toBeNull();
   expect([...app().querySelector(".page")!.children].map(node => node.className).slice(-3))
-    .toEqual(["worktree-jobs", "seg", "empty"]);
+    .toEqual(["herd-head", "worktree-jobs", "empty"]);
   await act(async () => { pending[0].reject(new Error("fetch failed")); await Promise.resolve(); });
   expect(app().querySelector(".worktree-job-error")?.textContent).toContain("fetch failed");
   expect(events.filter(event => event === "create")).toHaveLength(1);

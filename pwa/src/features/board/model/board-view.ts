@@ -18,7 +18,7 @@ import {
   type PaneBox,
   type TabLayout,
 } from "../../../lib/layout";
-import type { HerdStatus } from "../../dashboard/model/herd-view";
+import { herdNeedsReader, type HerdStatus } from "../../dashboard/model/herd-view";
 import { boardStageSize } from "./camera";
 
 export type BoardModelInput = {
@@ -38,6 +38,19 @@ export type BoardModelInput = {
 
 export type BoardRailChip = { id: string; label: string; selected: boolean };
 
+/** A tab chip also says whether a pane inside waits on the reader. */
+export type BoardTabChip = BoardRailChip & { attention: "blocked" | "done" | "" };
+
+/** One workspace as the title and the switcher sheet show it. */
+export type BoardSpaceView = {
+  id: string;
+  label: string;
+  path: string;
+  selected: boolean;
+  blockedCount: number;
+  doneCount: number;
+};
+
 export type BoardTileView = {
   paneId: string;
   box: PaneBox;
@@ -45,6 +58,8 @@ export type BoardTileView = {
   title: string;
   aria: string;
   status: string;
+  /** The advertised agent kind; empty for a plain terminal, which carries no pill. */
+  agentKind: string;
   pill: string;
   selected: boolean;
   zoomed: boolean;
@@ -71,10 +86,12 @@ export type BoardViewModel = {
   title: string;
   sub: string | null;
   zoom: { out: string; fit: string; fitLabel: string; in: string };
-  spaces: BoardRailChip[];
+  spaces: BoardSpaceView[];
+  /** The selected workspace; null when the board has none. */
+  workspace: BoardSpaceView | null;
   spacesEmpty: string;
   spaceAria: string;
-  tabs: BoardRailChip[];
+  tabs: BoardTabChip[];
   tabAria: string;
   create: { label: string; disabled: boolean } | null;
   status: HerdStatus;
@@ -132,7 +149,8 @@ export function boardTiles(
       title,
       aria: t("board.paneAria", { title }),
       status,
-      pill: agent ? agentStatusLabel(agent) : "",
+      agentKind: agent?.hasAgent ? agent.agent : "",
+      pill: agent?.hasAgent ? agentStatusLabel(agent) : "",
       selected: box.paneId === selectedPaneId,
       zoomed: layout.zoomed && (box.focused || box.paneId === layout.focusedPaneId),
       cols: Math.round(pane?.rect.width || 0),
@@ -162,23 +180,38 @@ export function buildBoardViewModel(input: BoardModelInput): BoardViewModel {
   const agents = [...input.agents];
   const current = spaces.find((space) => space.id === input.workspaceId);
   const tabs = tabsInWorkspace([...input.tabList], input.workspaceId);
+  // Loss of contact never claims a status, so nothing is marked while stale.
+  const known = input.status.tone === "live" || input.status.tone === "demo";
+  const needs = (agent: DashboardAgentCard) => known ? herdNeedsReader(agent) : "";
+  const spaceViews: BoardSpaceView[] = spaces.map((space) => {
+    const inside = agents.filter((agent) => agent.workspaceId === space.id);
+    return {
+      id: space.id,
+      label: boardWorkspaceLabel(space, spaces, agents),
+      path: inside.find((agent) => agent.workspaceCwd)?.workspaceCwd || "",
+      selected: space.id === input.workspaceId,
+      blockedCount: inside.filter((agent) => needs(agent) === "blocked").length,
+      doneCount: inside.filter((agent) => needs(agent) === "done").length,
+    };
+  });
   return {
     back: t("board.back"),
     title: t("board.title"),
     sub: current ? boardWorkspaceLabel(current, spaces, agents) : null,
     zoom: { out: t("board.zoomOut"), fit: t("board.fitAria"), fitLabel: t("board.fit"), in: t("board.zoomIn") },
-    spaces: spaces.map((space) => ({
-      id: space.id,
-      label: boardWorkspaceLabel(space, spaces, agents),
-      selected: space.id === input.workspaceId,
-    })),
+    spaces: spaceViews,
+    workspace: spaceViews.find((space) => space.selected) ?? null,
     spacesEmpty: t("board.empty"),
     spaceAria: t("board.workspaceAria"),
-    tabs: tabs.map((tab, index) => ({
-      id: tab.id,
-      label: boardTabLabel(tab, index, agents),
-      selected: tab.id === input.tabId,
-    })),
+    tabs: tabs.map((tab, index) => {
+      const marks = agents.filter((agent) => agent.tabId === tab.id).map(needs);
+      return {
+        id: tab.id,
+        label: boardTabLabel(tab, index, agents),
+        selected: tab.id === input.tabId,
+        attention: marks.includes("blocked") ? "blocked" : marks.includes("done") ? "done" : "",
+      };
+    }),
     tabAria: t("board.tabAria"),
     create: input.canCreateTab
       ? {

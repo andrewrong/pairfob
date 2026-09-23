@@ -106,6 +106,15 @@ package can express that duty.
 - The product loop is not a terminal emulator: read the rendered pane, send
   keys back to the PTY.
 
+## Branch and release workflow
+
+Commit, push and deploy from the user's current local branch and checkout.
+Do not create a release branch or a separate worktree unless the user explicitly
+requests one. Preserve unrelated working changes and stage only the authorized
+scope. If edits continue during verification, compare source snapshots before
+publishing rather than moving the work to another branch. Push to the current
+branch's configured upstream; do not force-push.
+
 ## Verify
 
 Choose verification by **change scope and task stage**. Do not run the full
@@ -116,7 +125,7 @@ repository gate after every local edit or merely because a task is ending.
 | Documentation or copy-only edit | Check the diff, links and affected rendering as relevant; no unrelated code suites. |
 | Local implementation iteration | Run affected module tests and relevant type/format checks. For shared code, include its affected consumers. |
 | UI behavior or layout change | Add focused browser checks for the changed interaction or viewport; fixtures, live transport and physical-device acceptance are distinct. |
-| PWA UI-only production release | Run `PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>` against a trustworthy baseline in the release checkout. |
+| PWA UI-only production release | Run `PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>` against a trustworthy baseline in the current checkout. |
 | Backend, protocol, cross-module contract or release-tooling delivery | Run the full `./scripts/verify.sh` once on the final candidate before handoff/merge/release. Use focused checks during iteration. |
 | Production release outside the guarded PWA-only scope, or without a trustworthy baseline | Run the full gate on the final release candidate. |
 

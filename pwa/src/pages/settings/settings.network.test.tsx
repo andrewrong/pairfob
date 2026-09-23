@@ -21,6 +21,7 @@ import { DirectError } from "../../lib/protocol/direct-peer";
 import type { PairResult } from "../../lib/protocol/client";
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { stopPolling } from "../../features/connection/controller";
+import { setSettingsSection } from "../../features/settings/settings-section";
 
 /**
  * Settings network transport controls against the actual mounted App.
@@ -49,6 +50,8 @@ function mountSettings(): void {
       // applyOriginConfig({ p2p: false }) for the kill-switch case.
       applyOriginConfig({ protocol: 2, p2p: true });
     });
+    // These cases exercise the connection page behind the Settings overview.
+    setSettingsSection("connection");
     mountApp();
   });
 }

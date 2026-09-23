@@ -84,7 +84,7 @@ function boot(): void {
 }
 
 function createButton(): HTMLButtonElement {
-  const create = app().querySelector(".topbar-create");
+  const create = app().querySelector(".create-fab");
   if (!(create instanceof happy.HTMLButtonElement)) throw new Error("missing New button");
   return create as HTMLButtonElement;
 }

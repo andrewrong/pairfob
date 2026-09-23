@@ -1,5 +1,5 @@
 import { CircleAlert, Plus } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../../lib/i18n";
 import { Brand, Button, StatusDot, TopbarActions } from "../../../shared/ui/primitives";
 import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
@@ -8,12 +8,18 @@ import { preferencesStore, setListGroupCollapsed } from "../../settings/preferen
 // connection feature's own pure banner component.
 import { AppNotice } from "../../../app/notice";
 import { HerdBanners } from "../../../features/connection/herd-banners";
-import { CompletionCount } from "./herd-controls";
+import { CompletionCount, CreateFab, GroupModeButton } from "./herd-controls";
 import type { HerdActions } from "../actions";
 import type { HerdViewModel } from "../model/herd-view";
+import { AttentionStrip } from "./attention-strip";
 import { HerdList } from "./herd-list";
+import { HostTitle } from "./host-title";
+import { closeOpenSwipeRow } from "./swipe-row";
 
-function HerdTopActions({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
+/** Scroll distance after which the phone header folds to one row. */
+const FOLD_PX = 24;
+
+function RailTopActions({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
   return (
     <TopbarActions className="herd-topbar-actions">
       {view.create && (
@@ -35,12 +41,44 @@ function HerdTopActions({ view, actions }: { view: HerdViewModel; actions: HerdA
   );
 }
 
+/** Reveal a row the reader asked for: open its group, then scroll it into view. */
+function useReveal(view: HerdViewModel, root: React.RefObject<HTMLElement | null>) {
+  const [request, setRequest] = useState(0);
+  const target = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!target.current) return;
+    if (!view.groups.some(group => !group.collapsed && group.cards.some(card => card.paneId === target.current))) return;
+    const node = [...(root.current?.querySelectorAll<HTMLElement>(".card-main[data-pane-id]") ?? [])]
+      .find(item => item.dataset.paneId === target.current);
+    if (!node) return;
+    target.current = null;
+    node.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    node.focus({ preventScroll: true });
+  }, [request, view, root]);
+  return (paneId: string, groupId: string) => {
+    target.current = paneId;
+    setListGroupCollapsed({ ...preferencesStore.get().listGroupCollapsed, [groupId]: false });
+    setRequest(value => value + 1);
+  };
+}
+
+/** Minute ticks keep the "changed n ago" column honest while the list is open. */
+function useMinuteTick(): void {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick(value => value + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+}
+
 /**
- * The herd surface: topbar, status line, banners and the list.
+ * The herd surface.
  *
- * `variant` is the only difference between the phone page and the desktop rail —
- * the rail deliberately shows no app notice, because the desktop main pane owns
- * notices for the open session.
+ * The phone page is the option B header (computer title, grouping button, the
+ * "needs you" strip), the list and the floating create button; the tab bar
+ * outside it reaches Board and Settings. The desktop rail keeps its compact top
+ * bar and status line, and deliberately shows no app notice because the desk
+ * main pane owns notices for the open session.
  */
 export function HerdScreen({
   view,
@@ -51,53 +89,79 @@ export function HerdScreen({
   actions: HerdActions;
   variant: "page" | "rail";
 }) {
-  const [finishedRequest, setFinishedRequest] = useState(0);
   const root = useRef<HTMLElement>(null);
-  const revealPane = useRef<string | null>(null);
+  const reveal = useReveal(view, root);
   const lastLocated = useRef({ blocked: "", done: "" });
-  useLayoutEffect(() => {
-    if (!revealPane.current) return;
-    if (!view.groups.some(group => !group.collapsed && group.cards.some(card => card.paneId === revealPane.current))) return;
-    const target = [...(root.current?.querySelectorAll<HTMLElement>(".card-main[data-pane-id]") ?? [])]
-      .find(node => node.dataset.paneId === revealPane.current);
-    if (!target) return;
-    revealPane.current = null;
-    target.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
-    target.focus({ preventScroll: true });
-  }, [finishedRequest, view]);
-  const showNext = (status: "blocked" | "done") => {
-    const candidates = view.groups.flatMap(group => group.cards
-      .filter(card => card.agent.status === status).map(card => ({ paneId: card.paneId, groupId: group.id })));
+  const [folded, setFolded] = useState(false);
+  useMinuteTick();
+  useEffect(() => {
+    if (variant !== "page") return;
+    const onScroll = () => {
+      setFolded(window.scrollY > FOLD_PX);
+      closeOpenSwipeRow();
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [variant]);
+  const revealNext = (status: "blocked" | "done", groupId?: string) => {
+    const candidates = view.groups
+      .filter(group => !groupId || group.id === groupId)
+      .flatMap(group => group.cards
+        .filter(card => status === "blocked" ? card.blocked : card.unread)
+        .map(card => ({ paneId: card.paneId, groupId: group.id })));
     if (!candidates.length) return;
     const previous = candidates.findIndex(card => card.paneId === lastLocated.current[status]);
     const next = candidates[(previous + 1) % candidates.length];
     lastLocated.current[status] = next.paneId;
-    revealPane.current = next.paneId;
-    setListGroupCollapsed({ ...preferencesStore.get().listGroupCollapsed, [next.groupId]: false });
-    setFinishedRequest(request => request + 1);
+    reveal(next.paneId, next.groupId);
   };
-  const chrome = (
-    <>
-      <div className="topbar herd-topbar">
-        <Brand tone={view.status.tone} heading />
-        <HerdTopActions view={view} actions={actions} />
-      </div>
-      <p className="statusline">
-        <StatusDot tone={view.status.tone} />
-        <span className="statusline-text">{view.status.text}</span>
-        <span className="attention-counts">
-        {view.pendingCount > 0 && <Button className="text-link pending-count"
-          aria-label={t("home.pendingCountAria", { count: String(view.pendingCount) })} onClick={() => showNext("blocked")}>
-          <CircleAlert size={14} aria-hidden="true" />{t("home.pendingCount", { count: String(view.pendingCount) })}
-        </Button>}
-        <CompletionCount count={view.doneCount} onActivate={() => showNext("done")} />
-        </span>
-      </p>
-      <HerdBanners tone={view.status.tone} />
-      {variant === "page" ? <AppNotice /> : null}
-      <HerdList view={view} actions={actions} />
-    </>
-  );
+  const screenActions: HerdActions = { ...actions, revealAttention: (groupId, kind) => revealNext(kind, groupId) };
   const bindRoot = (node: HTMLElement | null) => { root.current = node; };
-  return variant === "rail" ? <aside ref={bindRoot} className="rail">{chrome}</aside> : <div ref={bindRoot} className="page">{chrome}</div>;
+
+  if (variant === "rail") {
+    return (
+      <aside ref={bindRoot} className="rail">
+        <div className="topbar herd-topbar">
+          <Brand tone={view.status.tone} heading />
+          <RailTopActions view={view} actions={actions} />
+        </div>
+        <p className="statusline">
+          <StatusDot tone={view.status.tone} />
+          <span className="statusline-text">{view.status.text}</span>
+          <span className="attention-counts">
+            {view.pendingCount > 0 && <Button className="text-link pending-count"
+              aria-label={t("home.pendingCountAria", { count: String(view.pendingCount) })} onClick={() => revealNext("blocked")}>
+              <CircleAlert size={14} aria-hidden="true" />{t("home.pendingCount", { count: String(view.pendingCount) })}
+            </Button>}
+            <CompletionCount count={view.doneCount} onActivate={() => revealNext("done")} />
+          </span>
+        </p>
+        <HerdBanners tone={view.status.tone} />
+        <HerdList view={view} actions={screenActions} variant="rail" />
+      </aside>
+    );
+  }
+
+  return (
+    <div ref={bindRoot} className="page herd-page">
+      <h1 className="sr-only">{t("tabs.sessions")}</h1>
+      <header className={`herd-head${folded ? " is-folded" : ""}`}>
+        <div className="herd-head-row">
+          <HostTitle host={view.host} onOpen={actions.openHostMenu} />
+          {folded && view.attention.length ? (
+            <Button className="herd-attn-pill" onClick={() => window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" })}>
+              {t("list.needsYou", { count: String(view.attention.length) })}
+            </Button>
+          ) : null}
+          <GroupModeButton mode={view.listGroup} onOpen={actions.openGroupModeMenu} />
+        </div>
+        <AttentionStrip items={view.attention} onOpen={actions.openAttention} />
+      </header>
+      <HerdBanners tone={view.status.tone} />
+      <AppNotice />
+      <HerdList view={view} actions={screenActions} variant="page" />
+      {view.create ? <CreateFab create={view.create} onCreate={actions.openCreate} onQuick={actions.openQuickCreate} /> : null}
+    </div>
+  );
 }

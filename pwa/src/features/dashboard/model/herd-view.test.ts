@@ -5,6 +5,7 @@ import { setLang, t } from "../../../lib/i18n";
 import { PINNED_GROUP_ID } from "../../../lib/ranking";
 import {
   buildHerdViewModel,
+  herdAgo,
   herdCardClassName,
   herdCardPill,
   herdDoneCount,
@@ -51,6 +52,9 @@ function input(overrides: Partial<HerdModelInput> = {}): HerdModelInput {
     operationBusy: false,
     computerCount: 1,
     morphingPaneId: null,
+    host: { name: "studio", line: "connected", tone: "live" },
+    createTab: true,
+    now: 60 * 60_000,
     ...overrides,
   };
 }
@@ -200,5 +204,71 @@ describe("herd chrome gates", () => {
     expect(buildHerdViewModel(input({ createConversation: true, operationBusy: true })).empty?.action?.disabled).toBe(true);
     expect(buildHerdViewModel(input({ agents: [agent("p1", "alpha")] })).empty).toBeNull();
     expect(buildHerdViewModel(input({ networkOnline: false })).empty?.action?.kind).toBe("retry");
+  });
+});
+
+describe("phone list projection", () => {
+  test("a terminal names no status and never needs the reader; an agent does", () => {
+    const view = buildHerdViewModel(input({
+      agents: [agent("wait", "alpha", "blocked"), agent("sh", "alpha", "blocked", { agent: "", hasAgent: false })],
+    }));
+    const card = (id: string) => view.groups[0].cards.find((item) => item.paneId === id)!;
+    const wait = card("wait");
+    const sh = card("sh");
+    expect(wait.kind).toBe("agent");
+    expect(wait.statusLabel).toBe(t("status.blocked"));
+    expect(wait.blocked).toBe(true);
+    expect(sh.kind).toBe("terminal");
+    expect(sh.statusLabel).toBe("");
+    expect(sh.blocked).toBe(false);
+    expect(view.attention.map((item) => item.paneId)).toEqual(["wait"]);
+    expect(view.pendingCount).toBe(1);
+  });
+
+  test("the needs-you list puts waiting first, then the newest unread completions", () => {
+    const view = buildHerdViewModel(input({
+      agents: [agent("old", "a", "done"), agent("new", "a", "done"), agent("wait", "b", "blocked")],
+      paneTouched: { old: 1, new: 5, wait: 2 },
+    }));
+    expect(view.attention.map((item) => `${item.kind}:${item.paneId}`)).toEqual(["blocked:wait", "done:new", "done:old"]);
+    expect(view.doneCount).toBe(2);
+  });
+
+  test("workspace groups carry the root path, marks and the create-tab gate", () => {
+    const agents = [
+      agent("p1", "alpha", "blocked", { workspaceCwd: "/work/alpha" }),
+      agent("p2", "alpha", "done", { workspaceCwd: "/work/alpha" }),
+      agent("p3", "beta", "idle", { workspaceCwd: "/work/beta" }),
+    ];
+    const view = buildHerdViewModel(input({ agents, listGroup: "space" }));
+    expect(view.groups.map((group) => [group.id, group.path, group.blockedCount, group.doneCount, group.canCreateTab]))
+      .toEqual([["alpha", "/work/alpha", 1, 1, true], ["beta", "/work/beta", 0, 0, true]]);
+    const gated = buildHerdViewModel(input({ agents, listGroup: "space", createTab: false }));
+    expect(gated.groups.every((group) => !group.canCreateTab)).toBe(true);
+  });
+
+  test("while stale nothing is reported as waiting or unread", () => {
+    const view = buildHerdViewModel(input({
+      agents: [agent("wait", "alpha", "blocked"), agent("done", "alpha", "done")],
+      liveness: "unverifiable",
+    }));
+    expect(view.attention).toEqual([]);
+    expect(view.groups[0].cards.map((item) => [item.statusLabel, item.statusTone, item.blocked, item.unread]))
+      .toEqual([[t("status.unverifiable"), "unknown", false, false], [t("status.unverifiable"), "unknown", false, false]]);
+  });
+
+  test("the host title and the change time come straight from the input", () => {
+    const view = buildHerdViewModel(input({ agents: [agent("p1", "alpha")], paneTouched: { p1: 58 * 60_000 } }));
+    expect(view.host).toEqual({ name: "studio", line: "connected", tone: "live" });
+    expect(view.groups[0].cards[0].ago).toBe(t("list.agoMin", { n: "2" }));
+  });
+
+  test("change times read now, minutes, hours and days, and nothing when unseen", () => {
+    const now = 10 * 86_400_000;
+    expect(herdAgo(undefined, now)).toBe("");
+    expect(herdAgo(now - 20_000, now)).toBe(t("list.agoNow"));
+    expect(herdAgo(now - 5 * 60_000, now)).toBe(t("list.agoMin", { n: "5" }));
+    expect(herdAgo(now - 3 * 3_600_000, now)).toBe(t("list.agoHour", { n: "3" }));
+    expect(herdAgo(now - 2 * 86_400_000, now)).toBe(t("list.agoDay", { n: "2" }));
   });
 });

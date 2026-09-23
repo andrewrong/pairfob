@@ -5,6 +5,8 @@
 @use "./shared/ui/styles/icons";
 @use "./styles/chrome";
 @use "./features/dashboard/styles/herd-card";
+@use "./features/dashboard/styles/herd-page";
+@use "./app/layout/styles/tab-bar";
 @use "./features/pairing/styles/connect";
 @use "./features/session/guided/session-shell";
 @use "./features/session/guided/terminal";
@@ -23,8 +25,12 @@
    that change are the two operation-modal phone overrides, which move into the
    feature sheet where they out-specify the generic rules they cross. */
 @use "./shared/ui/styles/overlay";
+@use "./shared/ui/styles/menu-controls";
+@use "./shared/ui/styles/dialogs";
 @use "./features/session/keypad/quick-command-editor";
 @use "./features/operations/styles/operations";
+@use "./features/operations/styles/create-sheet";
+@use "./features/session/guided/pane-sheet";
 @use "./features/settings/styles/daemon-update";
 @use "./features/workspace/workspace";
 @use "./features/workspace/workspace-media";

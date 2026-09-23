@@ -95,11 +95,15 @@ describe("groupAgents", () => {
     expect(groups[0].items.map((item) => item.paneId)).toEqual(["d", "b", "a", "c"]);
   });
 
-  test("space groups follow the latest pane in each space", () => {
+  test("space groups keep the computer's order, whatever changed last", () => {
     const groups = groupAgents(sample, "space", { b: 20, a: 10, c: 9, d: 1 });
     expect(groups.map((group) => group.title)).toEqual(["Relay", "Pairfob"]);
     expect(groups[0].items.map((item) => item.paneId)).toEqual(["b", "d"]);
     expect(groups[1].items.map((item) => item.paneId)).toEqual(["a", "c"]);
+    // A fresh status change on the last pane moves neither its row nor its group.
+    const changed = groupAgents(sample, "space", { c: 99, d: 98 });
+    expect(changed.map((group) => group.id)).toEqual(["w-x", "w-k"]);
+    expect(changed[1].items.map((item) => item.paneId)).toEqual(["a", "c"]);
   });
 
   test("agent groups by type and parks unbound panes together", () => {
@@ -151,9 +155,12 @@ describe("group collapse", () => {
   test("keeps a toggled group when the list reorders", () => {
     const openedSecond = toggleGroupCollapsed(groups, {}, "w-k");
     expect(openedSecond["w-k"]).toBe(false);
-    const reordered = groupAgents(sample, "space", { a: 40, b: 1 });
-    expect(reordered.map((group) => group.id)).toEqual(["w-k", "w-x"]);
-    expect(syncGroupCollapsed(reordered, openedSecond)).toEqual({ "w-k": false, "w-x": false });
+    const reordered = groupAgents(sample, "agent", { c: 40, b: 1 });
+    expect(reordered.map((group) => group.id)).toEqual(["agent:claude", "agent:codex", "unbound"]);
+    const toggled = toggleGroupCollapsed(reordered, {}, "agent:codex");
+    const again = groupAgents(sample, "agent", { b: 50, c: 1 });
+    expect(again.map((group) => group.id)).toEqual(["agent:codex", "agent:claude", "unbound"]);
+    expect(syncGroupCollapsed(again, toggled)["agent:codex"]).toBe(false);
   });
 
   test("drops groups that disappeared and collapses a newly seen later group", () => {

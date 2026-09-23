@@ -1,0 +1,198 @@
+/* --- Create sheet -----------------------------------------------------------------
+   Where → what → optional name, one summary line and the primary action pinned
+   to the sheet's bottom edge so it stays above the keyboard.
+   ------------------------------------------------------------------------------ */
+
+.create-sheet-body { display: flex; flex-direction: column; }
+.create-sheet-body > .menu-section-title:first-child { margin-top: 0; }
+
+.create-scroll {
+  display: flex;
+  gap: 6px;
+  margin: 0 calc(var(--space-4) * -1);
+  padding: 4px var(--space-4);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.create-scroll::-webkit-scrollbar { display: none; }
+
+.create-chip {
+  flex: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  font: 600 var(--text-body) var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.create-chip.is-combo { border-radius: var(--r-md); padding-left: 8px; background: var(--surface); }
+.create-chip-sub { color: var(--muted); font-weight: 400; font-size: var(--text-secondary); }
+.create-chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.create-chip.on .create-chip-sub { color: inherit; opacity: 0.7; }
+.create-chip.is-combo.on { background: rgba(110, 168, 254, 0.12); color: var(--ink); border-color: var(--accent); }
+.create-chip.is-new:not(.on) { border-style: dashed; color: var(--accent); }
+
+.create-path { margin: 8px 2px 0; font: 500 var(--text-caption) var(--mono); color: var(--muted); }
+
+.create-dirs {
+  margin-top: 10px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.create-dir-group { margin: 0; padding: 10px 14px 2px; font-size: var(--text-caption); color: var(--muted); }
+
+.create-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+}
+
+.create-dir.is-selected { background: rgba(110, 168, 254, 0.1); }
+
+.create-dir-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.create-dir-tag {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+
+.create-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px var(--font);
+}
+
+.create-input.is-mono { font-family: var(--mono); }
+.create-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+.create-dirs .create-input { width: calc(100% - 28px); margin: 4px 14px 12px; }
+
+.create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  font-weight: 600;
+}
+
+.create-optional { font-weight: 400; opacity: 0.8; }
+
+.create-hint {
+  margin: 8px 2px 0;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.create-seg { margin-top: 2px; }
+
+.create-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.create-kind {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px 8px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.create-kind.on { border-color: var(--accent); background: rgba(110, 168, 254, 0.1); }
+.create-kind.is-all { border-style: dashed; }
+.create-kind-name { max-width: 100%; font-size: var(--text-body); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.create-kind-sub { font-size: var(--text-caption); color: var(--muted); }
+.agent-avatar.is-more { background: var(--surface-2); color: var(--muted); }
+
+.create-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: var(--space-4) calc(var(--space-4) * -1) 0;
+  padding: 10px var(--space-4) calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.create-summary { margin: 0 0 8px; font-size: var(--text-secondary); color: var(--muted); }
+.create-submit { width: 100%; }
+
+/* Full agent list pushed inside the sheet. */
+.kind-filter {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 4px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px var(--font);
+}
+
+.kind-row { display: flex; align-items: center; border-radius: var(--r-md); }
+.kind-row.is-selected { background: rgba(110, 168, 254, 0.08); }
+
+.kind-pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px 8px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.kind-pick-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.kind-pick-name { font-size: var(--text-subhead); font-weight: 600; }
+.kind-pick-meta { font-size: var(--text-secondary); color: var(--muted); }
+.kind-star { color: var(--muted); }
+.kind-star.is-on { color: var(--warn); }
+.kind-empty, .kind-note { margin: 4px 8px 10px; font-size: var(--text-secondary); color: var(--muted); }
+
+.create-picker-head { display: flex; align-items: center; gap: 4px; margin: -6px 0 4px -10px; }
+.create-picker-title { margin: 0; font-size: var(--text-subhead); font-weight: 650; }

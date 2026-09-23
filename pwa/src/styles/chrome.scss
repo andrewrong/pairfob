@@ -16,6 +16,7 @@
 @use "../features/dashboard/styles/controls";
 @use "../shared/ui/styles/sections";
 @use "../shared/ui/styles/menu-sections";
+@use "../shared/ui/styles/menu-choice";
 
 @include brand.brand-dots;
 
@@ -42,6 +43,8 @@
 @include sections.sections;
 
 @include menu-sections.menu-sections;
+
+@include menu-choice.menu-choice;
 
 @include statusline.statusline-text;
 

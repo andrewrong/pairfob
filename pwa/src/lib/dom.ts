@@ -7,7 +7,7 @@
  * callers have a stable import surface. This module also owns the
  * element factory and the app-wide ripple surface.
  */
-export { askConfirm, askText, showHelp, type HelpBlock } from "../shared/ui/overlay/basic-dialogs";
+export { askConfirm, askText, showHelp, type ConfirmRequest, type HelpBlock, type TextRequest } from "../shared/ui/overlay/basic-dialogs";
 export { haptic, tapAck } from "../shared/ui/dom/feedback";
 export { prefersReducedMotion } from "../shared/ui/dom/motion";
 

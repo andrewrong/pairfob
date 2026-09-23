@@ -201,6 +201,58 @@ dialog.modal.sheet > form {
   min-width: 0;
 }
 
+/* --- In-sheet pages: back, a subtitle naming the object, page transitions --- */
+
+.sheet-head.has-back { padding-left: 4px; }
+
+.sheet-back {
+  flex: none;
+  color: var(--ink);
+  border-radius: var(--r-sm);
+}
+
+.sheet-titles {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sheet-subtitle {
+  margin: 1px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sheet-page.is-push { animation: sheet-page-push var(--dur-3) var(--ease); }
+
+.sheet-page.is-pop { animation: sheet-page-pop var(--dur-3) var(--ease); }
+
+@keyframes sheet-page-push {
+  from { transform: translateX(28px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes sheet-page-pop {
+  from { transform: translateX(-28px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-page.is-push,
+  .sheet-page.is-pop { animation: none; }
+}
+
+/* The pane sheet leaves the pane readable behind it: text size, wrap and
+   width changes apply in place, so the reader should see them land. */
+dialog.modal.pane-menu-sheet::backdrop {
+  background: rgba(4, 6, 10, 0.34);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .sheet-close {
   flex: none;
   color: var(--ink);
@@ -290,6 +342,17 @@ dialog.modal.sheet > form {
     justify-content: center;
     padding: 8px 0 2px;
   }
+
+  /* An expandable sheet opens short and grows on a pull or a tap on its handle. */
+  button.sheet-grab {
+    width: 100%;
+    min-height: 26px;
+    cursor: grab;
+  }
+
+  dialog.modal.sheet.is-expandable > form { max-height: min(64dvh, calc(100dvh - 24px)); }
+
+  dialog.modal.sheet.is-expandable.is-expanded > form { max-height: calc(100dvh - 24px); }
 
   /* A finger-tracked sheet must not fight a transition, and a released one
      springs back or continues off-screen. */

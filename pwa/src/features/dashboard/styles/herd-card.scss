@@ -5,63 +5,85 @@
    read on their own.
    ------------------------------------------------------------------------------ */
 
-/* --- Agent cards --------------------------------------------------------------- */
+/* --- Session rows --------------------------------------------------------------
+   A group body is one inset surface; each row is a hairline-separated line with
+   the agent mark, a title, one fact line and the change time. A row that waits
+   on the reader lifts out with an amber ground; an unread completion keeps a
+   green dot. Swiping slides the row's button over the trailing actions.
+   ------------------------------------------------------------------------------ */
+
+.herd-group-body {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
 
 .card {
   position: relative;
-  display: flex;
-  align-items: center;
+  display: block;
   width: 100%;
-  margin: var(--space-2) 0 0;
+  margin: 0;
   padding: 0;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
   text-align: left;
-  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
   -webkit-touch-callout: none;
   user-select: none;
+  touch-action: pan-y;
 }
 
 .card-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 44px;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 64px;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 14px 14px 14px 16px;
-  border-radius: inherit;
+  padding: 10px 14px 10px 14px;
   cursor: pointer;
   text-align: left;
   appearance: none;
   -webkit-appearance: none;
-  background: transparent;
+  background-color: var(--surface);
   color: inherit;
+  transition: transform var(--dur-3) var(--ease-spring), background-color var(--dur-1) var(--ease);
 }
 
-.card-main:active { transform: scale(0.985); }
+/* Hairline between rows, inset past the agent mark; drawn on the sliding
+   button so it moves with a swipe and leaves ::before/::after to the motion. */
+.card + .card .card-main {
+  background-image: linear-gradient(var(--line), var(--line));
+  background-repeat: no-repeat;
+  background-size: calc(100% - 68px) 1px;
+  background-position: 68px 0;
+}
 
-.card-copy { flex: 1 1 auto; min-width: 0; }
+.card.is-dragging .card-main { transition: none; }
+.card-main:active { background-color: var(--surface-2); }
+
+.card-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 
 .card-title {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 5px;
   min-width: 0;
 }
 
 .card-name {
   font-size: var(--text-subhead);
-  font-weight: 640;
+  font-weight: 600;
   letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.card.is-terminal .card-name { font-family: var(--mono); font-size: var(--text-body); font-weight: 500; }
+.card.is-blocked .card-name,
+.card.is-unread .card-name { font-weight: 700; }
+
 .card-meta {
-  margin: var(--space-1) 0 0;
   font-size: var(--text-secondary);
   color: var(--muted);
   overflow: hidden;
@@ -69,22 +91,110 @@
   white-space: nowrap;
 }
 
-.card .chev {
-  color: var(--muted);
+.card-status { font-weight: 650; }
+.card-status.is-blocked { color: var(--warn); }
+.card-status.is-working { color: var(--accent); }
+.card-status.is-done { color: var(--ok); }
+
+.card-side {
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
 }
 
-.card.status-blocked { border-color: rgba(255, 178, 36, 0.42); }
-.card.status-blocked::before {
-  content: "";
-  position: absolute;
-  left: -1px;
-  top: 13px;
-  bottom: 13px;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--warn);
+.card-ago {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.card.sel { border-color: rgba(110, 168, 254, 0.55); background: rgba(110, 168, 254, 0.08); }
+
+.card-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+.card-dot.is-blocked { background: var(--warn); }
+
+.card .pin-mark { flex: none; color: var(--muted); }
+
+.card.is-blocked .card-main { background-color: #1c1a13; box-shadow: inset 3px 0 0 var(--warn); }
+.card.is-blocked .card-main:active { background-color: #24211a; }
+.card.sel .card-main { background-color: #16202e; }
+
+/* Trailing / leading swipe actions sit behind the sliding button. */
+.card-actions {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  z-index: 0;
+}
+
+.card-action {
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  color: #fff;
+  font: 600 var(--text-caption) var(--font);
+  cursor: pointer;
+}
+
+.card-action.is-pin { background: #34548c; }
+.card-action.is-more { background: #454d5b; }
+.card-action.is-read {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  align-items: flex-start;
+  padding-left: 22px;
+  background: #1c7f4d;
+}
+
+.card:not(.is-open):not(.is-dragging) .card-actions { visibility: hidden; }
+
+/* --- Agent mark --------------------------------------------------------------- */
+
+.agent-avatar {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #1d232d;
+  color: var(--ink);
+  font: 600 var(--text-body) var(--mono);
+}
+
+.agent-avatar > svg { width: 56%; height: 56%; }
+.agent-avatar.is-terminal { background: #192019; color: #a9c9b1; }
+.agent-avatar.is-terminal > svg { width: 58%; height: 58%; }
+.agent-avatar.is-sm { width: 24px; height: 24px; border-radius: 7px; font-size: var(--text-caption); }
+.agent-avatar.is-lg { width: 44px; height: 44px; border-radius: 13px; }
+
+.agent-avatar-status {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2.5px solid var(--surface);
+  background: var(--line-strong);
+}
+
+.agent-avatar-status.is-blocked { background: var(--warn); }
+.agent-avatar-status.is-working { background: var(--accent); }
+.agent-avatar-status.is-done { background: var(--ok); }
+.card.is-blocked .agent-avatar-status { border-color: #1c1a13; }
 
 /* --- Card motion -------------------------------------------------------------- */
 
@@ -121,6 +231,7 @@
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
+  z-index: 2;
   background: linear-gradient(100deg, transparent 22%, rgba(110, 168, 254, 0.16) 50%, transparent 78%);
   background-size: 300% 100%;
   background-repeat: no-repeat;
@@ -137,7 +248,7 @@
 }
 
 /* The label is a new element every paint, so it fades in rather than transitions. */
-.card.ac-changed .pill { animation: pill-swap var(--dur-3) var(--ease); }
+.card.ac-changed .card-status { animation: pill-swap var(--dur-3) var(--ease); }
 
 @keyframes pill-swap {
   from { opacity: 0.2; }
@@ -150,7 +261,6 @@
   visible in peripheral vision without competing for it; it sweeps out once the
   reader has opened the pane, so acknowledgement stops happening silently.
 */
-.card.status-done::before,
 .card.attn-out::before {
   content: "";
   position: absolute;
@@ -161,17 +271,7 @@
   border-radius: 2px;
   background: var(--ok);
   pointer-events: none;
-}
-
-.card.status-done::before {
-  animation: attn-breathe 2.6s var(--ease-in-out) infinite;
-  /* Negative delay desyncs several waiting cards instead of one screen-wide blink. */
-  animation-delay: calc(var(--i, 0) * -0.42s);
-}
-
-@keyframes attn-breathe {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
+  z-index: 2;
 }
 
 .card.attn-out::before {
@@ -193,7 +293,6 @@
   /* Travel-only effects; the pill fade still reports the change. */
   .card.ac-changed::after,
   .card.attn-out::before { display: none; }
-  .card.status-done::before { animation: none; opacity: 1; }
 }
 
 /* Unverifiable snapshot: keep the card, dim it so last-known state reads as stale. */

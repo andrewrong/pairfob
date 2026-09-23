@@ -17,6 +17,7 @@ import type { LiveSession } from "../../lib/protocol/session-types";
 import { stopPolling } from "../../features/connection/controller";
 import { closeTestDialogs } from "../../../test-support/close-dialogs";
 import { revokeDevice } from "../../features/operations/controller";
+import { setSettingsSection } from "../../features/settings/settings-section";
 
 /**
  * Settings paired-devices panel against the actual mounted App. Setup writes
@@ -52,6 +53,8 @@ function mountSettingsDevices(session: Partial<LiveSession>): void {
       applyDeviceList([self, stale, gone]);
       attachLiveSession({ isConnected: () => true, ...session } as LiveSession);
     });
+    // These cases exercise the devices page behind the Settings overview.
+    setSettingsSection("devices");
     mountApp();
   });
 }
@@ -130,12 +133,10 @@ describe("settings paired devices (actual App)", () => {
     const app = appRoot();
     expect(app.textContent).toContain("Phone");
     expect(app.textContent).toContain("这台手机");
-    // The unpair-this-phone control is a real clickable button in the danger
-    // section (not merely copy text), distinct from the per-other-device
-    // forget buttons; found but never clicked here.
-    const selfUnpair = [...app.querySelectorAll("button")].find((el) => el.textContent?.trim() === "解除这台手机的配对");
-    expect(selfUnpair).toBeInstanceOf(HTMLButtonElement);
-    expect(selfUnpair?.classList.contains("btn-danger")).toBeTrue();
+    expect(app.querySelector(".topbar-title")?.textContent).toBe("已配对设备");
+    // This page lists devices only; unpairing this phone stays in the
+    // overview's danger section, away from the per-device forget buttons.
+    expect([...app.querySelectorAll("button")].some((el) => el.textContent?.trim() === "解除这台手机的配对")).toBeFalse();
     expect(app.textContent).toContain("旧手机");
     expect(app.textContent).toContain("离线");
     expect(app.textContent).not.toContain("已解除配对");
@@ -159,5 +160,11 @@ describe("settings paired devices (actual App)", () => {
     expect(visibleNotice()?.text).toBe(success);
     // ...and the mounted UI contract: the success status is actually rendered.
     expect(app.textContent).toContain(success);
+    // Back on the overview, unpairing this phone is a real danger button (found,
+    // never clicked here).
+    act(() => app.querySelector<HTMLButtonElement>(`button[aria-label="${t("chrome.back")}"]`)!.click());
+    const selfUnpair = [...app.querySelectorAll("button")].find((el) => el.textContent?.trim() === "解除这台手机的配对");
+    expect(selfUnpair).toBeInstanceOf(HTMLButtonElement);
+    expect(selfUnpair?.classList.contains("btn-danger")).toBeTrue();
   });
 });

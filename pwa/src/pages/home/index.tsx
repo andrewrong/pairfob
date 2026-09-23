@@ -49,6 +49,12 @@ function useHerdView(): HerdViewModel {
   return buildHerdViewModel(readHerdInput(painted));
 }
 
+/** Sessions that wait on the reader or finished unread; the tab bar badge. */
+export function useHerdAttentionCount(): number {
+  const view = useHerdView();
+  return view.attention.length;
+}
+
 export function HomePage() {
   return <HerdScreen view={useHerdView()} actions={actions} variant="page" />;
 }

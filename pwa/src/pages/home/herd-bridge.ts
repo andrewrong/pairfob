@@ -23,9 +23,16 @@
  */
 import { capabilityEnabled, operationBusy } from "../../features/operations/capabilities-store";
 import { computersStore, liveSession } from "../../features/computers/catalog-store";
-import { networkOnline } from "../../features/connection/connection-store";
+import { computerTitle } from "../../lib/computer-catalog";
+import { settingsNetworkPath } from "../../features/settings/model";
+import { t } from "../../lib/i18n";
+import { connectionStore, networkOnline } from "../../features/connection/connection-store";
 import { dashboardStore, liveAgents } from "../../features/dashboard/catalog-store";
-import { listGroup, listGroupCollapsed, panePinned, paneTouched, preferencesStore, setListGroupCollapsed } from "../../features/settings/preferences-store";
+import { listGroup, listGroupCollapsed, panePinned, paneTouched, preferencesStore, setListGroupCollapsed, togglePanePin } from "../../features/settings/preferences-store";
+import { acknowledgePaneCompletion } from "../../features/dashboard/catalog-store";
+import { openGroupModeSheet } from "../../features/dashboard/components/group-mode-sheet";
+import { openCreateSheet, openQuickCreate } from "./create-bridge";
+import { openHostMenu } from "./host-menu";
 import { runtimeStore } from "../../features/connection/runtime-store";
 import { openPaneId } from "../../features/session/session-store";
 import type { HerdActionPorts } from "../../features/dashboard/actions";
@@ -35,7 +42,7 @@ import { openHerdPaint } from "../../lib/herd-attention";
 import { groupAgents, syncGroupCollapsed, toggleCollapsedForIds } from "../../lib/ranking";
 import { haptic } from "../../shared/ui/dom/feedback";
 import { herdLivenessModel, herdStatusModel } from "../../features/dashboard/model/herd-status";
-import { buildHerdViewModel, type HerdModelInput, type HerdViewModel } from "../../features/dashboard/model/herd-view";
+import { buildHerdViewModel, type HerdHostView, type HerdModelInput, type HerdStatus, type HerdViewModel } from "../../features/dashboard/model/herd-view";
 import { morphingPane, shareTitle } from "../../app/transition";
 import { openBoard } from "../board/board-bridge";
 import { openListPaneMenu, openListWorkspaceMenu } from "./object-menu";
@@ -105,6 +112,26 @@ function sameCollapsed(left: Record<string, boolean>, right: Record<string, bool
  * during render, so it mutates nothing: the presentation boundary below is where
  * attention is consumed and accordion defaults are reconciled.
  */
+/**
+ * Option B header. The name is the computer; the line is how it is reached when
+ * all is well, and the status sentence itself when it is not.
+ */
+export function readHerdHost(status: HerdStatus): HerdHostView {
+  const runtime = runtimeStore.get();
+  const pair = computersStore.get().credential;
+  const name = runtime.herdHost || (pair ? computerTitle(pair) : "") || t("settings.currentComputer");
+  if (status.tone !== "live") return { name, line: status.text, tone: status.tone };
+  const connection = connectionStore.get();
+  const path = settingsNetworkPath({
+    sessionTransport: connection.sessionTransport,
+    relayRttMs: connection.relayRttMs,
+    p2pEnabled: connection.p2pEnabled,
+    networkMode: connection.networkMode,
+    lastP2PAttempt: connection.lastP2PAttempt,
+  });
+  return { name, line: `${t("chrome.connected")} · ${path}`, tone: status.tone };
+}
+
 export function readHerdInput(painted: HerdPaint): HerdModelInput {
   const dashboard = dashboardStore.get();
   const preferences = preferencesStore.get();
@@ -113,6 +140,7 @@ export function readHerdInput(painted: HerdPaint): HerdModelInput {
   const connected = liveSession()?.isConnected() === true;
   const online = networkOnline();
   const reachability = { connected, networkOnline: online, runtimeKind: runtime.runtimeKind };
+  const status = herdStatusModel({ checking: liveSession()?.isChecking?.() === true, ...reachability, herdHost: runtime.herdHost });
   return {
     agents: dashboard.agents,
     listGroup: listGroup(),
@@ -122,7 +150,10 @@ export function readHerdInput(painted: HerdPaint): HerdModelInput {
     selectedPaneId: openPaneId(),
     attention: painted,
     liveness: herdLivenessModel(reachability),
-    status: herdStatusModel({ checking: liveSession()?.isChecking?.() === true, ...reachability, herdHost: runtime.herdHost }),
+    status,
+    host: readHerdHost(status),
+    createTab: capabilityEnabled("create_tab"),
+    now: Date.now(),
     connected,
     networkOnline: online,
     runtimeKind: runtime.runtimeKind,
@@ -186,5 +217,15 @@ export function herdActionPorts(): HerdActionPorts {
     shareTitle,
     openPaneMenu: openListPaneMenu,
     openWorkspaceMenu: openListWorkspaceMenu,
+    openHostMenu: () => openHostMenu(readHerdHost(readHerdInput(attention).status)),
+    openGroupModeMenu: openGroupModeSheet,
+    togglePin: togglePanePin,
+    markRead: (paneId) => {
+      acknowledgePaneCompletion(paneId);
+    },
+    openCreate: (workspace) => {
+      void openCreateSheet({ workspaceId: workspace?.workspaceId });
+    },
+    openQuickCreate,
   };
 }

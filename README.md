@@ -113,8 +113,9 @@ Choose checks by change scope and stage; see [verification rules](AGENTS.md#veri
   relevant environment remain unchanged. Rerun checks affected by later edits;
   a new commit or status request alone does not require another full run.
 
-For a PWA UI-only production release, use an isolated release checkout and
-compare against a known verified release commit:
+For a PWA UI-only production release, use the current local branch and checkout
+and compare against a known verified release commit. Commit and push on that
+branch; do not create a release branch or worktree unless explicitly requested:
 
 ```
 (cd pwa && bun install --frozen-lockfile)

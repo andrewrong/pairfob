@@ -234,6 +234,35 @@ describe.each(["", "codex"])("new tabs and splits with pane kind %s", (agentKind
   }));
 });
 
+describe("input collected in the pane sheet", () => {
+  test("tab and split skip their dialog and send the prepared input once", async () => await act(async () => {
+    boot();
+    selectPane("p1");
+    const tabs: Array<Record<string, unknown>> = [];
+    const splits: Array<Record<string, unknown>> = [];
+    attachLiveSession({
+      ...liveSession()!,
+      createTab: async (params) => {
+        tabs.push(params);
+        return { operation_id: "op_tabsheet0000001", workspace_id: "w1", tab_id: "t3", pane_id: "p2", outcome: "applied" as const };
+      },
+      splitPane: async (params) => {
+        splits.push(params);
+        return { operation_id: "op_splitsheet00001", workspace_id: "w1", tab_id: "t1", pane_id: "p3", outcome: "applied" as const };
+      },
+    });
+    const agent = dashboardStore.get().agents[0];
+    const tab = createSelectedTab(agent, { cwd: "/tmp/sheet", label: "notes" });
+    expect(happy.document.querySelector("dialog.operation-modal")).toBeNull();
+    await tab;
+    const split = splitSelectedPane(agent, { input: { direction: "down", ratio: 0.5 } });
+    expect(happy.document.querySelector("dialog.operation-modal")).toBeNull();
+    await split;
+    expect(tabs).toEqual([{ workspace_id: "w1", cwd: "/tmp/sheet", label: "notes" }]);
+    expect(splits).toEqual([{ pane_id: "p1", direction: "down", ratio: 0.5 }]);
+  }));
+});
+
 describe.each(["tab", "split"])("%s pane type form", (operation) => {
   function open(): Promise<void> {
     selectPane("p1");

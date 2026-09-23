@@ -56,7 +56,7 @@ test("text result waits for native close delivery, then releases its portal and 
   delayCloseEvents();
   const opener = trigger();
   let result!: Promise<string | null>;
-  act(() => { result = askText("Rename", "old"); });
+  act(() => { result = askText({ title: "Rename", initial: "old" }); });
   const dialog = openDialog();
   dialog.querySelector("input")!.value = "edited";
   let settlements = 0;
@@ -80,11 +80,11 @@ test("simultaneous text and confirmation dialogs keep results and cleanup scoped
   delayCloseEvents();
   let text!: Promise<string | null>;
   let confirm!: Promise<boolean>;
-  act(() => { text = askText("Rename", "draft"); });
+  act(() => { text = askText({ title: "Rename", initial: "draft" }); });
   const textDialog = openDialog();
   const input = textDialog.querySelector("input")!;
   input.value = "retained draft";
-  act(() => { confirm = askConfirm("Confirm another action?"); });
+  act(() => { confirm = askConfirm({ title: "Confirm another action?", confirmLabel: "OK" }); });
   const confirmDialog = [...document.querySelectorAll<HTMLDialogElement>("dialog[open]")].at(-1)!;
   act(() => confirmDialog.querySelector<HTMLButtonElement>(".btn-danger")!.click());
   act(() => deliverClose(confirmDialog));
@@ -125,7 +125,7 @@ test("app-root replacement and unmount preserve the separate modal input and ski
   const opener = document.querySelector<HTMLButtonElement>("#app button")!;
   opener.focus();
   let result!: Promise<string | null>;
-  act(() => { result = askText("Rename", "draft"); });
+  act(() => { result = askText({ title: "Rename", initial: "draft" }); });
   const dialog = openDialog();
   const input = dialog.querySelector("input")!;
   input.value = "unsaved draft";
@@ -137,7 +137,7 @@ test("app-root replacement and unmount preserve the separate modal input and ski
   expect(document.activeElement).toBe(input);
   expect(input.value).toBe("unsaved draft");
   expect([input.selectionStart, input.selectionEnd]).toEqual([2, 7]);
-  act(() => dialog.querySelector<HTMLButtonElement>(".btn-ghost")!.click());
+  act(() => dialog.querySelector<HTMLButtonElement>(".text-edit-action:not(.text-edit-save)")!.click());
   expect(await result).toBeNull();
   expect(document.activeElement).not.toBe(opener);
 });
@@ -164,7 +164,7 @@ test("a native close releases component effects and controller refs exactly once
 test("text preserves native close acceptance for every return value except cancel", async () => {
   for (const returnValue of ["ok", "confirm", ""]) {
     let result!: Promise<string | null>;
-    act(() => { result = askText("Rename", "before"); });
+    act(() => { result = askText({ title: "Rename", initial: "before" }); });
     const dialog = openDialog();
     dialog.querySelector("input")!.value = `current ${returnValue}`;
     act(() => dialog.close(returnValue));
@@ -174,7 +174,7 @@ test("text preserves native close acceptance for every return value except cance
 
 test("confirmation retains a direct promise continuation after native close delivery", async () => {
   let continued: boolean | undefined;
-  act(() => { void askConfirm("Confirm?").then(value => { continued = value; }); });
+  act(() => { void askConfirm({ title: "Confirm?", confirmLabel: "OK" }).then(value => { continued = value; }); });
   act(() => openDialog().querySelector<HTMLButtonElement>(".btn-danger")!.click());
   await Promise.resolve();
   expect(continued).toBeTrue();
@@ -183,7 +183,7 @@ test("confirmation retains a direct promise continuation after native close deli
 test("native confirmation accepts only its legacy confirm return value", async () => {
   for (const returnValue of ["confirm", "cancel", "ok", ""]) {
     let result!: Promise<boolean>;
-    act(() => { result = askConfirm("Confirm?"); });
+    act(() => { result = askConfirm({ title: "Confirm?", confirmLabel: "OK" }); });
     act(() => openDialog().close(returnValue));
     expect(await result).toBe(returnValue === "confirm");
   }

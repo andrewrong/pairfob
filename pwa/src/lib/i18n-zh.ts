@@ -1,5 +1,7 @@
 import { zhAgentInfo } from "./i18n-zh-agent-info";
 import { zhBoardMenu } from "./i18n-board-menu";
+import { zhDialogs } from "./i18n-dialogs";
+import { zhShell } from "./i18n-zh-shell";
 import { zhWorkspace } from "./i18n-zh-workspace.ts";
 
 /**
@@ -8,11 +10,12 @@ import { zhWorkspace } from "./i18n-zh-workspace.ts";
  */
 export const zh = {
   ...zhWorkspace,
+  ...zhShell,
   ...zhAgentInfo,
   ...zhBoardMenu,
+  ...zhDialogs,
   "fileActions.rename": "重命名",
   "fileActions.delete": "删除文件",
-  "fileActions.confirmDelete": "确定删除「{name}」？文件将直接从电脑中删除，无法在此撤销。",
   "fileActions.invalidName": "请输入有效文件名，不能包含路径分隔符，也不能是 .、.. 或 .git。",
   "fileActions.conflict": "文件已变化或目标名称已存在，请刷新后重新操作。",
   "fileActions.hint": "长按或右键打开文件操作",
@@ -377,7 +380,6 @@ export const zh = {
   "scan.cameraDenied": "摄像头权限被拒绝。请在浏览器设置里允许摄像头，或直接手动输入配对码。",
 
   "computers.this": "这台电脑",
-  "computers.forgetAsk": "从这台手机去掉「{title}」？电脑上的配对还在，以后还可以再扫码连回来。",
   "computers.forgot": "已从这台手机去掉这台电脑。",
   "computer.unnamed": "未命名电脑",
 
@@ -391,7 +393,6 @@ export const zh = {
   "live.copied": "已复制当前画面。",
   "live.unpairAsk": "解除这台手机的配对后会立即断开并删除本地凭证，以后需要重新配对。",
   "live.unpaired": "已解除这台手机的配对并删除本地凭证。",
-  "live.unpairDeviceAsk": "解除「{name}」的配对？那台设备会立即断开，以后需要重新扫码。",
   "live.unpairedDevice": "已解除「{name}」的配对。",
 
   "op.creatingConversation": "正在新建会话…",
@@ -413,28 +414,23 @@ export const zh = {
   "op.resized": "这一格已调整。",
   "op.swapping": "正在对调分屏…",
   "op.swapped": "分屏已对调。",
-  "op.renamePane": "修改会话名（留空恢复自动名称）",
   "op.paneName": "会话名",
   "op.renameTab": "修改标签页名",
   "op.tabName": "标签页名",
   "op.renameWorkspace": "修改工作区名",
   "op.workspaceName": "工作区名",
-  "op.closePaneAsk": "关闭「{title}」会结束里面的进程，而且不能撤销。",
   "op.closePane": "关闭这个会话",
   "op.closingPane": "正在关闭会话…",
   "op.closedPane": "会话已关闭。",
-  "op.closeTabAsk": "关闭整个标签页“{title}”会结束里面所有会话，而且不能撤销。",
   "op.closeTab": "关闭整个标签页",
   "op.closingTab": "正在关闭标签页…",
   "op.closedTab": "标签页已关闭。",
   "err.closeWorkspaceConflict": "此工作区有关联成员，无法单独关闭。请先关闭关联工作区，或在电脑上管理整组工作区。",
   "err.closeWorkspaceUnsupported": "安全关闭工作区需要电脑上的 Herdr 0.9.0 或更新版本。本次没有关闭任何工作区。",
-  "op.closeWorkspaceAsk": "关闭工作区“{title}”会结束里面所有会话，而且不能撤销。",
   "op.closeWorkspace": "关闭这个工作区",
   "op.closingWorkspace": "正在关闭工作区…",
   "op.closedWorkspace": "工作区已关闭。",
   "op.fieldName": "名称",
-  "op.dangerTitle": "确认危险操作",
   "form.newConversation": "新建会话",
   "form.createOpen": "新建并打开",
   "form.projectDir": "项目目录",
@@ -477,10 +473,6 @@ export const zh = {
   "form.pathXorBranch": "路径和分支只能填写一个。",
   "form.needRatio": "分屏占比必须大于 0 且小于 1，例如 0.5。",
   "form.needAmount": "调整量必须大于 0 且不超过 1，例如 0.1。",
-  "form.resizeTitle": "让这一格大一点",
-  "form.swapTitle": "和对面一格对调",
-  "form.resizeHint": "每次大约动一点。电脑上看着不对就再点一次。",
-  "form.swapHint": "对调的是电脑上紧挨着的那一格。",
   "form.wider": "加宽",
   "form.narrower": "变窄",
   "form.taller": "加高",
@@ -504,10 +496,7 @@ export const zh = {
   "menu.workspace": "这个工作区",
   "menu.renameWorkspace": "改工作区名",
   "menu.input": "输入",
-  "menu.display": "显示",
-  "menu.new": "新建",
   "menu.worktree": "Worktree",
-  "menu.layout": "布局",
   "menu.manage": "管理",
   "menu.copyScreen": "复制画面文本",
   "menu.wrap": "长行自动折行",
@@ -523,8 +512,6 @@ export const zh = {
   "menu.worktrees": "Worktree 列表",
   "menu.newWorktree": "新建 Worktree",
   "menu.openWorktree": "打开 Worktree",
-  "menu.zoom": "让这一格大一点",
-  "menu.swap": "和对面一格对调",
   "menu.composeBatch": "组字",
   "menu.composeLive": "实时",
 
@@ -632,12 +619,8 @@ export const zh = {
   "pane.inputAria": "终端输入方式",
   "pane.composeAria": "组字，写完再按 Enter",
   "pane.liveAria": "实时，边打边进终端",
-  "pane.unwrap": "关掉自动折行",
-  "pane.fontUpCurrent": "文字加大（当前 {n}px）",
-  "pane.fontDownCurrent": "文字减小（当前 {n}px）",
   "pane.thisCell": "这一格",
   "pane.splitUnsupported": "电脑上是分屏。当前 Herdr 还不支持铺满这一格。",
-  "pane.termSection": "终端",
   "pane.interrupt": "打断当前任务",
   "pane.interruptTitle": "打断（Esc）",
 
@@ -766,7 +749,6 @@ export const zh = {
   "update.rejected": "更新请求未被接受，请检查最新状态。",
   "update.uncertain": "更新结果尚未确认，正在查询；不会自动重试。",
   "update.now": "更新电脑端",
-  "update.confirm": "更新会短暂断开连接，随后自动重连。现在更新电脑端？",
   "update.refresh": "刷新更新进度",
   "update.view": "查看更新",
   "update.later": "明天提醒",

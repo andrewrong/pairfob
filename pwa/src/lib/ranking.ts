@@ -19,6 +19,8 @@ export interface AgentCard extends DisplayMetadata {
   agent: string;
   status: AgentStatus;
   workspaceLabel: string;
+  /** The workspace root the snapshot reports, when it reports one. */
+  workspaceCwd?: string;
   cwd: string;
   viewportRows?: number;
   historyAvailable?: boolean;
@@ -143,7 +145,11 @@ export function groupAgents(
   touchedAt: TouchedAt = {},
   pinnedAt: PinnedAt = {},
 ): AgentGroup[] {
-  const ranked = rankAgents(agents, touchedAt, pinnedAt);
+  // Workspace grouping keeps the computer's own order — workspaces and panes as
+  // the snapshot lists them — so a status change never moves a row or a group.
+  // Only the pinned section is ordered by the reader's pins.
+  const stable = mode === "space";
+  const ranked = stable ? [...agents] : rankAgents(agents, touchedAt, pinnedAt);
   const pinnedItems: AgentCard[] = [];
   const rest: AgentCard[] = [];
   for (const agent of ranked) {
@@ -152,7 +158,7 @@ export function groupAgents(
   }
   const groups: AgentGroup[] = [];
   if (pinnedItems.length) {
-    groups.push({ id: PINNED_GROUP_ID, title: t("group.pinned"), items: pinnedItems });
+    groups.push({ id: PINNED_GROUP_ID, title: t("group.pinned"), items: stable ? rankAgents(pinnedItems, {}, pinnedAt) : pinnedItems });
   }
   if (mode === "flat") {
     if (rest.length) groups.push({ id: "all", title: t("group.sessions"), items: rest });
@@ -169,6 +175,10 @@ export function groupAgents(
       order.push(id);
     }
     group.items.push(agent);
+  }
+  if (stable) {
+    return groups.concat(order.map((id) => buckets.get(id)!).sort((left, right) =>
+      Number(left.id === "unbound") - Number(right.id === "unbound")));
   }
   return groups.concat(
     order

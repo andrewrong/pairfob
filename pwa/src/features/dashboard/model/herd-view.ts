@@ -7,6 +7,7 @@
  * never touches the DOM, and never consumes attention memory: the caller
  * consumes attention once per paint and hands the resulting marks in.
  */
+import { agentDisplaySummary } from "../../../lib/agent-inspect";
 import { agentMeta, agentStatusLabel, agentTitle, statusLabel, type DashboardAgentCard } from "../../../lib/dashboard";
 import type { HerdPaint, StatusMark } from "../../../lib/herd-attention";
 import { t } from "../../../lib/i18n";
@@ -28,6 +29,9 @@ export type HerdTone = "live" | "warn" | "off" | "demo" | "pending";
 
 export type HerdStatus = { tone: HerdTone; text: string };
 
+/** Option B header: the computer's name, and one line for how it is reached. */
+export type HerdHostView = { name: string; line: string; tone: HerdTone };
+
 export type HerdModelInput = {
   /** The published card list; a domain snapshot is read-only by contract. */
   agents: readonly DashboardAgentCard[];
@@ -48,10 +52,26 @@ export type HerdModelInput = {
   computerCount: number;
   /** Pane whose title currently shares the view-transition name, if any. */
   morphingPaneId: string | null;
+  host: HerdHostView;
+  createTab: boolean;
+  /** Wall clock for the "changed n minutes ago" column. */
+  now: number;
 };
 
 export type HerdCardView = {
   paneId: string;
+  /** A plain shell reports no agent status; only agents carry a status word. */
+  kind: "agent" | "terminal";
+  agentKind: string;
+  /** Status word for an agent row; empty for a terminal. */
+  statusLabel: string;
+  statusTone: AgentCard["status"];
+  /** Second line: status-free facts (place, tab, task tokens). */
+  line: string;
+  /** Time since the phone last saw this pane change; empty when unknown. */
+  ago: string;
+  blocked: boolean;
+  unread: boolean;
   /** The card the menu actions operate on; refreshed with every projection. */
   agent: DashboardAgentCard;
   className: string;
@@ -74,7 +94,22 @@ export type HerdGroupView = {
   /** Only a workspace group with a real workspace id owns the heading menu. */
   hasMenu: boolean;
   menuAgent: AgentCard | undefined;
+  /** Workspace root shown under a workspace heading. */
+  path: string;
+  /** Rows in this group waiting on the reader / finished and not yet read. */
+  blockedCount: number;
+  doneCount: number;
+  /** The heading's + opens the create sheet on this workspace. */
+  canCreateTab: boolean;
   cards: HerdCardView[];
+};
+
+export type HerdAttentionItem = {
+  paneId: string;
+  title: string;
+  workspace: string;
+  agentKind: string;
+  kind: "blocked" | "done";
 };
 
 export type HerdEmptyView = {
@@ -97,9 +132,14 @@ export type HerdViewModel = {
   stagger: boolean;
   empty: HerdEmptyView | null;
   status: HerdStatus;
+  host: HerdHostView;
   doneCount: number;
   pendingCount: number;
+  /** "Needs you" strip: waiting first, then unread completions. */
+  attention: HerdAttentionItem[];
+  listGroup: ListGroup;
   create: { label: string; aria: string; disabled: boolean } | null;
+  /** Desktop rail links; the phone reaches these through the tab bar. */
   computers: { label: string } | null;
   board: { label: string };
   settings: { label: string };
@@ -152,6 +192,23 @@ export function emptyActionSpec(
   return { label: t("empty.actionSettings"), kind, disabled: false };
 }
 
+/** Compact "changed n ago" copy; empty when the phone never saw a change. */
+export function herdAgo(touched: number | undefined, now: number): string {
+  if (!touched || touched <= 0) return "";
+  const minutes = Math.floor(Math.max(0, now - touched) / 60_000);
+  if (minutes < 1) return t("list.agoNow");
+  if (minutes < 60) return t("list.agoMin", { n: String(minutes) });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("list.agoHour", { n: String(hours) });
+  return t("list.agoDay", { n: String(Math.floor(hours / 24)) });
+}
+
+/** An agent-bound pane that is waiting on the reader or finished unread. */
+export function herdNeedsReader(agent: DashboardAgentCard): "blocked" | "done" | "" {
+  if (!agent.hasAgent) return "";
+  return agent.status === "blocked" ? "blocked" : agent.status === "done" ? "done" : "";
+}
+
 function cardView(
   agent: DashboardAgentCard,
   input: HerdModelInput,
@@ -159,8 +216,19 @@ function cardView(
   stale: boolean,
 ): HerdCardView {
   const pinned = paneIsPinned(input.panePinned, agent.paneId);
+  const isAgent = agent.hasAgent;
+  const needs = stale ? "" : herdNeedsReader(agent);
+  const summary = agentDisplaySummary(agent);
   return {
     paneId: agent.paneId,
+    kind: isAgent ? "agent" : "terminal",
+    agentKind: agent.agent,
+    statusLabel: isAgent ? (stale ? t("status.unverifiable") : agentStatusLabel(agent)) : "",
+    statusTone: stale ? "unknown" : agent.status,
+    line: summary || agentMeta(agent, input.listGroup),
+    ago: herdAgo(input.paneTouched[agent.paneId], input.now),
+    blocked: needs === "blocked",
+    unread: needs === "done",
     agent,
     className: herdCardClassName({
       status: agent.status,
@@ -206,17 +274,36 @@ export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
   const views = groups.map((group) => {
     const index = position;
     position += group.items.length + 1;
+    const cards = group.items.map((agent, offset) => cardView(richAgents.get(agent.paneId)!, input, index + offset + 1, stale));
+    const hasMenu = groupHasMenu(input.listGroup, group);
+    const menuAgent = groupMenuAgent(group);
     return {
       id: group.id,
       title: group.title,
       count: group.items.length,
       index,
       collapsed: grouped && input.groupCollapsed[group.id] === true,
-      hasMenu: groupHasMenu(input.listGroup, group),
-      menuAgent: groupMenuAgent(group),
-      cards: group.items.map((agent, offset) => cardView(richAgents.get(agent.paneId)!, input, index + offset + 1, stale)),
+      hasMenu,
+      menuAgent,
+      path: hasMenu ? (menuAgent?.workspaceCwd || "") : "",
+      blockedCount: cards.filter((card) => card.blocked).length,
+      doneCount: cards.filter((card) => card.unread).length,
+      canCreateTab: hasMenu && input.createTab,
+      cards,
     };
   });
+  const attention: HerdAttentionItem[] = stale ? [] : input.agents
+    .map((agent) => ({ agent, kind: herdNeedsReader(agent) }))
+    .filter((item): item is { agent: DashboardAgentCard; kind: "blocked" | "done" } => item.kind !== "")
+    .sort((left, right) => Number(left.kind === "done") - Number(right.kind === "done")
+      || (input.paneTouched[right.agent.paneId] ?? 0) - (input.paneTouched[left.agent.paneId] ?? 0))
+    .map(({ agent, kind }) => ({
+      paneId: agent.paneId,
+      title: agentTitle(agent, "flat"),
+      workspace: agent.workspaceLabel || "",
+      agentKind: agent.agent,
+      kind,
+    }));
   return {
     groups: views,
     groupIds: views.map((group) => group.id),
@@ -224,8 +311,11 @@ export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
     stagger: input.attention.stagger,
     empty: input.agents.length ? null : herdEmptyView(input),
     status: input.status,
-    doneCount: stale ? 0 : herdDoneCount(input.agents),
-    pendingCount: stale ? 0 : input.agents.filter(agent => agent.status === "blocked").length,
+    host: input.host,
+    attention,
+    listGroup: input.listGroup,
+    doneCount: attention.filter((item) => item.kind === "done").length,
+    pendingCount: attention.filter((item) => item.kind === "blocked").length,
     create: input.createConversation
       ? {
           label: input.operationBusy ? t("home.creating") : t("home.new"),

@@ -33,23 +33,16 @@
 }
 
 .rail .section-title,
-.rail .group-title { margin-top: 22px; }
+.rail .group-head { margin-top: 18px; }
 
-.rail .herd-list .section-title:first-child,
-.rail .herd-list .herd-group:first-child .group-title { margin-top: 10px; }
+.rail .herd-list .herd-group:first-child .section-title,
+.rail .herd-list .herd-group:first-child .group-head { margin-top: 8px; }
 
 .rail .empty-sub { margin: 4px 2px 0; }
 
-.rail .card {
-  margin: 6px 0 0;
-  padding: 0;
-  border-radius: var(--r-md);
-}
+.rail .herd-group-body { border-radius: var(--r-md); }
 
-.rail .card-main {
-  padding: 10px 12px;
-  border-radius: inherit;
-}
+.rail .card-main { padding: 8px 12px; }
 
 .rail .card-name { font-size: var(--text-lead); }
 .rail .card-meta { font-size: var(--text-caption); }

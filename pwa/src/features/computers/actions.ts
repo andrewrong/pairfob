@@ -206,7 +206,8 @@ export function forgetCompletionIsStale(input: {
 export async function forgetComputer(daemonId: string): Promise<void> {
   const pair = computers().find(item => item.daemonId === daemonId);
   const title = pair ? computerTitle(pair) : t("computers.this");
-  if (!(await askConfirm(t("computers.forgetAsk", { title }), t("forget")))) {
+  if (!(await askConfirm({ title: t("confirm.forgetTitle"), subject: { name: title }, message: t("confirm.forgetEffect"),
+    confirmLabel: t("forget") }))) {
     return;
   }
   const forgottenDaemonId = daemonId;

@@ -1,0 +1,178 @@
+/*
+  The shared promise dialogs: a confirmation that names its object and
+  consequence, and a single-field editor whose Cancel/Save live in the heading
+  so an on-screen keyboard cannot cover them. Emitted after overlay.scss.
+*/
+
+/* --- Confirmation ---------------------------------------------------------------- */
+
+.confirm-subject {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.confirm-name {
+  color: var(--ink);
+  font-size: var(--text-subhead);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.confirm-detail {
+  color: var(--muted);
+  font: 500 var(--text-secondary) / 1.45 var(--mono);
+  word-break: break-all;
+}
+
+.confirm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 620;
+}
+
+.confirm-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.confirm-status.is-busy { color: var(--warn); }
+
+dialog.modal .confirm-copy {
+  margin: 12px 0 0;
+  font-size: var(--text-lead);
+}
+
+.confirm-warning {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--ink);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+.confirm-warning svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--warn);
+}
+
+/* Cancel and confirm side by side at the same height; cancel keeps focus. */
+dialog.modal .confirm-actions {
+  flex-direction: row;
+  gap: var(--space-2);
+  margin-top: 18px;
+}
+
+dialog.modal .confirm-actions .btn {
+  flex: 1 1 0;
+  margin: 0;
+}
+
+/* --- Single-field editor --------------------------------------------------------- */
+
+.text-edit-head {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) minmax(0, 1fr) minmax(4.5rem, auto);
+  align-items: center;
+  gap: 4px;
+  margin: -8px -8px 0;
+}
+
+.text-edit-head .modal-title {
+  overflow: hidden;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.text-edit-action {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: var(--text-lead);
+  font-weight: 560;
+}
+
+.text-edit-save {
+  justify-self: end;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.text-edit-save:disabled {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+dialog.modal form > .text-edit-label {
+  margin-top: 16px;
+  font-size: var(--text-body);
+  font-weight: 550;
+}
+
+.text-edit-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #0e1218;
+}
+
+.text-edit-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+/* Beats the pairing code field's global text-input look; 16px avoids iOS zoom. */
+.text-edit-field input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font: 400 16px / 1.4 var(--font);
+  letter-spacing: 0;
+}
+
+.text-edit-field input[type="text"]:focus,
+.text-edit-field input[type="text"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.text-edit-clear {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.text-edit-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.5;
+}

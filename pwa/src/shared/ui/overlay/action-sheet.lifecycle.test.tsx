@@ -61,7 +61,7 @@ test("a picked action opens its text dialog only after sheet teardown and keeps 
   act(() => showActionSheet("Rename", modal => <MenuItem modal={modal} action={() => {
     observations.push({ connected: previous.isConnected, open: previous.open,
       bodyFeedback: document.body.classList.contains("sheet-open") });
-    pending = askText("New label", "Original");
+    pending = askText({ title: "New label", initial: "Original" });
   }}>Rename now</MenuItem>));
   previous = sheet();
   await act(async () => { action().click(); await Promise.resolve(); });
