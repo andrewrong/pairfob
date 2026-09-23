@@ -1,8 +1,10 @@
+import { enAgentInfo } from "./i18n-en-agent-info";
 import { enWorkspace } from "./i18n-en-workspace.ts";
 import type { zh } from "./i18n-zh.ts";
 
 export const en: { [K in keyof typeof zh]: string } = {
   ...enWorkspace,
+  ...enAgentInfo,
   "fileActions.rename": "Rename",
   "fileActions.delete": "Delete file",
   "fileActions.confirmDelete": "Delete “{name}”? This removes the file from your computer and cannot be undone here.",
@@ -170,7 +172,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "push.retry": "Retry notifications",
   "push.enabled": "Notifications are on.",
   "push.titleBlocked": "Pairfob · Waiting for you",
-  "push.titleDone": "Pairfob · Task complete",
+  "push.titleDone": "Pairfob · Turn finished",
   "push.fallbackBody": "Agent status updated",
   "push.fallbackNeedYou": "An agent needs you",
 
@@ -196,13 +198,14 @@ export const en: { [K in keyof typeof zh]: string } = {
 
   "status.blocked": "Needs you",
   "status.working": "Working",
-  "status.done": "Done",
+  "status.done": "Turn finished",
   "status.idle": "Idle",
   "status.unknown": "Unknown",
   "status.unverifiable": "Unknown",
   "status.starting": "Starting",
   "status.notReady": "Not ready",
-  "status.ready": "Ready",
+  "status.ready": "Ready · Waiting for input",
+  "status.waitingInput": "Waiting for input",
   "filter.aria": "Task status",
   "filter.all": "All",
   "filter.needs-you": "Needs you",
@@ -686,6 +689,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "chat.openTerminal": "View terminal",
   "chat.sendBelow": "Message the agent below",
   "chat.cantSend": "This session cannot message the agent yet",
+  "chat.startingHint": "The agent is starting. Send a task once it is ready.",
   "chat.readingOlder": "Reading earlier…",
   "chat.limit": "Each message is at most 32 KiB. The sendable prefix is kept.",
   "chat.placeholder": "Message the agent",

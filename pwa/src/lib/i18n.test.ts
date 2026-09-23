@@ -33,7 +33,7 @@ describe("i18n catalogs", () => {
     expect(t("push.titleBlocked")).toBe("Pairfob · 等待确认");
     setLang("en");
     expect(t("update.check")).toBe("Check for updates");
-    expect(t("push.titleDone")).toBe("Pairfob · Task complete");
+    expect(t("push.titleDone")).toBe("Pairfob · Turn finished");
     expect(t("quota.window.premium")).toBe("Premium interactions");
     expect(t("ft.webglLost")).toContain("WebGL");
   });

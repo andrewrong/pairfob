@@ -39,6 +39,7 @@ func (e *Engine) rpcGetConfig(s *sess, id string, params json.RawMessage) {
 		"create_tab":          descriptor.Supports(runtime.FeatureCreateTab),
 		"split_pane":          descriptor.Supports(runtime.FeatureSplitPane),
 		"prompt_agent":        descriptor.Supports(runtime.FeaturePromptAgent),
+		"agent_inspect":       descriptor.Supports(runtime.FeatureAgentInspect),
 		"history":             describeErr == nil && (e.Journal != nil || descriptor.Supports(runtime.FeaturePaneRead)),
 		"list_worktrees":      descriptor.Supports(runtime.FeatureWorktreeList),
 		"create_worktree":     descriptor.Supports(runtime.FeatureWorktreeCreate),

@@ -79,7 +79,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantOps := []string{
-		"Ping", "GetConfig", "DaemonUpdateStatus", "DaemonUpdate", "AgentQuota", "Snapshot", "PaneRead", "SendText", "SendKeys",
+		"Ping", "GetConfig", "DaemonUpdateStatus", "DaemonUpdate", "AgentQuota", "AgentInspect", "Snapshot", "PaneRead", "SendText", "SendKeys",
 		"PushSubscribe", "RevokeDevice", "ListDevices", "History", "AgentTrace", "AgentTraceSummary", "AgentTraceDetail", "RenamePane",
 		"RenameTab", "RenameWorkspace", "ClosePane", "CloseTab", "CloseWorkspace",
 		"CreateConversation", "CreateTab", "SplitPane", "PromptAgent", "ListWorktrees",
@@ -244,6 +244,8 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		}
 	}
 
+	requireExactObjectFields(t, paramsByOp, "AgentInspect", []string{"pane_id", "session"}, []string{"pane_id"})
+	requireExactObjectFields(t, schema.Defs, "agentInspectResult", []string{"status", "manifest_source", "manifest_version", "matched_rule", "fallback_reason", "skipped_reason", "warning", "screen_detection_skipped", "rules"}, []string{"status", "screen_detection_skipped", "rules"})
 	quotaParams := paramsByOp["AgentQuota"]
 	if len(quotaParams.Properties) != 0 || quotaParams.AdditionalProperties == nil || *quotaParams.AdditionalProperties {
 		t.Error("AgentQuota must reject all parameters")
@@ -256,7 +258,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		"create_conversation", "create_tab", "split_pane", "prompt_agent", "history",
 		"list_worktrees", "create_worktree", "open_worktree", "resize_pane", "swap_pane", "zoom_pane",
 	}
-	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "rename_file", "delete_file", "upload_file", "upload_file_v2"), capabilities)
+	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2"), capabilities)
 
 	// Stage-2 V2 upload surface: the dedicated state def reports the V2 chunk
 	// bound, and the V2 write carries the larger base64 payload bound. The

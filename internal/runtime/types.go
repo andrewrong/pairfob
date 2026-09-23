@@ -76,6 +76,7 @@ const (
 	FeatureLayoutSwap         Feature = "layout_swap"
 	FeatureLayoutZoom         Feature = "layout_zoom"
 	FeatureHistory            Feature = "history"
+	FeatureAgentInspect       Feature = "agent_inspect"
 )
 
 type Capability struct {
@@ -114,11 +115,13 @@ type Snapshot struct {
 }
 
 type Workspace struct {
-	WorkspaceID string `json:"workspace_id"`
-	Number      int    `json:"number"`
-	Label       string `json:"label"`
-	Cwd         string `json:"cwd"`
-	AgentStatus string `json:"agent_status"`
+	Tokens      map[string]string  `json:"tokens,omitempty"`
+	Worktree    *WorkspaceWorktree `json:"worktree,omitempty"`
+	WorkspaceID string             `json:"workspace_id"`
+	Number      int                `json:"number"`
+	Label       string             `json:"label"`
+	Cwd         string             `json:"cwd"`
+	AgentStatus string             `json:"agent_status"`
 }
 
 type Tab struct {
@@ -135,13 +138,16 @@ type AgentSessionRef struct {
 }
 
 type Pane struct {
-	PaneID      string  `json:"pane_id"`
-	WorkspaceID string  `json:"workspace_id"`
-	TabID       string  `json:"tab_id"`
-	Cwd         string  `json:"cwd"`
-	Agent       string  `json:"agent"`
-	AgentStatus string  `json:"agent_status"`
-	Label       *string `json:"label"`
+	DisplayAgent string            `json:"display_agent,omitempty"`
+	StateLabels  map[string]string `json:"state_labels,omitempty"`
+	Tokens       map[string]string `json:"tokens,omitempty"`
+	PaneID       string            `json:"pane_id"`
+	WorkspaceID  string            `json:"workspace_id"`
+	TabID        string            `json:"tab_id"`
+	Cwd          string            `json:"cwd"`
+	Agent        string            `json:"agent"`
+	AgentStatus  string            `json:"agent_status"`
+	Label        *string           `json:"label"`
 	// TerminalTitle is the stripped PTY OSC title. Display-only; it is not a user-assigned name.
 	TerminalTitle string `json:"terminal_title,omitempty"`
 	// Runtime observations are optional so snapshots from older Herdr versions
@@ -157,6 +163,8 @@ type Pane struct {
 	// AgentSession is trusted runtime state for transcript adapters. It must
 	// never be serialized to a Web client.
 	AgentSession *AgentSessionRef `json:"-"`
+	// TaskEvidence is daemon-local transcript evidence for notification deduplication.
+	TaskEvidence string `json:"-"`
 	Scroll       *struct {
 		OffsetFromBottom int `json:"offset_from_bottom"`
 		ViewportRows     int `json:"viewport_rows"`

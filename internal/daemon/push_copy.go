@@ -192,7 +192,7 @@ func pushNotificationCopy(event HerdPush) (title, body string) {
 	}
 	status := "等待确认"
 	if event.Kind == PushDone {
-		status = "任务已完成"
+		status = "本轮结束"
 	}
 	// Keep the product and state in the trusted title. Pane and terminal labels
 	// are useful context, but belong in the body because they are user-controlled.

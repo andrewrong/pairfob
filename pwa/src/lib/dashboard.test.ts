@@ -277,11 +277,22 @@ describe("dashboard mapping", () => {
     expect(invalid).toMatchObject({ terminalId: undefined, revision: undefined, stateChangeSeq: undefined, interactiveReady: undefined, launchPending: undefined });
   });
 
-  test("rich readiness labels preserve active status priority", () => {
+  test("launch status precedes work and completion but preserves confirmation", () => {
     const card = { ...mapSnapshotAgents(snapshot)[0], status: "idle" as const };
     expect(agentStatusLabel({ ...card, status: "blocked", launchPending: true })).toBe(statusLabel("blocked"));
     expect(agentStatusLabel({ ...card, status: "working", interactiveReady: false })).toBe(statusLabel("working"));
-    expect(agentStatusLabel({ ...card, status: "done", launchPending: true })).toBe(statusLabel("done"));
+    expect(agentStatusLabel({ ...card, status: "done", launchPending: true })).toBe("启动中");
+    expect(agentStatusLabel({ ...card, status: "working", launchPending: true })).toBe("启动中");
+    expect(agentStatusLabel({ ...card, interactiveReady: true })).toBe("就绪 · 等待输入");
+    expect(agentStatusLabel({ ...card, agent: "codex" })).toBe("等待输入");
+    expect(agentStatusLabel({ ...card, agent: "" })).toBe(statusLabel("idle"));
+  });
+
+  test("launch observations do not enter working or completed groups", () => {
+    const cards = mapSnapshotAgents({ panes: ["working", "done", "blocked", "unknown"].map((status) => ({
+      pane_id: status, workspace_id: "w", agent: "codex", agent_status: status, launch_pending: true,
+    })) });
+    expect(cards.map(card => card.status)).toEqual(["idle", "idle", "blocked", "unknown"]);
   });
 
   test("OSC status crumbs and trailing agent names never become the card title", () => {

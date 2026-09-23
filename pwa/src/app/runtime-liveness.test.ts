@@ -12,7 +12,7 @@ import { applyCapabilities, setOperationBusy } from "../features/operations/capa
 import { applyRuntimeIdentity, resetRuntime } from "../features/connection/runtime-store";
 import { resetHerdPresentationChoices } from "../features/settings/preferences-store";
 import { resetHerdAttention } from "../lib/herd-attention";
-import { setLang } from "../lib/i18n";
+import { setLang, t } from "../lib/i18n";
 import { NO_OPERATION_CAPABILITIES } from "../lib/operations";
 import type { LiveSession } from "../lib/protocol/session-types";
 
@@ -187,7 +187,7 @@ describe("home list while unverifiable", () => {
     const app = appRoot();
     const card = app.querySelector(".card");
     expect(card?.className).not.toContain("unverifiable");
-    expect(card?.querySelector(".pill-done")?.textContent).toBe("完成");
+    expect(card?.querySelector(".pill-done")?.textContent).toBe(t("status.done"));
     expect((app.querySelector(".banner-warn")) === null).toBe(true);
   });
 

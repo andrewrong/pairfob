@@ -1,0 +1,42 @@
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { act } from "react";
+import { resetBoardTestDOM } from "../../../../test-support/dom";
+import { renderReact, unmountReact } from "../../../../test-support/react-harness";
+import { WorkspaceSnapshotRestorer } from "../../../../test-support/workspace-snapshot-restore";
+import { appRoot } from "../../../app/dom-root";
+import { setLang } from "../../../lib/i18n";
+import { applySnapshot, selectedAgent } from "../../dashboard/catalog-store";
+import { selectPane } from "../session-store";
+import { applyTrace, chatSnapshot, resetTrace } from "./trace-store";
+import { createPromptProgress } from "./prompt-progress";
+import { PromptProgressView } from "./prompt-progress-view";
+const restorer = new WorkspaceSnapshotRestorer();
+const snapshot = (status: string, seq = 1, occupant = "a") => ({ panes: [{ pane_id: "progress-pane", workspace_id: "w", agent: "codex", agent_status: status, agent_instance_id: occupant, state_change_seq: seq }] });
+beforeEach(async () => {
+  await resetBoardTestDOM(); unmountReact(); restorer.capture();
+  act(() => { setLang("zh"); selectPane("progress-pane"); applySnapshot(snapshot("idle")); resetTrace(); });
+});
+afterEach(() => { unmountReact(); act(() => { resetTrace(); restorer.restore(); selectPane(""); }); });
+test("feedback follows accepted input, observed processing and native receipt without claiming completion", () => {
+  const progress = createPromptProgress(selectedAgent()!);
+  act(() => applyTrace({ promptProgress: progress }));
+  renderReact(<PromptProgressView />);
+  expect(appRoot().textContent).toContain("正在发送");
+  act(() => applyTrace({ promptProgress: { ...progress, phase: "submitted" } }));
+  expect(appRoot().textContent).toContain("等待观察到处理开始");
+  act(() => applySnapshot(snapshot("working", 2)));
+  expect(appRoot().textContent).toContain("已观察到 Agent 开始处理");
+  expect(chatSnapshot().promptProgress?.phase).toBe("processing");
+  act(() => applyTrace({ promptProgress: { ...progress, phase: "recorded" } }));
+  act(() => applySnapshot(snapshot("done", 3)));
+  expect(appRoot().textContent).toContain("确认收到本次输入");
+  expect(appRoot().textContent).not.toContain("已完成");
+  act(() => applySnapshot(snapshot("idle", 0, "replacement")));
+  expect(appRoot().querySelector("[data-prompt-progress]")).toBeNull();
+});
+test("an unobserved start shows a conservative hint and does not offer automatic resend", () => {
+  act(() => applyTrace({ promptProgress: { ...createPromptProgress(selectedAgent()!, Date.now() - 9000), phase: "submitted" } }));
+  renderReact(<PromptProgressView />);
+  expect(appRoot().textContent).toContain("尚未观察到处理开始");
+  expect(appRoot().querySelector("button")).toBeNull();
+});

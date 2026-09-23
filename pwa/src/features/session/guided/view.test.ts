@@ -1,3 +1,4 @@
+import { agentStatusLabel } from "../../../lib/dashboard";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { WorkspaceSnapshotRestorer } from "../../../../test-support/workspace-snapshot-restore";
 import { ScalarPreferenceState } from "../../../../test-support/preferences-scalar-restore";
@@ -121,7 +122,7 @@ describe("pane header keeps status surfaces in step", () => {
     });
     expect(appRoot().querySelector(".chrome-title") === title).toBeTrue();
     expect(appRoot().querySelector(".icon-stop")).toBeNull();
-    expect(title.getAttribute("aria-label")).toContain(t("status.idle"));
+    expect(title.getAttribute("aria-label")).toContain(agentStatusLabel({ paneId: "p1", agent: "codex", status: "idle", cwd: "", workspaceId: "" }));
     expect(viewSource).toContain("flushSync(notifySessionUI)");
     expect(viewSource).toContain("export function patchChromeTitle");
   });

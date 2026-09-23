@@ -63,7 +63,7 @@ export function createSession(): FixtureSession {
     paneRead: (paneId: string, lines?: number, format?: string) => request("paneRead", [paneId, lines, format], () => ({ text, hash: hash.toString(16).padStart(64, "0"), truncated: false })),
     sendText: (paneId: string, input: string) => mutation("sendText", [paneId, input], () => { text += input; hash++; return { operation_id: op() }; }),
     sendKeys: (paneId: string, keys: string[], extra?: unknown) => mutation("sendKeys", [paneId, keys, extra]),
-    promptAgent: (params: { pane_id?: string; paneId?: string }) => mutation("promptAgent", [params], () => ({ operation_id: op(), pane_id: params.pane_id ?? params.paneId ?? data.PANE, agent_status: "working", outcome: "applied" })),
+    promptAgent: (params: { pane_id?: string; paneId?: string }) => mutation("promptAgent", [params], () => ({ operation_id: op(), pane_id: params.pane_id ?? params.paneId ?? data.PANE, agent_status: "unknown", outcome: "applied" })),
     listDevices: () => request("listDevices", [], () => ({ devices: structuredClone(deviceList) })),
     revokeDevice: (id: string) => mutation("revokeDevice", [id], () => { const item = deviceList.find((device) => device.device_id === id); if (item) item.revoked_at = FIXED_NOW / 1000; }),
     pushSubscribe: (subscription: unknown) => mutation("pushSubscribe", [subscription]),
@@ -82,6 +82,7 @@ export function createSession(): FixtureSession {
       const item = trace.find((entry) => entry.detailRef === detailRef);
       return { detailRef, input: item?.input, output: item?.output, truncated: false };
     }),
+    agentInspect: (paneId: string) => request("agentInspect", [paneId], () => ({ status: "idle" as const, manifest_source: "builtin", manifest_version: "1.2.0", matched_rule: "ready-prompt", screen_detection_skipped: false, rules: [{ id: "ready-prompt", state: "idle" as const, matched: true }] })),
     agentQuota: () => request("agentQuota", [], data.quotas),
     workspaceOpen: (paneId: string) => request("workspaceOpen", [paneId], data.descriptor),
     workspaceList: (paneId: string, path = "", cursor?: string) => request("workspaceList", [paneId, path, cursor], () => data.directory(path)),

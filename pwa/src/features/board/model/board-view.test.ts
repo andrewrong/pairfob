@@ -95,7 +95,7 @@ describe("board canvas tiles", () => {
     expect(tiles[1].className).toBe("board-pane status-working sel");
     expect(tiles[1].selected).toBe(true);
     expect(tiles[1].pill).toBe(t("status.working"));
-    expect(tiles[0].pill).toBe(t("status.idle"));
+    expect(tiles[0].pill).toBe(t("status.waitingInput"));
     expect(tiles[0].aria).toBe(t("board.paneAria", { title: "one" }));
     expect(tiles[0].cols).toBe(60);
     expect(tiles[0].rows).toBe(40);

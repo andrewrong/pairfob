@@ -5,7 +5,7 @@
  * everything the board screen renders: rail chips, chrome copy, capability
  * gates and the canvas tiles. No application record, no DOM, no session.
  */
-import { agentTitle, statusLabel, visibleTabLabel, type DashboardAgentCard } from "../../../lib/dashboard";
+import { agentTitle, agentStatusLabel, visibleTabLabel, type DashboardAgentCard } from "../../../lib/dashboard";
 import { t } from "../../../lib/i18n";
 import {
   layoutForTab,
@@ -131,7 +131,7 @@ export function boardTiles(
       title,
       aria: t("board.paneAria", { title }),
       status,
-      pill: agent ? statusLabel(agent.status) : "",
+      pill: agent ? agentStatusLabel(agent) : "",
       selected: box.paneId === selectedPaneId,
       zoomed: layout.zoomed && (box.focused || box.paneId === layout.focusedPaneId),
       cols: Math.round(pane?.rect.width || 0),

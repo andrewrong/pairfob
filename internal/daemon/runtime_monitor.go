@@ -22,14 +22,15 @@ type runtimeMonitorLease struct {
 }
 
 type monitoredPane struct {
-	status           string
-	instanceID       string
-	stateChangeSeq   *uint64
-	interactiveReady *bool
-	launchPending    *bool
-	workspaceLabel   string
-	tabLabel         string
-	pane             runtime.Pane
+	status             string
+	instanceID         string
+	stateChangeSeq     *uint64
+	interactiveReady   *bool
+	launchPending      *bool
+	completionEvidence string
+	workspaceLabel     string
+	tabLabel           string
+	pane               runtime.Pane
 }
 
 type sessionMonitorState struct {
@@ -313,7 +314,7 @@ func (e *Engine) monitorSnapshot(ctx context.Context, session runtime.SessionRef
 	if !ok {
 		return runtime.Snapshot{}, errors.New("runtime returned an invalid snapshot view")
 	}
-	return snapshot.Snapshot, nil
+	return e.decorateAgentActivity(snapshot.Snapshot), nil
 }
 
 func (e *Engine) reconcileRuntimeSession(ctx context.Context, session runtime.SessionRef, allowPush bool, state *sessionMonitorState, emitPoke func(string, string), emitPush func(HerdPush)) (bool, []string) {
@@ -348,11 +349,18 @@ func (e *Engine) reconcileRuntimeSession(ctx context.Context, session runtime.Se
 			emitPoke("agent_status", pane.PaneID)
 		}
 		if sameOccupant {
+			current.completionEvidence = previous.completionEvidence
 			sequenceAdvanced := pane.StateChangeSeq != nil && previous.stateChangeSeq != nil && *pane.StateChangeSeq > *previous.stateChangeSeq
 			kind, notify := pushKindForObservation(previous.status, pane.AgentStatus, sequenceAdvanced)
+			if kind == PushDone && (pane.TaskEvidence == "" || pane.TaskEvidence == previous.completionEvidence) {
+				notify = false
+			}
 			if notify && allowPush && e.PushEnabled {
 				emitPush(herdPushForPane(pane, current.workspaceLabel, current.tabLabel, kind))
 			}
+		}
+		if pane.AgentStatus == "done" || !sameOccupant || (pane.LaunchPending != nil && *pane.LaunchPending) {
+			current.completionEvidence = pane.TaskEvidence
 		}
 		next[pane.PaneID] = current
 	}
@@ -382,6 +390,7 @@ func herdPushForPane(pane runtime.Pane, workspaceLabel, tabLabel string, kind Pu
 		HerdID: pane.PaneID, Agent: pane.Agent, WorkspaceLabel: workspaceLabel, Cwd: pane.Cwd,
 		PaneLabel: optionalText(pane.Label), TerminalTitle: pane.TerminalTitle, TabLabel: tabLabel,
 		Kind: kind, AgentInstanceID: pane.AgentInstanceID, StateChangeSeq: copyUint64(pane.StateChangeSeq),
+		TaskEvidence: pane.TaskEvidence,
 	}
 }
 

@@ -208,7 +208,7 @@ func TestPersistentIdentityRPCPushAndRevokeLifecycle(t *testing.T) {
 	if err := json.Unmarshal(donePlain, &notification); err != nil {
 		t.Fatal(err)
 	}
-	if notification["title"] != "Pairfob · 任务已完成" || notification["kind"] != "done" || notification["tag"] != needsTag {
+	if notification["title"] != "Pairfob · 本轮结束" || notification["kind"] != "done" || notification["tag"] != needsTag {
 		t.Fatalf("completion notification mismatch: %+v", notification)
 	}
 	serverMu.Lock()

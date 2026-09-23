@@ -10,7 +10,7 @@ func TestPushNotificationCopyUsesTaskInsteadOfRepeatedPlace(t *testing.T) {
 		Agent: "grok", WorkspaceLabel: "pairfob", Cwd: "/Users/private/pairfob",
 		TerminalTitle: "Diff comment-to-agent flow walkthrough - grok", Kind: PushDone,
 	})
-	if title != "Pairfob · 任务已完成" {
+	if title != "Pairfob · 本轮结束" {
 		t.Fatalf("title=%q", title)
 	}
 	if body != "grok · Diff comment-to-agent flow walkthrough" {
@@ -22,7 +22,7 @@ func TestPushNotificationCopyDropsDuplicateWorkspaceAndDir(t *testing.T) {
 	title, body := pushNotificationCopy(HerdPush{
 		Agent: "grok", WorkspaceLabel: "pairfob", Cwd: "/Users/private/pairfob", Kind: PushDone,
 	})
-	if title != "Pairfob · 任务已完成" {
+	if title != "Pairfob · 本轮结束" {
 		t.Fatalf("title=%q", title)
 	}
 	if body != "grok" {
@@ -60,7 +60,7 @@ func TestPushNotificationCopyIgnoresMachineAndPathTitles(t *testing.T) {
 		Agent: "grok", WorkspaceLabel: "lab", Cwd: "/Users/private/secret-repo",
 		TerminalTitle: "user@host: ~/secret-repo", Kind: PushDone,
 	})
-	if title != "Pairfob · 任务已完成" || body != "grok · lab · secret-repo" {
+	if title != "Pairfob · 本轮结束" || body != "grok · lab · secret-repo" {
 		t.Fatalf("title=%q body=%q", title, body)
 	}
 	title, body = pushNotificationCopy(HerdPush{
@@ -70,7 +70,7 @@ func TestPushNotificationCopyIgnoresMachineAndPathTitles(t *testing.T) {
 	if strings.Contains(title+body, "/Users/private") {
 		t.Fatalf("path leaked title=%q body=%q", title, body)
 	}
-	if title != "Pairfob · 任务已完成" || body != "grok · lab · secret-repo" {
+	if title != "Pairfob · 本轮结束" || body != "grok · lab · secret-repo" {
 		t.Fatalf("path title=%q body=%q", title, body)
 	}
 }

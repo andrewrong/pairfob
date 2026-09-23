@@ -65,17 +65,19 @@ type Reader struct {
 	GrokRoot   string
 	PiRoot     string
 
-	indexMu     sync.Mutex
-	traceMu     sync.Mutex
-	piMu        sync.Mutex
-	traceCache  map[traceCacheKey]traceCacheEntry
-	piCache     []piCacheEntry
-	piCacheTick uint64
-	codexIndex  codexFileIndex
-	claudeIndex codexFileIndex
-	piIndex     piFileIndex
-	now         func() time.Time
-	walkDir     func(string, fs.WalkDirFunc) error
+	indexMu       sync.Mutex
+	traceMu       sync.Mutex
+	piMu          sync.Mutex
+	activityMu    sync.Mutex
+	activityCache map[string]activityCacheEntry
+	traceCache    map[traceCacheKey]traceCacheEntry
+	piCache       []piCacheEntry
+	piCacheTick   uint64
+	codexIndex    codexFileIndex
+	claudeIndex   codexFileIndex
+	piIndex       piFileIndex
+	now           func() time.Time
+	walkDir       func(string, fs.WalkDirFunc) error
 }
 
 type codexFileIndex struct {

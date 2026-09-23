@@ -86,10 +86,11 @@ type HerdPush struct {
 	TerminalTitle  string
 	TabLabel       string
 	Kind           PushKind
-	// Identity and sequence participate only in local delivery deduplication;
-	// neither value is included in the Web Push payload.
+	// Observation identity participates only in local delivery deduplication;
+	// these values are never included in the Web Push payload.
 	AgentInstanceID string
 	StateChangeSeq  *uint64
+	TaskEvidence    string
 }
 
 type PushKind string
@@ -421,7 +422,9 @@ func (e *Engine) notifyHerd(ctx context.Context, event HerdPush) error {
 		if event.AgentInstanceID != "" {
 			key += "\x00" + event.AgentInstanceID
 		}
-		if event.StateChangeSeq != nil {
+		if event.Kind == PushDone && event.TaskEvidence != "" {
+			key += "\x00task:" + event.TaskEvidence
+		} else if event.StateChangeSeq != nil {
 			key += fmt.Sprintf("\x00%d", *event.StateChangeSeq)
 		}
 		if e.admitPushLocked(key, now) {

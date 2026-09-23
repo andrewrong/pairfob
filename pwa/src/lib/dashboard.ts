@@ -1,3 +1,4 @@
+import { displayText, displayTokens, displayWorktree } from "./agent-inspect";
 import { t } from "./i18n.ts";
 import type { AgentCard, ListGroup } from "./ranking.ts";
 
@@ -10,7 +11,7 @@ export type SnapshotWire = {
   session?: unknown;
   focused?: { pane_id?: string; tab_id?: string; workspace_id?: string };
   layouts?: unknown;
-  workspaces?: Array<{ workspace_id: string; label?: string; cwd?: string }>;
+  workspaces?: Array<{ workspace_id: string; label?: string; cwd?: string; tokens?: unknown; worktree?: unknown }>;
   tabs?: Array<{ tab_id: string; workspace_id: string; label?: string }>;
   panes?: Array<{
     pane_id?: string;
@@ -18,6 +19,9 @@ export type SnapshotWire = {
     tab_id?: string;
     cwd?: string;
     agent?: string;
+    display_agent?: unknown;
+    state_labels?: unknown;
+    tokens?: unknown;
     agent_status?: string;
     label?: string | null;
     terminal_title?: string | null;
@@ -33,8 +37,9 @@ export type SnapshotWire = {
 };
 
 /** Present wait/work/idle/done; missing or unrecognized wire status is unknown only when an agent is bound. */
-function snapshotAgentStatus(hasAgent: boolean, wire: string | undefined): AgentCard["status"] {
+function snapshotAgentStatus(hasAgent: boolean, wire: string | undefined, launching: boolean): AgentCard["status"] {
   if (!hasAgent) return "idle";
+  if (launching && (wire === "working" || wire === "done")) return "idle";
   switch (wire) {
     case "blocked":
     case "working":
@@ -78,7 +83,12 @@ export function mapSnapshotAgents(snapshot: SnapshotWire): DashboardAgentCard[] 
         workspaceId: pane.workspace_id,
         agent,
         hasAgent,
-        status: snapshotAgentStatus(hasAgent, pane.agent_status),
+        displayAgent: displayText(pane.display_agent),
+        stateLabels: displayTokens(pane.state_labels, true),
+        tokens: displayTokens(pane.tokens),
+        workspaceTokens: displayTokens(ws?.tokens),
+        worktree: displayWorktree(ws?.worktree),
+        status: snapshotAgentStatus(hasAgent, pane.agent_status, pane.launch_pending === true),
         workspaceLabel: ws?.label?.trim() || "",
         cwd: pane.cwd || ws?.cwd || "",
         viewportRows: pane.scroll?.viewport_rows,
@@ -274,7 +284,7 @@ export function agentDetailRows(agent: AgentCard, agents: AgentCard[] = [], grou
     seen.add(id);
     rows.push(kind ? { key, value: text, kind } : { key, value: text });
   };
-  push(t("detail.status"), statusLabel(agent.status));
+  push(t("detail.status"), agentStatusLabel(agent));
   push(t("detail.agent"), whoLabel(agent));
   push(t("detail.path"), agent.cwd, "path");
   push(t("detail.workspace"), agent.workspaceLabel);
@@ -347,10 +357,12 @@ export function canPromptAgent(agent: DashboardAgentCard | undefined): agent is 
 }
 
 export function agentStatusLabel(agent: AgentCard): string {
-  if (agent.status === "blocked" || agent.status === "working" || agent.status === "done") return statusLabel(agent.status);
+  if (agent.status === "blocked") return statusLabel(agent.status);
   if (agent.launchPending === true) return t("status.starting");
+  if (agent.status === "working" || agent.status === "done" || agent.status === "unknown") return statusLabel(agent.status);
   if (agent.interactiveReady === false) return t("status.notReady");
   if (agent.status === "idle" && agent.interactiveReady === true) return t("status.ready");
+  if (agent.status === "idle" && agent.agent.trim()) return t("status.waitingInput");
   return statusLabel(agent.status);
 }
 

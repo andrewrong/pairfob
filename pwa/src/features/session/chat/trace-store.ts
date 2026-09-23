@@ -1,3 +1,4 @@
+import type { AgentStatus } from "../../../lib/ranking";
 import type { AgentTraceItem } from "../../../lib/operations";
 import { forgetAgentTrace } from "../../../lib/agent-trace-cache";
 import { createDomain, detach, type Immutable } from "../../../shared/model/domain-store";
@@ -11,7 +12,16 @@ import { createDomain, detach, type Immutable } from "../../../shared/model/doma
  */
 export type AgentTraceLoadState = "cold" | "loading" | "ready" | "error";
 
+export type PromptProgressPhase = "sending" | "submitted" | "processing" | "recorded" | "unknown";
+export type PromptProgress = {
+  owner: string;
+  startedAt: number;
+  phase: PromptProgressPhase;
+  baselineStatus: AgentStatus;
+  baselineSeq?: number;
+};
 export type ChatRecord = {
+  promptProgress: PromptProgress | null;
   agentTraceItems: AgentTraceItem[];
   agentTraceNext: string | null;
   agentTraceBusy: boolean;
@@ -52,6 +62,7 @@ export function invalidateAgentTraceOwner(paneId: string, active = true): void {
 }
 
 const chatDomain = createDomain<ChatRecord>("chat", {
+  promptProgress: null,
   agentTraceItems: [],
   agentTraceNext: null,
   agentTraceBusy: false,
@@ -183,6 +194,7 @@ export function clearPendingTurn(): void {
 }
 
 function clearTraceRecord(record: ChatRecord): void {
+  record.promptProgress = null;
   record.agentTraceItems = [];
   record.agentTraceNext = null;
   record.agentTraceBusy = false;

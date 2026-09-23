@@ -1,3 +1,4 @@
+import { openAgentInformation } from "./agent-information";
 import { SegmentedControl } from "../../../shared/ui/primitives";
 import { boardLayouts } from "../../board/layout-store";
 import { composeLive } from "../compose-store";
@@ -101,6 +102,7 @@ export function openPaneMenu(): void {
       ...(caps.resize_pane ? [{ label: t("menu.zoom"), run: () => layoutSelectedPane("resize") }] : []),
       ...(caps.swap_pane && split ? [{ label: t("menu.swap"), run: () => layoutSelectedPane("swap") }] : []),
     ]} />
+    <MenuItem modal={modal} action={openAgentInformation}>{t("agentInfo.title")}</MenuItem>
     <MenuItem modal={modal} action={renamePane}>{t("menu.renamePane")}</MenuItem>
     <MenuItem modal={modal} action={closePane} danger>{t("op.closePane")}</MenuItem>
     <MenuItem modal={modal}>{t("cancel")}</MenuItem>

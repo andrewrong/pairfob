@@ -91,7 +91,7 @@ test("status publication keeps header identity while updating visible status, ac
   act(() => { applySnapshot(SNAPSHOT("idle")); notifySessionUI(); });
   expect(appRoot().querySelector(".chrome-title") === title).toBeTrue();
   expect(appRoot().querySelector(".icon-stop")).toBeNull();
-  expect(title.getAttribute("aria-label")).toContain(t("status.idle"));
+  expect(title.getAttribute("aria-label")).toContain(t("status.waitingInput"));
   connected = false;
   act(notifySessionUI);
   expect(title.querySelector(".agent-unknown") !== null).toBeTrue();

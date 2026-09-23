@@ -1,3 +1,4 @@
+import { zhAgentInfo } from "./i18n-zh-agent-info";
 import { zhWorkspace } from "./i18n-zh-workspace.ts";
 
 /**
@@ -6,6 +7,7 @@ import { zhWorkspace } from "./i18n-zh-workspace.ts";
  */
 export const zh = {
   ...zhWorkspace,
+  ...zhAgentInfo,
   "fileActions.rename": "重命名",
   "fileActions.delete": "删除文件",
   "fileActions.confirmDelete": "确定删除「{name}」？文件将直接从电脑中删除，无法在此撤销。",
@@ -173,7 +175,7 @@ export const zh = {
   "push.retry": "重试开启通知",
   "push.enabled": "通知已开启。",
   "push.titleBlocked": "Pairfob · 等待确认",
-  "push.titleDone": "Pairfob · 任务已完成",
+  "push.titleDone": "Pairfob · 本轮结束",
   "push.fallbackBody": "Agent 状态已更新",
   "push.fallbackNeedYou": "Agent 需要你处理",
 
@@ -199,13 +201,14 @@ export const zh = {
 
   "status.blocked": "等你",
   "status.working": "工作中",
-  "status.done": "完成",
+  "status.done": "本轮结束",
   "status.idle": "空闲",
   "status.unknown": "未知",
   "status.unverifiable": "未知",
   "status.starting": "启动中",
   "status.notReady": "未就绪",
-  "status.ready": "就绪",
+  "status.ready": "就绪 · 等待输入",
+  "status.waitingInput": "等待输入",
   "filter.aria": "任务状态",
   "filter.all": "全部",
   "filter.needs-you": "等你处理",
@@ -689,6 +692,7 @@ export const zh = {
   "chat.openTerminal": "到终端查看",
   "chat.sendBelow": "在下面给 Agent 发一条",
   "chat.cantSend": "这个会话还不能给 Agent 发任务",
+  "chat.startingHint": "Agent 正在启动，就绪后即可发送任务",
   "chat.readingOlder": "正在读取更早内容…",
   "chat.limit": "单条消息最多 32 KiB，已保留可发送的前半部分。",
   "chat.placeholder": "给 Agent 发消息",

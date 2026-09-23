@@ -1,3 +1,4 @@
+import type { AgentInspection } from "../agent-inspect";
 import type { AgentQuota } from "../agent-quota";
 import type {
   AgentTracePage,
@@ -65,6 +66,7 @@ export interface DeviceSummary {
 
 export type LiveSession = {
   ping: (t: number) => Promise<unknown>;
+  agentInspect?: (paneId: string) => Promise<AgentInspection>;
   agentQuota: () => Promise<AgentQuota[]>;
   daemonUpdateStatus?: () => Promise<unknown>;
   daemonUpdate?: (target: string) => Promise<unknown>;

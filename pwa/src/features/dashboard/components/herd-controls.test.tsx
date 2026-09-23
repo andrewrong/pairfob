@@ -1,8 +1,9 @@
+import { WorkspaceSnapshotRestorer } from "../../../../test-support/workspace-snapshot-restore";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act, createElement, type ReactNode } from "react";
 import { replaceAgentsFromSnapshot, resetDashboard } from "../catalog-store";
-import { listGroup, preferencesStore, setListGroup, setListGroupCollapsed } from "../../settings/preferences-store";
+import { listGroup, preferencesStore, resetHerdPresentationChoices, setListGroup, setListGroupCollapsed } from "../../settings/preferences-store";
 import { setLang, t } from "../../../lib/i18n";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { appRoot } from "../../../app/dom-root";
@@ -10,6 +11,7 @@ import { appHost, registerAppHost, releaseAppHost, type AppHost } from "../../..
 import { CompletionCount, ListGroupControl } from "./herd-controls";
 
 const app = appRoot;
+const presentationRestorer = new WorkspaceSnapshotRestorer();
 
 let hostCommitted = 0;
 let hostRequested = 0;
@@ -74,6 +76,8 @@ function segment(label: string): HTMLButtonElement {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  presentationRestorer.capture();
+  resetHerdPresentationChoices();
   setLang("zh");
   resetDashboard();
   setListGroup("flat");
@@ -86,6 +90,7 @@ afterEach(() => {
   resetDashboard();
   setListGroup("flat");
   setListGroupCollapsed({});
+  presentationRestorer.restore();
 });
 
 describe("list grouping control", () => {

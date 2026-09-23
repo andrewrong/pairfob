@@ -249,7 +249,7 @@ test("mobile full-terminal controls follow status without remounting the termina
   act(() => {
     syncFullTerminalChrome();
     renderScreen(createElement(FullTerminalScreen, {
-      onBack: noop, onWorkspace: noop, onMenu: noop, onStop: noop, onRetry: noop,
+      onBack: noop, onSwitch: noop, onMode: noop, onWorkspace: noop, onMenu: noop, onStop: noop, onRetry: noop,
       scroll: noop, pageLines: () => 23, engineActive: false,
       controls: { sendKey: noop, sendCompose: () => true, desk: false,
         keyboard: { toggle: noop, open: noop, close: noop, isOpen: () => false } },

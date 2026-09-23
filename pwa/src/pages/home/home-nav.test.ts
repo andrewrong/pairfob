@@ -4,7 +4,7 @@ import { commitTest, mountTestApp, unmountTestApp } from "../../../test-support/
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act } from "react";
 import { appRoot } from "../../app/dom-root";
-import { setLang } from "../../lib/i18n";
+import { setLang, t } from "../../lib/i18n";
 import { NO_OPERATION_CAPABILITIES } from "../../lib/operations.ts";
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { applyCapabilities, setOperationBusy } from "../../features/operations/capabilities-store";
@@ -192,7 +192,7 @@ describe("session list object controls", () => {
     const plain = document.querySelector("dialog.sheet");
     expect(plain?.querySelector(".modal-title")?.textContent).toBe("one");
     const facts = plain?.querySelector(".sheet-facts")?.textContent ?? "";
-    expect(facts).toContain("空闲");
+    expect(facts).toContain(t("status.waitingInput"));
     expect(facts).toContain("claude");
     expect(facts).toContain("/tmp/a");
     expect(facts).toContain("alpha");

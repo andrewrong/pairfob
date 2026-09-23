@@ -1,3 +1,4 @@
+import { createPromptProgress } from "./prompt-progress";
 import { capabilityEnabled, operationBusy } from "../../operations/capabilities-store";
 import {
   applyTrace,
@@ -229,7 +230,7 @@ export function emptySpec(working: boolean): AgentEmptySpec {
       noChat: t("chat.noChat"),
       terminalHint: t("chat.terminalHint"),
       sendBelow: t("chat.sendBelow"),
-      cantSend: t("chat.cantSend"),
+      cantSend: selectedAgent()?.launchPending ? t("chat.startingHint") : t("chat.cantSend"),
     },
   });
 }
@@ -268,6 +269,8 @@ function absorbPending(items: readonly AgentTraceItem[]): void {
   if (!pending) return;
   const boundary = pendingBoundary(items);
   if (items.slice(boundary).some((item) => item.type === "user" && item.text === pending)) {
+    const progress = chatSnapshot().promptProgress;
+    if (progress) applyTrace({ promptProgress: { ...progress, phase: "recorded" } });
     clearPendingTurn();
   }
 }
@@ -673,10 +676,12 @@ export async function submitAgentPrompt(): Promise<void> {
   const owner = capturePromptRequest(session, selected.paneId, text);
   if (!owner) return;
   const occupant = promptOccupant(selected);
+  const progress = createPromptProgress(selected);
   const notice = visibleNotice();
   batch(() => {
     setComposeDraft("");
     setPendingTurn(text, chatSnapshot().agentTraceItems);
+    applyTrace({ promptProgress: progress });
     followTrace();
   });
   restoreOwnerComposeField();
@@ -688,6 +693,8 @@ export async function submitAgentPrompt(): Promise<void> {
     settlePromptSuccess(owner);
     if (promptRequestIsLive(owner)) {
       if (visibleNotice() === notice) clearNoticeForScope(owner.noticeScope);
+      if (chatSnapshot().promptProgress?.startedAt === progress.startedAt && chatSnapshot().promptProgress?.phase === "sending")
+        applyTrace({ promptProgress: { ...progress, phase: "submitted" } });
       haptic(8);
       paintPromptOwner();
       await refreshAgentTrace();
@@ -698,7 +705,7 @@ export async function submitAgentPrompt(): Promise<void> {
     if (promptRequestIsLive(owner)) {
       batch(() => {
         clearPendingTurn();
-        applyTrace({ agentTraceNote: message });
+        applyTrace({ agentTraceNote: message, promptProgress: unknownOutcome ? { ...progress, phase: "unknown" } : null });
       });
       if (restoredVisible) restoreOwnerComposeField();
       showError(message, owner.noticeScope, true);

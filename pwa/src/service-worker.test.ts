@@ -106,7 +106,7 @@ describe("notification service worker", () => {
       title: "Pairfob · Waiting for you",
       body: "claude · lab",
     });
-    expect(copy({ kind: "done" }, "zh").title).toBe("Pairfob · 任务已完成");
+    expect(copy({ kind: "done" }, "zh").title).toBe("Pairfob · 本轮结束");
     expect(copy({ title: "Pairfob · 等待确认" }, "en").title).toBe("Pairfob · Waiting for you");
     expect(copy({}, "en").body).toBe("Agent status updated");
     expect(copy({}, "zh").body).toBe("Agent 状态已更新");

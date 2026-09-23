@@ -95,6 +95,7 @@ func (e *Engine) markHistory(view runtime.View) runtime.View {
 	if !ok {
 		return view
 	}
+	snap.Snapshot = e.decorateAgentActivity(snap.Snapshot)
 	for i := range snap.Snapshot.Panes {
 		pane := &snap.Snapshot.Panes[i]
 		pane.HistoryAvailable = pane.AgentSession != nil && e.Journal != nil && e.Journal.Available(journalRef(pane.AgentSession))

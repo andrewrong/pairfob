@@ -29,11 +29,11 @@ function notificationCopy(data, lang) {
   const kind = typeof data.kind === "string" ? data.kind : "";
   const title = typeof data.title === "string" ? data.title : "";
   const blocked = kind === "needs_you" || title.includes("等待确认") || /waiting for you/i.test(title);
-  const done = kind === "done" || title.includes("任务已完成") || /task complete/i.test(title);
+  const done = kind === "done" || title.includes("任务已完成") || title.includes("本轮结束") || /task complete|turn finished/i.test(title);
   const en = lang === "en";
   const copy = {
     blocked: en ? "Pairfob · Waiting for you" : "Pairfob · 等待确认",
-    done: en ? "Pairfob · Task complete" : "Pairfob · 任务已完成",
+    done: en ? "Pairfob · Turn finished" : "Pairfob · 本轮结束",
     body: en ? "Agent status updated" : "Agent 状态已更新",
     need: en ? "An agent needs you" : "Agent 需要你处理",
   };

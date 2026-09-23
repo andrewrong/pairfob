@@ -39,6 +39,9 @@ type herdrPaneWire struct {
 }
 
 type herdrAgentWire struct {
+	DisplayAgent     string                 `json:"display_agent"`
+	StateLabels      map[string]string      `json:"state_labels"`
+	Tokens           map[string]string      `json:"tokens"`
 	PaneID           string                 `json:"pane_id"`
 	TerminalID       string                 `json:"terminal_id"`
 	Agent            string                 `json:"agent"`
@@ -52,11 +55,13 @@ type herdrAgentWire struct {
 }
 
 type herdrWorkspaceWire struct {
-	WorkspaceID string `json:"workspace_id"`
-	Number      int    `json:"number"`
-	Label       string `json:"label"`
-	Cwd         string `json:"cwd"`
-	AgentStatus string `json:"agent_status"`
+	Tokens      map[string]string  `json:"tokens"`
+	Worktree    *WorkspaceWorktree `json:"worktree"`
+	WorkspaceID string             `json:"workspace_id"`
+	Number      int                `json:"number"`
+	Label       string             `json:"label"`
+	Cwd         string             `json:"cwd"`
+	AgentStatus string             `json:"agent_status"`
 }
 
 type herdrTabWire struct {
@@ -138,6 +143,7 @@ func (h *Herdr) snapshot(ctx context.Context, session SessionRef) (Snapshot, err
 		out.Workspaces = append(out.Workspaces, Workspace{
 			WorkspaceID: workspace.WorkspaceID, Number: workspace.Number, Label: workspace.Label,
 			Cwd: workspace.Cwd, AgentStatus: workspace.AgentStatus,
+			Tokens: displayTokens(workspace.Tokens, false), Worktree: displayWorktree(workspace.Worktree),
 		})
 	}
 	for _, tab := range s.Tabs {
@@ -147,6 +153,9 @@ func (h *Herdr) snapshot(ctx context.Context, session SessionRef) (Snapshot, err
 		normalized := normalizePane(pane)
 		if pane.TerminalID != "" {
 			if agent, ok := agents[agentKey{paneID: pane.PaneID, terminalID: pane.TerminalID}]; ok {
+				normalized.DisplayAgent = displayText(agent.DisplayAgent)
+				normalized.StateLabels = displayTokens(agent.StateLabels, true)
+				normalized.Tokens = displayTokens(agent.Tokens, false)
 				normalized.Agent = agent.Agent
 				normalized.AgentStatus = agent.AgentStatus
 				normalized.Revision = cloneUint64(agent.Revision)
@@ -307,6 +316,10 @@ func (h *Herdr) Describe(ctx context.Context, session SessionRef) (Descriptor, e
 		descriptor.AgentKinds = kinds
 	}
 	descriptor.Capabilities = capabilities(snapshot.HerdrProtocol)
+	descriptor.Capabilities[FeatureAgentInspect] = Capability{Available: supportsAgentInspect(snapshot.HerdrVersion)}
+	if !descriptor.Supports(FeatureAgentInspect) {
+		descriptor.Capabilities[FeatureAgentInspect] = Capability{Reason: "requires Herdr 0.8.2 or newer"}
+	}
 	return descriptor, nil
 }
 
@@ -318,6 +331,8 @@ func (h *Herdr) Observe(ctx context.Context, session SessionRef, query Query) (V
 			return nil, err
 		}
 		return SnapshotView{Snapshot: snapshot}, nil
+	case AgentInspectQuery:
+		return h.inspectAgent(ctx, session, value)
 	case PaneReadQuery:
 		return h.readPane(ctx, session, value)
 	case WorktreeListQuery:

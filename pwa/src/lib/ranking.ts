@@ -2,7 +2,14 @@ import { t } from "./i18n.ts";
 
 export type AgentStatus = "blocked" | "working" | "done" | "idle" | "unknown";
 
-export interface AgentCard {
+export type DisplayMetadata = {
+  displayAgent?: string;
+  stateLabels?: Record<string, string>;
+  tokens?: Record<string, string>;
+  workspaceTokens?: Record<string, string>;
+  worktree?: { repo_name: string; checkout_path: string; is_linked_worktree: boolean };
+};
+export interface AgentCard extends DisplayMetadata {
   paneId: string;
   paneLabel?: string;
   terminalTitle?: string;

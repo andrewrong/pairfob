@@ -1,3 +1,4 @@
+import { agentDisplaySummary } from "../../../lib/agent-inspect";
 import { Pin } from "lucide-react";
 import { useRef } from "react";
 import { Button, Chevron } from "../../../shared/ui/primitives";
@@ -21,6 +22,7 @@ export function AgentCard({ card, actions }: { card: HerdCardView; actions: Herd
       <Button
         ref={press}
         className="card-main"
+        data-pane-id={card.paneId}
         aria-pressed={card.selected}
         aria-haspopup="menu"
         onClick={() => actions.openPaneFromCard(card.paneId, title.current)}
@@ -41,6 +43,7 @@ export function AgentCard({ card, actions }: { card: HerdCardView; actions: Herd
             {card.pill && <span className={card.pill.className}>{card.pill.text}</span>}
           </div>
           {card.meta && <p className="card-meta">{card.meta}</p>}
+          {agentDisplaySummary(card.agent) && <p className="card-meta">{agentDisplaySummary(card.agent)}</p>}
         </div>
         <Chevron />
       </Button>

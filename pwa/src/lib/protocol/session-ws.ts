@@ -1,3 +1,4 @@
+import { parseAgentInspection } from "../agent-inspect";
 import { pageHidden, watchPageVisibility } from "./page-activity.ts";
 import { parseAgentQuota } from "../agent-quota";
 import { validDaemonId, validDeviceId } from "../identifiers.ts";
@@ -267,6 +268,7 @@ class ReconnectingSession implements LiveSession {
     return () => this.listeners.delete(listener);
   };
   ping = (t: number) => this.readRPC("Ping", { t_ms: t });
+  agentInspect = async (paneId: string) => parseAgentInspection(await this.readRPC("AgentInspect", { pane_id: paneId }));
   agentQuota = async () => parseAgentQuota(await this.readRPC("AgentQuota", {}, 12_000));
   daemonUpdateStatus = () => this.readRPC("DaemonUpdateStatus", {});
   daemonUpdate = (target: string) => this.trackedMutation("DaemonUpdate", { target });

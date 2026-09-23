@@ -172,6 +172,8 @@ func TestRuntimeMonitorCancelsBoundedPushDeliveryOnShutdown(t *testing.T) {
 	rt.setSnapshot(snapshot)
 
 	engine := NewEngine(nil, nil, rt)
+	ref, appendEvent := taskActivityFixture(t, engine)
+	pane.AgentSession = ref
 	pub, priv := testVAPID(t)
 	userPub, userAuth := testPushSubscriptionKeys(t)
 	started := make(chan struct{})
@@ -190,6 +192,7 @@ func TestRuntimeMonitorCancelsBoundedPushDeliveryOnShutdown(t *testing.T) {
 	_ = waitMonitorCall(t, rt.subscribeCh, func(call monitorSubscribeCall) bool { return len(call.panes) == 0 })
 	stream := waitMonitorCall(t, rt.subscribeCh, func(call monitorSubscribeCall) bool { return len(call.panes) == 1 })
 
+	appendEvent(`{"type":"event_msg","payload":{"type":"task_started"}}`)
 	sequence2 := uint64(2)
 	pane.AgentStatus, pane.StateChangeSeq = "working", &sequence2
 	snapshot.Panes = []runtime.Pane{pane}
@@ -203,6 +206,7 @@ func TestRuntimeMonitorCancelsBoundedPushDeliveryOnShutdown(t *testing.T) {
 	if rt.observeCount("") == beforeWorking {
 		t.Fatal("working snapshot was not reconciled")
 	}
+	appendEvent(`{"type":"event_msg","payload":{"type":"task_complete"}}`)
 	sequence3 := uint64(3)
 	pane.AgentStatus, pane.StateChangeSeq = "done", &sequence3
 	snapshot.Panes = []runtime.Pane{pane}
@@ -319,6 +323,9 @@ func TestStatusEventOnlyInvalidatesAndNewSnapshotSequenceRearms(t *testing.T) {
 	oldPane.AgentInstanceID = "old-instance"
 	oldPane.StateChangeSeq = &sequence
 	engine := NewEngine(nil, nil, rt)
+	ref, appendEvent := taskActivityFixture(t, engine)
+	oldPane.AgentSession = ref
+	appendEvent(`{"type":"event_msg","payload":{"type":"task_complete"}}`)
 	pub, priv := testVAPID(t)
 	userPub, userAuth := testPushSubscriptionKeys(t)
 	transport := &countPushTransport{}
@@ -350,6 +357,7 @@ func TestStatusEventOnlyInvalidatesAndNewSnapshotSequenceRearms(t *testing.T) {
 	}
 
 	sequence = 3
+	appendEvent(`{"type":"event_msg","payload":{"type":"task_complete"}}`)
 	newPane.StateChangeSeq = &sequence
 	rt.setSnapshot(runtime.Snapshot{Panes: []runtime.Pane{newPane}})
 	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {}, emitPush)
@@ -359,6 +367,14 @@ func TestStatusEventOnlyInvalidatesAndNewSnapshotSequenceRearms(t *testing.T) {
 	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {}, emitPush)
 	if calls := transport.calls.Load(); calls != 1 {
 		t.Fatalf("unchanged authoritative snapshot duplicated notification: %d", calls)
+	}
+	// Native turn records can advance before the runtime status sequence does.
+	appendEvent(`{"type":"event_msg","payload":{"type":"task_started"}}`)
+	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {}, emitPush)
+	appendEvent(`{"type":"event_msg","payload":{"type":"task_complete"}}`)
+	engine.reconcileRuntimeSession(context.Background(), runtime.DefaultSession(), true, &monitorState, func(string, string) {}, emitPush)
+	if calls := transport.calls.Load(); calls != 2 {
+		t.Fatalf("new task was suppressed by an unchanged runtime sequence: %d", calls)
 	}
 }
 

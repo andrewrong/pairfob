@@ -282,6 +282,8 @@ func (e *Engine) dispatch(s *sess, id, op string, params json.RawMessage) {
 	switch op {
 	case "Ping":
 		e.rpcPing(s, id, params)
+	case "AgentInspect":
+		e.rpcAgentInspect(s, id, params)
 	case "AgentQuota":
 		go e.rpcAgentQuota(s, id, params)
 	case "DaemonUpdateStatus":

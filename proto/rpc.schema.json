@@ -154,6 +154,7 @@
         "create_tab": { "type": "boolean" },
         "split_pane": { "type": "boolean" },
         "prompt_agent": { "type": "boolean" },
+        "agent_inspect": { "type": "boolean" },
         "history": { "type": "boolean" },
         "list_worktrees": { "type": "boolean" },
         "create_worktree": { "type": "boolean" },
@@ -749,6 +750,26 @@
       },
       "additionalProperties": false
     },
+    "agentInspectResult": {
+      "type": "object",
+      "required": ["status", "screen_detection_skipped", "rules"],
+      "properties": {
+        "status": {"enum": ["idle", "working", "blocked", "done", "unknown"]},
+        "manifest_source": {"type": "string", "maxLength": 256},
+        "manifest_version": {"type": "string", "maxLength": 256},
+        "matched_rule": {"type": "string", "maxLength": 256},
+        "fallback_reason": {"type": "string", "maxLength": 256},
+        "skipped_reason": {"type": "string", "maxLength": 256},
+        "warning": {"type": "string", "maxLength": 256},
+        "screen_detection_skipped": {"type": "boolean"},
+        "rules": {"type": "array", "maxItems": 32, "items": {
+          "type": "object", "required": ["id", "state", "matched"],
+          "properties": {"id": {"type": "string", "maxLength": 256}, "state": {"enum": ["idle", "working", "blocked", "done", "unknown"]}, "matched": {"type": "boolean"}},
+          "additionalProperties": false
+        }}
+      },
+      "additionalProperties": false
+    },
     "agentQuotaWindow": {
       "type": "object",
       "required": [
@@ -876,6 +897,7 @@
             "DaemonUpdateStatus",
             "DaemonUpdate",
             "AgentQuota",
+            "AgentInspect",
             "Snapshot",
             "PaneRead",
             "SendText",
@@ -939,6 +961,7 @@
       "allOf": [
         {"if": {"properties": {"op": {"const": "DaemonUpdateStatus"}}}, "then": {"properties": {"params": {"type": "object", "additionalProperties": false}}}},
         {"if": {"properties": {"op": {"const": "DaemonUpdate"}}}, "then": {"properties": {"params": {"type": "object", "required": ["operation_id", "target"], "properties": {"operation_id": {"$ref": "#/$defs/operationId"}, "target": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^v?[0-9]+([.-][0-9]+){1,3}$"}}, "additionalProperties": false}}}},
+        {"if": {"properties": {"op": {"const": "AgentInspect"}}}, "then": {"properties": {"params": {"type": "object", "required": ["pane_id"], "properties": {"pane_id": {"$ref": "#/$defs/paneId"}, "session": {"$ref": "#/$defs/session"}}, "additionalProperties": false}}}},
         {"if": {"properties": {"op": {"const": "AgentQuota"}}}, "then": {"properties": {"params": {"type": "object", "additionalProperties": false}}}},
         {
           "if": { "properties": { "op": { "const": "Ping" } } },

@@ -101,7 +101,7 @@ func (e *Engine) rpcPromptAgent(s *sess, id string, params json.RawMessage) {
 		return
 	}
 	e.audit("prompt_agent", map[string]any{"device_id": s.deviceID, "pane_id": p.PaneID, "bytes": len([]byte(p.Text)), "outcome": receipt.Outcome})
-	e.reply(s, id, map[string]any{"pane_id": p.PaneID, "agent_status": "working", "operation_id": operationID, "outcome": receipt.Outcome})
+	e.reply(s, id, map[string]any{"pane_id": p.PaneID, "agent_status": "unknown", "operation_id": operationID, "outcome": receipt.Outcome})
 }
 
 func (e *Engine) dispatchSendKeys(s *sess, id string, params json.RawMessage) {
