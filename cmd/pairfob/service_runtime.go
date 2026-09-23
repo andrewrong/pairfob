@@ -14,7 +14,7 @@ import (
 // Relative paths retain the caller's context; the installer calls from home.
 func serviceRuntimeEnvironment() [][2]string {
 	var out [][2]string
-	for _, key := range []string{"HERDR_SOCKET_PATH", "HERDR_CONFIG_PATH", "HERDR_CLIENT_SOCKET_PATH", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "PAIRFOB_STATE_DIR", "PAIRFOB_ADMIN_SOCK", "PAIRFOB_HERDR_AUTOSTART", "PAIRFOB_MULTI_SESSION"} {
+	for _, key := range []string{"HERDR_SOCKET_PATH", "HERDR_CONFIG_PATH", "HERDR_CLIENT_SOCKET_PATH", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "GROK_HOME", "PAIRFOB_STATE_DIR", "PAIRFOB_ADMIN_SOCK", "PAIRFOB_HERDR_AUTOSTART", "PAIRFOB_MULTI_SESSION"} {
 		value := os.Getenv(key)
 		if value == "" {
 			continue
@@ -25,6 +25,9 @@ func serviceRuntimeEnvironment() [][2]string {
 			}
 		}
 		out = append(out, [2]string{key, value})
+	}
+	if os.Getenv("PAIRFOB_CLAUDE_QUOTA_SOURCE") == "statusline" {
+		out = append(out, [2]string{"PAIRFOB_CLAUDE_QUOTA_SOURCE", "statusline"})
 	}
 	// Cursor CLI's file/memory selector is not a path or a credential. Preserve
 	// it for background quota reads, but never persist Cursor tokens or API keys.

@@ -119,3 +119,41 @@ func TestServiceDoesNotChangeCursorAccountWhenDroppingExplicitAuth(t *testing.T)
 		}
 	}
 }
+
+func TestServicePreservesQuotaAccountDirectoriesWithoutCredentials(t *testing.T) {
+	selectors := []string{"CLAUDE_CONFIG_DIR", "CODEX_HOME", "GROK_HOME"}
+	for _, key := range selectors {
+		t.Setenv(key, "relative/"+key)
+	}
+	t.Setenv("PAIRFOB_CLAUDE_QUOTA_SOURCE", "statusline")
+	for _, key := range []string{"ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY", "COPILOT_GITHUB_TOKEN", "XAI_API_KEY"} {
+		t.Setenv(key, "forbidden-quota-secret")
+	}
+	env := map[string]string{}
+	for _, entry := range serviceRuntimeEnvironment() {
+		env[entry[0]] = entry[1]
+	}
+	for _, key := range selectors {
+		absolute, _ := filepath.Abs("relative/" + key)
+		if env[key] != absolute {
+			t.Fatalf("service lost account directory %s", key)
+		}
+		if !strings.Contains(launchdRuntimeEnvironment(), xmlEscape(absolute)) || !strings.Contains(systemdRuntimeEnvironment(), systemdEnvironmentValue(absolute)) {
+			t.Fatalf("service definition lost %s", key)
+		}
+	}
+	if env["PAIRFOB_CLAUDE_QUOTA_SOURCE"] != "statusline" {
+		t.Fatal("service lost explicit statusline source")
+	}
+	for _, body := range []string{launchdRuntimeEnvironment(), systemdRuntimeEnvironment()} {
+		if strings.Contains(body, "forbidden-quota-secret") {
+			t.Fatal("service persisted quota credentials")
+		}
+	}
+	t.Setenv("PAIRFOB_CLAUDE_QUOTA_SOURCE", "unrecognized")
+	for _, entry := range serviceRuntimeEnvironment() {
+		if entry[0] == "PAIRFOB_CLAUDE_QUOTA_SOURCE" {
+			t.Fatal("service persisted invalid source")
+		}
+	}
+}
