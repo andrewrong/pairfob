@@ -44,14 +44,20 @@ export function askCreateTab(agentKinds: string[], defaultCwd = ""): Promise<Omi
   });
 }
 
-export function askSplitPane(agentKinds: string[], defaultCwd = ""): Promise<Omit<SplitPaneInput, "pane_id"> | null> {
-  return formDialog(t("form.split"), t("form.splitAction"), <>
-    <OperationSelect label={t("form.place")} name="direction" choices={[
+export function askSplitPane(agentKinds: string[], defaultCwd = "", target?: { direction: SplitDirection; title: string }): Promise<Omit<SplitPaneInput, "pane_id"> | null> {
+  return formDialog(t("form.split"), t(target ? "boardMenu.createSplit" : "form.splitAction"), <>
+    {target ? <>
+      <p>{t("boardMenu.splitTarget", { title: target.title })}</p>
+      <div className={`board-split-preview ${target.direction}`} aria-label={t(target.direction === "right" ? "boardMenu.right" : "boardMenu.down")}>
+        <span>{target.title}</span><span>{t("boardMenu.newPane")}</span>
+      </div>
+      <input type="hidden" name="direction" value={target.direction} />
+    </> : <OperationSelect label={t("form.place")} name="direction" choices={[
       { value: "right", label: t("form.splitRight") }, { value: "down", label: t("form.splitDown") },
-    ]} />
+    ]} />}
     <OperationField label={t("form.cwdOptional")} name="cwd" value={defaultCwd} />
     <AgentKindField kinds={agentKinds} />
-    <p className="operation-hint">{t("form.splitHint")}</p>
+    <p className="operation-hint">{t(target ? "boardMenu.splitHint" : "form.splitHint")}</p>
   </>, data => {
     const direction = String(data.get("direction")) as SplitDirection;
     const cwd = String(data.get("cwd") || "").trim();

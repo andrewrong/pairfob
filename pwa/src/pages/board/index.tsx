@@ -9,6 +9,9 @@ import { BoardScreenView } from "../../features/board/components/board-screen";
 import { buildBoardViewModel } from "../../features/board/model/board-view";
 import { createDomainUpdates, useDomainUpdates, type DomainWatch } from "../domain-updates";
 import { boardActions, boardCanvasController, readBoardInput } from "./board-bridge";
+import { useEffect } from "react";
+import { boardInteractionStore, clearBoardInteraction } from "../../features/board/interaction-store";
+import { t } from "../../lib/i18n";
 
 /**
  * Board route.
@@ -31,6 +34,7 @@ function boardDisplayKey(board: BoardRecord): string {
 }
 
 const watches: DomainWatch[] = [
+  { store: boardInteractionStore },
   { store: dashboardStore },
   { store: boardStore, keyOf: (snapshot) => boardDisplayKey(snapshot as BoardRecord) },
   { store: capabilitiesStore },
@@ -44,11 +48,25 @@ const updates = createDomainUpdates(watches);
 
 export function BoardPage() {
   useDomainUpdates(updates);
+  const view = buildBoardViewModel(readBoardInput());
+  const attention = boardInteractionStore.get();
+  const sameTab = attention.tabId === view.canvas.tabId;
+  const created = sameTab && view.canvas.tiles.some(tile => tile.paneId === attention.createdPaneId) ? attention.createdPaneId : "";
+  view.canvas.highlightedPaneId = sameTab ? attention.paneId : "";
+  const session = computersStore.get().live;
+  useEffect(() => () => clearBoardInteraction(), [view.canvas.tabId, session]);
   return (
+    <>
     <BoardScreenView
-      view={buildBoardViewModel(readBoardInput())}
+      view={view}
       actions={boardActions}
       controller={boardCanvasController}
     />
+    {created && <div className="board-created-notice" role="status">
+      <span>{t("boardMenu.created")}</span>
+      <button type="button" onClick={() => { clearBoardInteraction(); boardCanvasController.openPane(created, null); }}>{t("boardMenu.openCreated")}</button>
+      <button type="button" aria-label={t("close")} onClick={clearBoardInteraction}>×</button>
+    </div>}
+    </>
   );
 }

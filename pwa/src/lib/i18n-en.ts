@@ -1,10 +1,12 @@
 import { enAgentInfo } from "./i18n-en-agent-info";
+import { enBoardMenu } from "./i18n-board-menu";
 import { enWorkspace } from "./i18n-en-workspace.ts";
 import type { zh } from "./i18n-zh.ts";
 
 export const en: { [K in keyof typeof zh]: string } = {
   ...enWorkspace,
   ...enAgentInfo,
+  ...enBoardMenu,
   "fileActions.rename": "Rename",
   "fileActions.delete": "Delete file",
   "fileActions.confirmDelete": "Delete “{name}”? This removes the file from your computer and cannot be undone here.",
@@ -267,8 +269,10 @@ export const en: { [K in keyof typeof zh]: string } = {
   "menu.board": "Tab layout",
   "home.cardMenu": "Actions for {title}",
   "home.pinned": "Pinned",
-  "home.doneCount": "{count} done",
-  "home.doneCountAria": "Jump to the first finished session, {count} waiting",
+  "home.pendingCount": "{count} need you",
+  "home.pendingCountAria": "Locate the next session needing you, {count} waiting",
+  "home.doneCount": "{count} newly done",
+  "home.doneCountAria": "Locate the next newly finished session, {count} waiting",
   "home.switcherEmpty": "No other sessions yet.",
   "home.switcherEmptyTitle": "This is the only session",
   "home.switcherTitle": "Switch session",

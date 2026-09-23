@@ -1,4 +1,5 @@
 import { zhAgentInfo } from "./i18n-zh-agent-info";
+import { zhBoardMenu } from "./i18n-board-menu";
 import { zhWorkspace } from "./i18n-zh-workspace.ts";
 
 /**
@@ -8,6 +9,7 @@ import { zhWorkspace } from "./i18n-zh-workspace.ts";
 export const zh = {
   ...zhWorkspace,
   ...zhAgentInfo,
+  ...zhBoardMenu,
   "fileActions.rename": "重命名",
   "fileActions.delete": "删除文件",
   "fileActions.confirmDelete": "确定删除「{name}」？文件将直接从电脑中删除，无法在此撤销。",
@@ -270,8 +272,10 @@ export const zh = {
   "menu.board": "看标签页布局",
   "home.cardMenu": "{title}的操作",
   "home.pinned": "已置顶",
-  "home.doneCount": "{count} 个已完成",
-  "home.doneCountAria": "跳到第一个已完成的会话，共 {count} 个",
+  "home.pendingCount": "{count} 个待处理",
+  "home.pendingCountAria": "定位下一个待处理的会话，共 {count} 个",
+  "home.doneCount": "{count} 个新完成",
+  "home.doneCountAria": "定位下一个新完成的会话，共 {count} 个",
   "home.switcherEmpty": "还没有读到别的会话。",
   "home.switcherEmptyTitle": "只有这一个会话",
   "home.switcherTitle": "切换会话",

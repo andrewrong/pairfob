@@ -83,6 +83,20 @@ afterEach(() => {
   snapshotRestorer.restore();
 });
 
+test("losing contact updates the header by itself, with no session repaint", () => {
+  paint();
+  const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
+  expect(appRoot().querySelector(".icon-stop") !== null).toBeTrue();
+  // A typed connection action only: nothing asks the session view to repaint.
+  act(() => setNetworkOnline(false));
+  expect(appRoot().querySelector(".icon-stop")).toBeNull();
+  expect(title.querySelector(".agent-unknown") !== null).toBeTrue();
+  expect(title.getAttribute("aria-label")).toContain(t("status.unverifiable"));
+  act(() => setNetworkOnline(true));
+  expect(appRoot().querySelector(".icon-stop") !== null).toBeTrue();
+  expect(title.getAttribute("aria-label")).toContain(t("status.working"));
+});
+
 test("status publication keeps header identity while updating visible status, accessibility and Stop together", () => {
   paint();
   const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;

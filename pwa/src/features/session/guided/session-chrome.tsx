@@ -4,6 +4,7 @@ import { agentMeta, agentStatusLabel, agentTitle, chromeName, cwdName, tabIsSpli
 import { t } from "../../../lib/i18n";
 import type { AgentCard } from "../../../lib/ranking";
 import { useDashboard } from "../../dashboard/hooks";
+import { useConnection, useRuntime } from "../../connection/hooks";
 import { operationBusy } from "../../operations/capabilities-store";
 import { haptic } from "../../../lib/dom";
 import { canInterruptAgent, herdLiveness } from "../../connection/runtime-status";
@@ -11,6 +12,18 @@ import type { SessionHandlers } from "./view";
 import { queueKey } from "./keys";
 import { morphingPane, shareTitle } from "../../../app/transition";
 import { BackButton, Button } from "../../../shared/ui/primitives";
+
+/**
+ * Whether the agent statuses on screen can no longer be confirmed. Subscribes to
+ * the connection and runtime domains so a header re-renders the moment contact
+ * is lost or regained, instead of keeping the last known status until an
+ * unrelated update happens to repaint it.
+ */
+export function useStatusUnverifiable(): boolean {
+  useConnection();
+  useRuntime();
+  return herdLiveness() === "unverifiable";
+}
 
 /** Shared trailing actions for guided, terminal and agent chat chrome. */
 export function SessionActions({ onWorkspace, onMenu, onStop, working }: {
@@ -31,7 +44,7 @@ export function SessionChrome({ selected, includeBack, handlers }: {
 }) {
   const title = useRef<HTMLButtonElement>(null);
   const agents = useDashboard().agents;
-  const stale = herdLiveness() === "unverifiable";
+  const stale = useStatusUnverifiable();
   const status = selected ? (stale ? t("status.unverifiable") : agentStatusLabel(selected)) : "";
   const fullLine = selected ? [status, agentMeta(selected)].filter(Boolean).join(" · ") : "";
   const meta = selected ? [status, cwdName(selected.cwd), tabIsSplit(selected, [...agents]) ? t("chrome.split") : ""]

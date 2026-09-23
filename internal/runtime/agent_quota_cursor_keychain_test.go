@@ -54,7 +54,8 @@ func TestCursorQuotaSecurityReadIsBoundedAndFailsClosed(t *testing.T) {
 				defer cancel()
 			}
 			start := time.Now()
-			token, status := runCursorQuotaKeychain(ctx, binary, "-test.run=^TestCursorQuotaSecurityProcess$")
+			raw, err := runQuotaKeychain(ctx, cursorQuotaTokenLimit, binary, "-test.run=^TestCursorQuotaSecurityProcess$")
+			token, status := cursorQuotaKeychainResult(raw, err)
 			if status != tc.status {
 				t.Fatalf("status=%q, want %q", status, tc.status)
 			}

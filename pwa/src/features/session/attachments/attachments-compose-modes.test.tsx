@@ -13,7 +13,7 @@ import { applyCapabilities } from "../../operations/capabilities-store";
 import { attachLiveSession, setCredential } from "../../computers/catalog-store";
 import { replaceAgentsFromSnapshot } from "../../dashboard/catalog-store";
 import { selectPane, setAgentChat, setFullTerminal } from "../session-store";
-import { composeDraft, setComposeDraft } from "../compose-store";
+import { composeDraft, setComposeDraft, setComposeLive, setComposeIME } from "../compose-store";
 import { resetComposeDrafts, switchComposeView } from "../drafts/compose-drafts";
 import { FullTerminalCompose } from "../full-terminal/full-terminal-compose-field";
 import { AgentCompose } from "../chat/agent-compose";
@@ -52,6 +52,10 @@ beforeEach(async () => {
   setLang("en");
   setPhase("live"); setSessionTransport("p2p");
   setScreen("pane");
+  setAgentChat(false);
+  setFullTerminal(false);
+  setComposeLive(false);
+  setComposeIME(false);
   selectPane("p1");
   setCredential({ daemonId: "d1" } as unknown as PairResult);
   attachLiveSession(session);
@@ -116,6 +120,8 @@ describe("attachment insertion in all three compose modes", () => {
       field.value = "question";
       field.dispatchEvent(new (appRoot().ownerDocument.defaultView!.Event)("input", { bubbles: true }));
     });
+    expect(composeDraft()).toBe("question");
+    expect(sent).toEqual([]);
     await commitFiles(["first.txt"]);
     await act(async () => { await insertPaths(SCOPE); });
     expect(field.value).toBe(`question ${PATH_A}`);

@@ -220,7 +220,7 @@ describe("React herd list", () => {
     expect(card.querySelector(".card-main")?.getAttribute("aria-pressed")).toBe("true");
     expect(card.querySelector(".pill-unknown")?.textContent).toBe(t("status.unverifiable"));
     expect(card.querySelector(".pill-done")).toBeNull();
-    expect(app().querySelector(".done-count")).not.toBeNull();
+    expect(app().querySelector(".done-count")).toBeNull();
   });
 
   test("a visible completion batch vibrates once and keeps attention through repaint", () => {

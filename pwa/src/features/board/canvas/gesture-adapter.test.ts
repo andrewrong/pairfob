@@ -138,7 +138,7 @@ describe("board canvas gesture adapter", () => {
     pointer(viewport, "pointermove", { x: 140, y: 105 });
     expect(record.cameras[1]).toEqual({ scale: 1, panX: 40, panY: 5, fitted: true });
     // The suppressed click never reaches the tile: a finished drag opens nothing.
-    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 });
     tile.dispatchEvent(click);
     expect(click.defaultPrevented).toBe(true);
     expect(record.clicks).toBe(0);
@@ -224,12 +224,13 @@ describe("board canvas gesture adapter", () => {
     pointer(tile, "pointerdown", { x: 40, y: 40 });
     pointer(viewport, "pointermove", { x: 41, y: 41 });
     const up = pointer(viewport, "pointerup", { x: 41, y: 41 });
-    expect(up.defaultPrevented).toBe(false);
+    expect(up.defaultPrevented).toBe(true);
     expect(record.clicks).toBe(1);
     expect(record.cameras).toEqual([]);
-    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 });
     tile.dispatchEvent(click);
-    expect(click.defaultPrevented).toBe(false);
+    expect(click.defaultPrevented).toBe(true);
+    expect(record.clicks).toBe(1);
     stop();
   });
 
@@ -254,8 +255,8 @@ describe("board canvas gesture adapter", () => {
     const { viewport, tile, stop, record } = harness();
     pointer(tile, "pointerdown", { x: 20, y: 20 });
     pointer(viewport, "pointercancel", { x: 20, y: 20 });
-    // Release semantics are unchanged: nothing moved, so the tile keeps its tap.
-    expect(record.clicks).toBe(1);
+    // Cancellation must not synthesize a tap.
+    expect(record.clicks).toBe(0);
     pointer(viewport, "pointermove", { x: 200, y: 200 });
     expect(record.cameras).toEqual([]);
     expect(record.scrolls).toEqual([]);

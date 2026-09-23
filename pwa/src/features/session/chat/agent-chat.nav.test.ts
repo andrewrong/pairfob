@@ -18,7 +18,7 @@ const { goBackFromPane } = await import("../pane-actions.ts");
 const { leaveAgentChat, patchAgentChat, refreshAgentTrace, restoreAgentTrace } = await import("./agent-chat-controller.ts");
 const { resetComposeDrafts } = await import("../drafts/compose-drafts.ts");
 const { setLang } = await import("../../../lib/i18n.ts");
-const { setPhase } = await import("../../connection/connection-store.ts");
+const { setPhase, setNetworkOnline } = await import("../../connection/connection-store.ts");
 const { setScreen, currentScreen } = await import("../../../app/navigation-store.ts");
 const { selectPane, openPaneId, setAgentChat, isAgentChat, resetPaneView, setFullTerminal } = await import("../session-store.ts");
 const { applyCapabilities } = await import("../../operations/capabilities-store.ts");
@@ -732,6 +732,21 @@ describe("agent-chat remembers its mode per pane", () => {
     expect(app.querySelector(".chrome-meta-text")?.textContent).toBe("未知");
     expect(app.querySelector(".agent-unknown")).not.toBeNull();
     expect(app.querySelector(".icon-stop")).toBeNull();
+  }));
+
+  test("a working agent reads as unknown once contact is lost, not as still working", async () => await act(async () => {
+    bootAgentChat();
+    setAgents([{ ...(selectedAgent() ?? { paneId: "p1" }), status: "working" }]);
+    setNetworkOnline(false);
+    try {
+      paintPane();
+      expect(app.querySelector(".chrome-meta-text")?.textContent).toBe("未知");
+      expect(app.querySelector(".agent-unknown")).not.toBeNull();
+      expect(app.querySelector(".agent-working")).toBeNull();
+      expect(app.querySelector(".icon-stop")).toBeNull();
+    } finally {
+      setNetworkOnline(true);
+    }
   }));
 
   test("a failed empty read offers retry in the centered empty state", async () => await act(async () => {

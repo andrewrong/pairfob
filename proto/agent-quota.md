@@ -32,9 +32,11 @@ The UI hides percentages for expired samples and samples older than 15 minutes.
   view. The provider call has an 8-second deadline and bounded output.
 - Claude Code: automatic OAuth GET of `https://api.anthropic.com/api/oauth/usage`.
   Reads `CLAUDE_CONFIG_DIR/.credentials.json`, or the default macOS
-  `Claude Code-credentials` Keychain service with interaction forbidden.
+  `Claude Code-credentials` Keychain service via `/usr/bin/security`, matching
+  the CLI-compatible reader used for Cursor. macOS may request Keychain access;
+  denied or timed-out reads report `auth_required`.
   Requires a readable, unexpired credential with `user:profile` scope. No login
-  dialog, refresh-token rotation, settings modification, or model turn occurs.
+  flow, refresh-token rotation, settings modification, or model turn occurs.
   Custom config directories currently require the credential file.
 - GitHub Copilot: fixed `https://api.github.com/copilot_internal/user` query.
   Uses `COPILOT_GITHUB_TOKEN`, otherwise the unique public GitHub credential
@@ -149,6 +151,11 @@ changes. Remove `pairfob-quota.json` if the saved sample is no longer wanted.
 The setup command targets macOS/Linux shell-based Claude Code installations.
 It never runs as part of the read-only RPC. The daemon must see the same
 `CLAUDE_CONFIG_DIR` and Codex executable/login environment as the local CLI.
+
+The service installer preserves the nonsecret account-directory selectors
+`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `GROK_HOME`, and the explicit Claude
+statusline source. Run `pairfob service install` from the configured shell after
+changing these selectors; a restart alone does not change the stored environment.
 
 ## References
 

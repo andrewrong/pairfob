@@ -28,6 +28,7 @@ const OWNERS: Record<string, readonly string[]> = {
     "features/settings/preferences-store",
   ],
   "features/board/layout-store": [],
+  "features/board/interaction-store": [],
   "features/settings/preferences-store": ["features/computers/catalog-store"],
   "features/session/session-store": [
     "features/session/chat/trace-store",
@@ -88,7 +89,7 @@ function reactSpecs(id: string): string[] {
 
 describe("domain owner manifest", () => {
   test("every declared owner exists and is one exact module", () => {
-    expect(OWNER_IDS).toHaveLength(14);
+    expect(OWNER_IDS).toHaveLength(15);
     for (const id of OWNER_IDS) {
       readFileSync(resolve(sourceRoot, `${id}.ts`)); // a renamed owner must fail
       expect(id).toMatch(/-(store)$|^app\/(navigation|notices)-store$/);

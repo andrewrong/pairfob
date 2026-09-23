@@ -292,12 +292,14 @@ describe("react complete-terminal shell", () => {
     // Isolated component boundary: a private fixture root renders only the
     // shell with explicit ports; it never uses the App screen bridge.
     let isolated: Root | null = null;
+    let switched = 0;
     const container = document.createElement("div");
     document.body.append(container);
     act(() => {
       isolated = createRoot(container);
       isolated.render(createElement(FullTerminalScreen, {
         onBack: () => undefined,
+        onSwitch: () => { switched++; },
         onWorkspace: () => undefined,
         onMenu: () => undefined,
         onStop: () => undefined,
@@ -310,6 +312,15 @@ describe("react complete-terminal shell", () => {
     });
     expect(container.querySelector(".full-terminal-root")).toBeTruthy();
     expect(container.querySelector("[data-react-full-terminal]")).toBeTruthy();
+    // The title opens the session switcher, as in the other two modes, and
+    // keeps the title/status structure the rest of the shell reads.
+    const heading = container.querySelector<HTMLButtonElement>("button.full-terminal-heading");
+    expect(heading).toBeTruthy();
+    expect(heading!.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(heading!.querySelector(".full-terminal-title")).toBeTruthy();
+    expect(heading!.querySelector(".full-terminal-status")).toBeTruthy();
+    act(() => heading!.click());
+    expect(switched).toBe(1);
     act(() => isolated?.unmount());
     container.remove();
   });

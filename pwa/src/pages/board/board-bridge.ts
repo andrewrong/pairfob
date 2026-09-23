@@ -68,6 +68,7 @@ import { morphingPane, nextTransition, queuedKind, shareOpening } from "../../ap
 import { herdLivenessModel, herdStatusModel } from "../../features/dashboard/model/herd-status";
 import { releaseBoardScroll, schedulePanePreview, scrollBoardPane } from "./pane-scroll";
 import { refreshBoardPreviews } from "../../features/board/preview/refresh";
+import { openBoardPaneMenu } from "./pane-menu";
 
 const NUDGE_ZOOM_FACTOR = 1.2;
 
@@ -243,11 +244,32 @@ function canvasPorts(): BoardCanvasPorts {
     scrollPane: (layout, paneId, direction, lines) => scrollBoardPane(layout, paneId, direction, lines),
     requestPanePreview: schedulePanePreview,
     openPane: (paneId, tile) => openBoardPane(paneId, tile),
+    openMenu: showBoardPaneMenu,
   };
+}
+
+function showBoardPaneMenu(paneId: string, point: { x: number; y: number }, tile: HTMLElement): void {
+  void openBoardPaneMenu(paneId, point, tile, { openPane: openBoardPane, revealPane: revealBoardPane });
+}
+
+/** Pan only enough to reveal the changed tile; preserve the reader's scale. */
+export function revealBoardPane(paneId: string): void {
+  if (!host.viewport || !host.stage) return;
+  const tile = [...host.stage.querySelectorAll<HTMLElement>(".board-pane")].find(tile => tile.dataset.paneId === paneId);
+  if (!tile) return;
+  const view = host.viewport.getBoundingClientRect();
+  const rect = tile.getBoundingClientRect();
+  const delta = (start: number, end: number, min: number, max: number) =>
+    end - start > max - min ? min - start : start < min ? min - start : end > max ? max - end : 0;
+  const camera = readBoardCamera();
+  writeBoardCamera({ ...camera, panX: camera.panX + delta(rect.left, rect.right, view.left + 8, view.right - 8),
+    panY: camera.panY + delta(rect.top, rect.bottom, view.top + 8, view.bottom - 8) });
+  applyBoardTransform(host.stage);
 }
 
 export function createBoardCanvasController(): BoardCanvasController {
   return {
+    openMenu: showBoardPaneMenu,
     applyTransform(stage) {
       applyBoardTransform(stage);
     },

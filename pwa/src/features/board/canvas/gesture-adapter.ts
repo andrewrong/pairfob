@@ -29,7 +29,10 @@ export type BoardCanvasPorts = {
   ): Promise<boolean> | boolean;
   requestPanePreview(paneId: string): void;
   openPane(paneId: string, tile?: HTMLElement): void;
+  openMenu?(paneId: string, point: { x: number; y: number }, tile: HTMLElement): void;
 };
+
+export const BOARD_LONG_PRESS_MS = 500;
 
 const WHEEL_ZOOM_FACTOR = 1.08;
 
@@ -62,6 +65,10 @@ export function bindBoardCanvasGestures(
   let moved = false;
   let pinch = 0;
   let scrollRemainder = 0;
+  let held = false;
+  let syntheticClick = false;
+  let longPress: ReturnType<typeof setTimeout> | undefined;
+  const cancelLongPress = () => { clearTimeout(longPress); longPress = undefined; };
 
   const point = (event: PointerEvent) => ({ x: event.clientX, y: event.clientY });
 
@@ -87,6 +94,14 @@ export function bindBoardCanvasGestures(
 
   const onDown = (event: PointerEvent) => {
     if (retired) return;
+    if (event.button === 2) { held = false; moved = false; cancelLongPress(); return; }
+    if (event.button !== 0) return;
+    if (!pointers.size && event.target instanceof Element && event.target.closest(".board-pane-more")) {
+      cancelLongPress(); held = false; moved = false; return;
+    }
+    cancelLongPress();
+    if (held && pointers.size) return;
+    held = false;
     const next = point(event);
     pointers.set(event.pointerId, next);
     origin = next;
@@ -99,17 +114,27 @@ export function bindBoardCanvasGestures(
     } catch {
       /* jsdom/happy-dom may not implement capture */
     }
-    if (pointers.size === 2) {
+    if (pointers.size >= 2) {
+      moved = true;
       const [a, b] = [...pointers.values()];
       pinch = Math.hypot(a.x - b.x, a.y - b.y);
       mode = "pinch";
       hitPane = "";
     }
+    if (pointers.size === 1 && hitPane && ports.openMenu && event.pointerType !== "mouse") {
+      const tile = (event.target as Element).closest<HTMLElement>(".board-pane");
+      if (tile) longPress = setTimeout(() => {
+        if (retired || moved || pointers.size !== 1 || !tile.isConnected) return;
+        held = true;
+        moved = true;
+        ports.openMenu!(hitPane, origin, tile);
+      }, BOARD_LONG_PRESS_MS);
+    }
     if (event.pointerType === "touch" || event.pointerType === "pen") event.preventDefault();
   };
 
   const onMove = (event: PointerEvent) => {
-    if (retired || !pointers.has(event.pointerId)) return;
+    if (retired || held || !pointers.has(event.pointerId)) return;
     const prev = pointers.get(event.pointerId)!;
     const next = point(event);
     pointers.set(event.pointerId, next);
@@ -129,6 +154,7 @@ export function bindBoardCanvasGestures(
     const fromOriginY = next.y - origin.y;
     if (mode === "undecided") {
       if (Math.hypot(fromOriginX, fromOriginY) < BOARD_GESTURE_SLOP_PX) return;
+      cancelLongPress();
       mode = boardDragMode(fromOriginX, fromOriginY, hitPane);
       moved = true;
       event.preventDefault();
@@ -156,15 +182,19 @@ export function bindBoardCanvasGestures(
   };
 
   const end = (event: PointerEvent) => {
-    if (retired) return;
+    if (retired || !pointers.has(event.pointerId)) return;
+    cancelLongPress();
     pointers.delete(event.pointerId);
     if (pointers.size < 2) pinch = 0;
     if (pointers.size === 0) {
       // A gesture that never moved is a tap: hand it to the tile it started on.
-      if (!moved && hitPane) {
+      if (!moved && !held && hitPane) {
         for (const tile of viewport.querySelectorAll<HTMLButtonElement>(".board-pane")) {
           if (tile.dataset.paneId !== hitPane) continue;
-          tile.click();
+          syntheticClick = true;
+          (tile.querySelector<HTMLElement>(".board-pane-open") ?? tile).click();
+          syntheticClick = false;
+          moved = true;
           break;
         }
       }
@@ -172,6 +202,16 @@ export function bindBoardCanvasGestures(
       mode = "undecided";
     }
     if (moved) event.preventDefault();
+  };
+
+  const cancel = (event: PointerEvent) => {
+    if (!pointers.has(event.pointerId)) return;
+    cancelLongPress();
+    pointers.clear();
+    hitPane = "";
+    moved = true;
+    mode = "undecided";
+    pinch = 0;
   };
 
   const onWheel = (event: WheelEvent) => {
@@ -194,27 +234,51 @@ export function bindBoardCanvasGestures(
   };
 
   const onClick = (event: MouseEvent) => {
-    if (retired || !moved) return;
+    if (retired || syntheticClick || !moved || event.detail === 0) return;
     event.preventDefault();
     event.stopPropagation();
+  };
+
+  const onContextMenu = (event: MouseEvent) => {
+    const paneId = paneIdFromEvent(event);
+    const tile = event.target instanceof Element ? event.target.closest<HTMLElement>(".board-pane") : null;
+    if (!paneId || !tile || !ports.openMenu) return;
+    event.preventDefault();
+    event.stopPropagation();
+    cancelLongPress();
+    if (held || (pointers.size && moved)) return;
+    held = true;
+    moved = true;
+    const rect = tile.getBoundingClientRect();
+    ports.openMenu(paneId, event.clientX || event.clientY ? point(event as PointerEvent)
+      : { x: rect.right - 12, y: rect.top + 32 }, tile);
   };
 
   viewport.addEventListener("pointerdown", onDown, { capture: true, passive: false });
   viewport.addEventListener("pointermove", onMove, { capture: true, passive: false });
   viewport.addEventListener("pointerup", end, true);
-  viewport.addEventListener("pointercancel", end, true);
+  viewport.addEventListener("pointercancel", cancel, true);
+  viewport.addEventListener("lostpointercapture", cancel, true);
   viewport.addEventListener("wheel", onWheel, { passive: false });
   viewport.addEventListener("click", onClick, true);
+  viewport.addEventListener("contextmenu", onContextMenu, true);
 
   return () => {
     retired = true;
+    cancelLongPress();
+    for (const id of pointers.keys()) {
+      if (viewport.hasPointerCapture?.(id)) viewport.releasePointerCapture(id);
+    }
+    pointers.clear();
     cancelAnimationFrame(frame);
     viewport.removeEventListener("pointerdown", onDown, true);
     viewport.removeEventListener("pointermove", onMove, true);
     viewport.removeEventListener("pointerup", end, true);
-    viewport.removeEventListener("pointercancel", end, true);
+    viewport.removeEventListener("pointercancel", cancel, true);
+    viewport.removeEventListener("lostpointercapture", cancel, true);
     viewport.removeEventListener("wheel", onWheel);
     viewport.removeEventListener("click", onClick, true);
+    viewport.removeEventListener("contextmenu", onContextMenu, true);
   };
 }
 

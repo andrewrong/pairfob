@@ -8,6 +8,7 @@ import { PINNED_GROUP_ID } from "../../../lib/ranking";
 import { appRoot } from "../../../app/dom-root";
 import { clearNotice, showStatus } from "../../../app/notices-store";
 import { setOperationBusy } from "../../operations/capabilities-store";
+import { preferencesStore } from "../../settings/preferences-store";
 import { selectPane } from "../../session/session-store";
 import { replaceAgentsFromSnapshot } from "../catalog-store";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
@@ -204,6 +205,38 @@ describe("herd screen presentation", () => {
     act(() => app().querySelector<HTMLButtonElement>(".done-count")!.click());
     expect([...app().querySelectorAll(".card-name")].map((node) => node.textContent).sort()).toEqual(["check", "done"]);
     expect(document.activeElement).toBe(app().querySelector(".card.status-done .card-main"));
+  });
+
+  test("attention shortcuts cycle independently without opening or filtering cards", () => {
+    paint(model({ agents: [agent("a", "alpha", "blocked"), agent("b", "alpha", "blocked"),
+      agent("c", "alpha", "done"), agent("d", "alpha", "done")] }));
+    const click = (selector: string) => act(() => app().querySelector<HTMLButtonElement>(selector)!.click());
+    const focused = () => (document.activeElement as HTMLElement).dataset.paneId;
+    click(".pending-count"); expect(focused()).toBe("a");
+    click(".done-count"); expect(focused()).toBe("c");
+    click(".pending-count"); expect(focused()).toBe("b");
+    click(".pending-count"); expect(focused()).toBe("a");
+    click(".done-count"); expect(focused()).toBe("d");
+    expect(calls).toEqual([]);
+    expect(app().querySelectorAll(".card-main")).toHaveLength(4);
+  });
+
+  test("attention expands the target group and focuses after the new projection", () => {
+    const agents = [agent("wait", "alpha", "blocked"), agent("done", "beta", "done")];
+    const input = { agents, listGroup: "space" as const, groupCollapsed: { alpha: true, beta: true } };
+    paint(model(input));
+    act(() => app().querySelector<HTMLButtonElement>(".pending-count")!.click());
+    expect(preferencesStore.get().listGroupCollapsed.alpha).toBe(false);
+    paint(model({ ...input, groupCollapsed: { alpha: false, beta: true } }));
+    expect((document.activeElement as HTMLElement).dataset.paneId).toBe("wait");
+    expect([...app().querySelectorAll(".group-title")].map(node => node.getAttribute("aria-expanded"))).toEqual(["true", "false"]);
+  });
+
+  test("stale sessions do not present attention shortcuts as current", () => {
+    paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("done", "beta", "done")], liveness: "unverifiable" }));
+    expect(app().querySelector(".pending-count")).toBeNull();
+    expect(app().querySelector(".done-count")).toBeNull();
+    expect(app().querySelectorAll(".card.unverifiable")).toHaveLength(2);
   });
 
   test("grouped results still honor collapse and expand actions", () => {

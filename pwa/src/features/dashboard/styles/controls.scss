@@ -15,6 +15,11 @@
 }
 
 @mixin herd-done-count {
+  .page > .statusline, .rail > .statusline { flex-wrap: wrap; }
+  .attention-counts { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+  .attention-counts:empty { display: none; }
+  .pending-count { display: inline-flex; align-items: center; gap: 4px; color: var(--warn); white-space: nowrap; }
+  .attention-counts > button { min-height: 44px; padding: 0 var(--space-2); }
   .done-count {
     flex: none;
     margin-left: auto;

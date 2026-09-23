@@ -4,6 +4,7 @@ import type { PaneBox, TabLayout } from "../../../lib/layout";
 import { tileFillScale } from "../model/camera";
 import type { BoardCanvasModel, BoardTileView } from "../model/board-view";
 import { BoardAnsiPreview } from "./board-preview";
+import { t } from "../../../lib/i18n";
 
 /**
  * Canvas lifecycle the page hands down.
@@ -26,6 +27,7 @@ export type BoardCanvasController = {
   registerHost(viewport: HTMLElement | null, stage: HTMLElement | null, layout: TabLayout | null): void;
   releaseHost(): void;
   openPane(paneId: string, tile: HTMLElement | null): void;
+  openMenu?(paneId: string, point: { x: number; y: number }, tile: HTMLElement): void;
   zoomAt(
     viewport: HTMLElement,
     stage: HTMLElement,
@@ -57,6 +59,7 @@ function BoardPaneTile({
   viewportRef,
   stageRef,
   previewPaint,
+  highlighted,
 }: {
   tile: BoardTileView;
   zoomedLabel: string;
@@ -64,19 +67,37 @@ function BoardPaneTile({
   viewportRef: RefObject<HTMLDivElement | null>;
   stageRef: RefObject<HTMLDivElement | null>;
   previewPaint: object;
+  highlighted: boolean;
 }) {
-  const tileRef = useRef<HTMLButtonElement>(null);
+  const tileRef = useRef<HTMLDivElement>(null);
+  const menu = (point?: { x: number; y: number }) => {
+    const element = tileRef.current;
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    controller.openMenu?.(tile.paneId, point ?? { x: rect.right - 12, y: rect.top + 32 }, element);
+  };
   useLayoutEffect(() => {
     controller.shareTileOpening(tile.paneId, tileRef.current);
   });
   return (
-    <Button
+    <div
       ref={tileRef}
+      role="group"
       className={tile.className}
       data-pane-id={tile.paneId}
+      data-board-menu-target={highlighted || undefined}
       data-react-board-preview=""
       aria-label={tile.aria}
       style={tileStyle(tile.box)}
+      onContextMenu={(event) => {
+        event.preventDefault(); event.stopPropagation();
+        menu(event.clientX || event.clientY ? { x: event.clientX, y: event.clientY } : undefined);
+      }}
+      onKeyDown={(event) => {
+        if ((event.shiftKey && event.key === "F10") || event.key === "ContextMenu") {
+          event.preventDefault(); event.stopPropagation(); menu();
+        }
+      }}
       onClick={(event) => {
         event.preventDefault();
         controller.openPane(tile.paneId, tileRef.current);
@@ -98,6 +119,9 @@ function BoardPaneTile({
         );
       }}
     >
+      <Button className="board-pane-open" aria-label={tile.aria} />
+      <Button className="board-pane-more" aria-label={t("boardMenu.more", { title: tile.title })}
+        aria-haspopup="menu" onClick={(event) => { event.stopPropagation(); menu(); }}>⋯</Button>
       <span className="board-pane-head">
         <span className={`agent-dot agent-${tile.status}`} />
         <span className="board-pane-name">{tile.title}</span>
@@ -105,7 +129,7 @@ function BoardPaneTile({
         {tile.zoomed ? <span className="board-pane-zoom">{zoomedLabel}</span> : null}
       </span>
       <BoardAnsiPreview paneId={tile.paneId} cols={tile.cols} rows={tile.rows} paint={previewPaint} />
-    </Button>
+    </div>
   );
 }
 
@@ -158,6 +182,7 @@ export function BoardCanvasView({
               viewportRef={viewportRef}
               stageRef={stageRef}
               previewPaint={previewPaint}
+              highlighted={canvas.highlightedPaneId === tile.paneId}
             />
           ))}
         </div>

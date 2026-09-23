@@ -7,12 +7,14 @@ import type { FullTerminalControlsOptions } from "./full-terminal-compose";
 import type { RemoteScroll } from "./full-terminal-scroll";
 import { FullTerminalPad } from "./full-terminal-pad";
 import { FullTerminalHost } from "./full-terminal-host";
-import { BackButton } from "../../../shared/ui/primitives";
+import { BackButton, Button } from "../../../shared/ui/primitives";
 import { SessionActions } from "../guided/session-chrome";
 import type { FullTerminalViewSnapshot } from "./full-terminal-view";
 
 export type FullTerminalScreenProps = {
   onBack: () => void;
+  /** The title opens the session switcher, as it does in the other two modes. */
+  onSwitch: () => void;
   onWorkspace: () => void;
   onMenu: () => void;
   onStop: () => void;
@@ -39,20 +41,23 @@ export function FullTerminalScreen(props: FullTerminalScreenProps) {
   return <FullTerminalBody key={view.owner} view={view} {...props} />;
 }
 
-function FullTerminalBody({ view, onBack, onWorkspace, onMenu, onStop, onRetry, scroll, pageLines, controls, engineActive }: FullTerminalScreenProps & { view: FullTerminalViewSnapshot }) {
+function FullTerminalBody({ view, onBack, onSwitch, onWorkspace, onMenu, onStop, onRetry, scroll, pageLines, controls, engineActive }: FullTerminalScreenProps & { view: FullTerminalViewSnapshot }) {
   // The fallback follows the session domain's frozen snapshot: the terminal
   // shell is active exactly while the session domain says the complete
   // terminal is mounted.
   const session = useSession();
   const active = engineActive ?? session.fullTerminal;
+  const aria = view.detail
+    ? t("chrome.switchAriaMeta", { title: view.title, line: view.detail })
+    : t("chrome.switchAria", { title: view.title });
   return (
     <div className="pane-root full-terminal-root" data-pane-id={view.paneId} data-terminal-owner={view.owner} data-react-full-terminal="">
       <header className="chrome full-terminal-chrome">
         <BackButton onBack={onBack} label={t("chrome.backList")} />
-        <div className="full-terminal-heading">
+        <Button className="full-terminal-heading" aria-haspopup="dialog" aria-label={aria} title={aria} onClick={onSwitch}>
           <strong className="full-terminal-title">{view.title}</strong>
           <span className="full-terminal-status">{view.detail}</span>
-        </div>
+        </Button>
         <SessionActions
           onWorkspace={onWorkspace}
           onMenu={onMenu}

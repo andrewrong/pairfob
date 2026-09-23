@@ -30,7 +30,8 @@ import {
   type TermFit,
 } from "../../settings/preferences-store";
 import { type ListGroup } from "../../../lib/ranking";
-import { setPhase } from "../../connection/connection-store";
+import { setNetworkOnline, setPhase } from "../../connection/connection-store";
+import { applyRuntimeIdentity, runtimeIdentity } from "../../connection/runtime-store";
 import { setScreen } from "../../../app/navigation-store";
 import { setComposeLive } from "../compose-store";
 import {
@@ -206,6 +207,24 @@ test("switcher keeps ranked cards, pinned marker, active state and contextual me
   expect(items[0].querySelector(".pin-mark")?.getAttribute("aria-hidden")).toBe("true");
   expect(items[1].classList.contains("on")).toBeTrue();
   expect(items[0].querySelector(".switch-meta")?.textContent).toContain(t("status.working"));
+});
+
+test("switcher states read like the header and turn unknown once contact is lost", () => {
+  const identity = runtimeIdentity();
+  act(() => applyRuntimeIdentity({ herdHost: identity.herdHost, runtimeKind: "herdr" }));
+  try {
+    seedAgents([card("p1")]);
+    act(openPaneSwitcher);
+    // An idle agent is "waiting for input" in the header and the list, not a bare "idle".
+    expect(document.querySelector(".switch-meta")?.textContent).toContain(t("status.waitingInput"));
+    act(() => closeTestDialogs());
+    act(() => setNetworkOnline(false));
+    act(openPaneSwitcher);
+    expect(document.querySelector(".switch-meta")?.textContent).toContain(t("status.unverifiable"));
+    expect(document.querySelector(".switch-item .agent-unknown")).not.toBeNull();
+  } finally {
+    act(() => { setNetworkOnline(true); applyRuntimeIdentity(identity); });
+  }
 });
 
 test("empty switcher retains its explanation and cancel action", () => {

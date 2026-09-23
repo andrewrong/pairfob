@@ -160,7 +160,7 @@ describe("herd list projection", () => {
     expect(view.stagger).toBe(true);
   });
 
-  test("the status line keeps its tone and the done count", () => {
+  test("unverifiable status does not claim fresh attention counts", () => {
     const view = buildHerdViewModel(input({
       agents: [agent("p1", "alpha", "done")],
       status: { tone: "warn", text: t("chrome.unverifiable") },
@@ -168,7 +168,8 @@ describe("herd list projection", () => {
       connected: false,
     }));
     expect(view.status).toEqual({ tone: "warn", text: t("chrome.unverifiable") });
-    expect(view.doneCount).toBe(1);
+    expect(view.doneCount).toBe(0);
+    expect(view.pendingCount).toBe(0);
     expect(view.groups[0].cards[0].className).toContain("unverifiable");
   });
 });

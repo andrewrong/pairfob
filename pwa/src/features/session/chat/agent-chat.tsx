@@ -22,19 +22,20 @@ import { subscribeVisibleNotice, visibleNotice } from "../../../app/notices-stor
 import { AgentCompose } from "./agent-compose";
 import { AgentStream } from "./agent-stream";
 import { BackButton, Button, Feedback } from "../../../shared/ui/primitives";
-import { SessionActions } from "../guided/session-chrome";
+import { SessionActions, useStatusUnverifiable } from "../guided/session-chrome";
 
 function AgentChatChrome({ includeBack, handlers }: { includeBack: boolean; handlers: SessionHandlers }) {
   const sessionSnap = useSession();
   const selected = agentFromDashboardSnapshot(useDashboard(), sessionSnap.paneId);
+  const stale = useStatusUnverifiable();
   const title = selected ? chromeName(selected) : t("mode.agent");
-  const line = selected ? agentStatusLabel(selected) : "";
+  const line = selected ? (stale ? t("status.unverifiable") : agentStatusLabel(selected)) : "";
   const aria = selected ? (line ? t("chrome.switchAriaMeta", { title, line }) : t("chrome.switchAria", { title })) : undefined;
   return <header className="chrome">
     {includeBack && <BackButton onBack={handlers.onBack} label={t("chrome.backList")} />}
     <Button className="chrome-title" onClick={handlers.onSwitch} title={selected ? [title, line].filter(Boolean).join(" · ") : undefined} aria-label={aria}>
       <span className="chrome-name">{title}</span>
-      {selected && <span className="chrome-meta"><span className={`agent-dot agent-${selected.status}`} /><span className="chrome-meta-text">{line}</span></span>}
+      {selected && <span className="chrome-meta"><span className={`agent-dot agent-${stale ? "unknown" : selected.status}`} /><span className="chrome-meta-text">{line}</span></span>}
     </Button>
     <SessionActions onWorkspace={handlers.onWorkspace} onMenu={handlers.onMenu}
       working={canInterruptAgent(selected?.status ?? "")} onStop={() => {

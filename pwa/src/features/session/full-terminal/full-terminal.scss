@@ -23,7 +23,11 @@
   gap: 2px;
   padding: 2px 4px;
   overflow: hidden;
+  border-radius: 10px;
+  text-align: left;
 }
+
+.full-terminal-heading:active { background: var(--surface-2); }
 
 .full-terminal-title,
 .full-terminal-status {

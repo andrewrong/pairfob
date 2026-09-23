@@ -20,6 +20,7 @@ import {
   worktreeScope,
   type ListWorktreesInput,
   type WorktreeDraft,
+  type SplitDirection,
 } from "../../lib/operations";
 import { type GitLayer } from "../../lib/workspace";
 import {
@@ -233,18 +234,39 @@ export async function createSelectedTab(agent: AgentCard | undefined = selectedA
   );
 }
 
-export async function splitSelectedPane(): Promise<void> {
+export type PaneOperationOptions = {
+  /** Additional target lifetime, e.g. the board tab that opened the menu. */
+  valid?: () => boolean;
+  direction?: SplitDirection;
+  created?: (paneId: string) => void;
+};
+
+function requirePaneTarget(agent: AgentCard, options: PaneOperationOptions): void {
+  if (options.valid && (!options.valid() || !dashboardStore.get().agents.some(pane =>
+    pane.paneId === agent.paneId && pane.tabId === agent.tabId && pane.workspaceId === agent.workspaceId))) {
+    throw new ProtocolError("conflict", t("boardMenu.targetGone"));
+  }
+}
+
+export async function splitSelectedPane(selected = selectedAgent(), options: PaneOperationOptions = {}): Promise<void> {
   const session = liveSession();
-  const selected = selectedAgent();
-  if (!session || !selected || !capabilityEnabled("split_pane")) return;
+  if (!session || !selected || !capabilityEnabled("split_pane") || options.valid?.() === false) return;
   const owner = operationOwner(session);
-  const input = await askSplitPane([...advertisedAgentKinds()], selected.cwd);
+  const input = await askSplitPane([...advertisedAgentKinds()], selected.cwd,
+    options.direction ? { direction: options.direction, title: agentTitle(selected) } : undefined);
   if (!input || !ownsOperationView(owner) || !capabilityEnabled("split_pane")) return;
   await runHerdOperation(
     t("op.creatingSplit"),
     t("op.createdSplit"),
-    () => session.splitPane({ pane_id: selected.paneId, ...input }),
-    { owner, capability: "split_pane", conflictMessage: t("err.createPaneConflict"), after: selectCreatedPane },
+    () => { requirePaneTarget(selected, options); return session.splitPane({ pane_id: selected.paneId, ...input }); },
+    { owner, capability: "split_pane", conflictMessage: t("err.createPaneConflict"), after: async (result, scope) => {
+      // An explicit board target owns neither global pane selection nor a new
+      // tab focus. Refresh without resetting its camera or pulling a reader
+      // back to the old tab after an in-flight create.
+      if (options.valid) await refreshFromSession();
+      else await selectCreatedPane(result, scope);
+      if (ownsOperationView(scope) && options.valid?.() !== false && result.pane_id) options.created?.(result.pane_id);
+    } },
   );
 }
 
@@ -378,34 +400,37 @@ export async function openSelectedWorktree(): Promise<void> {
   });
 }
 
-export async function layoutSelectedPane(kind: "resize" | "swap" | "zoom"): Promise<void> {
+export async function layoutSelectedPane(kind: "resize" | "swap" | "zoom", selected = selectedAgent(),
+  options: PaneOperationOptions & { choice?: import("./operation-forms").LayoutChoice; zoomMode?: "on" | "off" } = {}): Promise<void> {
   const session = liveSession();
-  const selected = selectedAgent();
   const allowed =
     kind === "resize"
       ? capabilityEnabled("resize_pane")
       : kind === "swap"
         ? capabilityEnabled("swap_pane")
         : capabilityEnabled("zoom_pane");
-  if (!session || !selected || !allowed) return;
+  if (!session || !selected || !allowed || options.valid?.() === false) return;
   const owner = operationOwner(session);
   if (kind === "zoom") {
-    await runHerdOperation(t("op.zooming"), t("op.zoomed"), () =>
-      session.zoomPane({ pane_id: selected.paneId, mode: "toggle" }),
+    await runHerdOperation(t("op.zooming"), t("op.zoomed"), () => {
+      requirePaneTarget(selected, options);
+      return session.zoomPane({ pane_id: selected.paneId, mode: options.zoomMode ?? "toggle" }); },
       { owner, capability: "zoom_pane" },
     );
     return;
   }
-  const choice = await askLayout(kind);
+  const choice = options.choice ?? await askLayout(kind);
   if (!choice || !ownsOperationView(owner)) return;
   if (choice.kind === "resize") {
-    await runHerdOperation(t("op.resizing"), t("op.resized"), () =>
-      session.resizePane({ pane_id: selected.paneId, direction: choice.direction, amount: choice.amount }),
+    await runHerdOperation(t("op.resizing"), t("op.resized"), () => {
+      requirePaneTarget(selected, options);
+      return session.resizePane({ pane_id: selected.paneId, direction: choice.direction, amount: choice.amount }); },
       { owner, capability: "resize_pane" },
     );
   } else {
-    await runHerdOperation(t("op.swapping"), t("op.swapped"), () =>
-      session.swapPane({ pane_id: selected.paneId, direction: choice.direction }),
+    await runHerdOperation(t("op.swapping"), t("op.swapped"), () => {
+      requirePaneTarget(selected, options);
+      return session.swapPane({ pane_id: selected.paneId, direction: choice.direction }); },
       { owner, capability: "swap_pane" },
     );
   }
@@ -422,9 +447,9 @@ function dropPaneIfCurrent(paneId: string): void {
   if (currentScreen() === "pane") leavePaneScreen();
 }
 
-export async function renamePane(agent: AgentCard | undefined = selectedAgent()): Promise<void> {
+export async function renamePane(agent: AgentCard | undefined = selectedAgent(), options: PaneOperationOptions = {}): Promise<void> {
   const session = liveSession();
-  if (!session || !agent?.paneId) return;
+  if (!session || !agent?.paneId || options.valid?.() === false) return;
   const owner = operationOwner(session);
   const label = await askText(
     t("op.renamePane"),
@@ -434,6 +459,8 @@ export async function renamePane(agent: AgentCard | undefined = selectedAgent())
   );
   if (label === null || !ownsOperationView(owner)) return;
   try {
+    requirePaneTarget(agent, options);
+    if (!session.isConnected() || operationBusy()) return;
     await session.renamePane(agent.paneId, label.trim() || null);
     if (ownsOperationView(owner)) await refreshFromSession();
   } catch (error) {
@@ -481,14 +508,18 @@ export async function renameWorkspace(agent: AgentCard | undefined = selectedAge
   }
 }
 
-export async function closePane(agent: AgentCard | undefined = selectedAgent()): Promise<void> {
+export async function closePane(agent: AgentCard | undefined = selectedAgent(), options: PaneOperationOptions = {}): Promise<void> {
   const session = liveSession();
-  if (!session || !agent?.paneId) return;
+  if (!session || !agent?.paneId || options.valid?.() === false) return;
   const owner = operationOwner(session);
-  if (!(await askConfirm(t("op.closePaneAsk", { title: agentTitle(agent) }), t("op.closePane")))) return;
+  const question = options.valid ? t("boardMenu.closeAsk", { title: agentTitle(agent) }) +
+    (agent.status === "working" || agent.status === "blocked" ? ` ${t("boardMenu.closeRunning")}` : "")
+    : t("op.closePaneAsk", { title: agentTitle(agent) });
+  if (!(await askConfirm(question, t("op.closePane")))) return;
   if (!ownsOperationView(owner)) return;
   const paneId = agent.paneId;
   await runHerdOperation(t("op.closingPane"), t("op.closedPane"), async () => {
+    requirePaneTarget(agent, options);
     if (liveSession() === session && openPaneId() === paneId && isFullTerminal()) {
       const transition = await leaveFullTerminalWithTransition({ rememberGuided: false, paint: false });
       if (!ownsComputer(owner)) return;

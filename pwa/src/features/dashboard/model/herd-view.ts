@@ -98,6 +98,7 @@ export type HerdViewModel = {
   empty: HerdEmptyView | null;
   status: HerdStatus;
   doneCount: number;
+  pendingCount: number;
   create: { label: string; aria: string; disabled: boolean } | null;
   computers: { label: string } | null;
   board: { label: string };
@@ -223,7 +224,8 @@ export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
     stagger: input.attention.stagger,
     empty: input.agents.length ? null : herdEmptyView(input),
     status: input.status,
-    doneCount: herdDoneCount(input.agents),
+    doneCount: stale ? 0 : herdDoneCount(input.agents),
+    pendingCount: stale ? 0 : input.agents.filter(agent => agent.status === "blocked").length,
     create: input.createConversation
       ? {
           label: input.operationBusy ? t("home.creating") : t("home.new"),

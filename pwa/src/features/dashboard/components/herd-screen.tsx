@@ -1,5 +1,6 @@
-import { Plus } from "lucide-react";
+import { CircleAlert, Plus } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { t } from "../../../lib/i18n";
 import { Brand, Button, StatusDot, TopbarActions } from "../../../shared/ui/primitives";
 import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
 import { preferencesStore, setListGroupCollapsed } from "../../settings/preferences-store";
@@ -52,23 +53,28 @@ export function HerdScreen({
 }) {
   const [finishedRequest, setFinishedRequest] = useState(0);
   const root = useRef<HTMLElement>(null);
-  const revealFinished = useRef(false);
+  const revealPane = useRef<string | null>(null);
+  const lastLocated = useRef({ blocked: "", done: "" });
   useLayoutEffect(() => {
-    if (!revealFinished.current) return;
-    const target = root.current?.querySelector<HTMLElement>(".card.status-done .card-main");
+    if (!revealPane.current) return;
+    if (!view.groups.some(group => !group.collapsed && group.cards.some(card => card.paneId === revealPane.current))) return;
+    const target = [...(root.current?.querySelectorAll<HTMLElement>(".card-main[data-pane-id]") ?? [])]
+      .find(node => node.dataset.paneId === revealPane.current);
     if (!target) return;
-    revealFinished.current = false;
+    revealPane.current = null;
     target.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
     target.focus({ preventScroll: true });
   }, [finishedRequest, view]);
-  const showFinished = () => {
-    const collapsed = { ...preferencesStore.get().listGroupCollapsed };
-    for (const group of view.groups) {
-      if (group.cards.some((card) => card.agent.status === "done")) collapsed[group.id] = false;
-    }
-    setListGroupCollapsed(collapsed);
-    revealFinished.current = true;
-    setFinishedRequest((request) => request + 1);
+  const showNext = (status: "blocked" | "done") => {
+    const candidates = view.groups.flatMap(group => group.cards
+      .filter(card => card.agent.status === status).map(card => ({ paneId: card.paneId, groupId: group.id })));
+    if (!candidates.length) return;
+    const previous = candidates.findIndex(card => card.paneId === lastLocated.current[status]);
+    const next = candidates[(previous + 1) % candidates.length];
+    lastLocated.current[status] = next.paneId;
+    revealPane.current = next.paneId;
+    setListGroupCollapsed({ ...preferencesStore.get().listGroupCollapsed, [next.groupId]: false });
+    setFinishedRequest(request => request + 1);
   };
   const chrome = (
     <>
@@ -79,7 +85,13 @@ export function HerdScreen({
       <p className="statusline">
         <StatusDot tone={view.status.tone} />
         <span className="statusline-text">{view.status.text}</span>
-        <CompletionCount count={view.doneCount} onActivate={showFinished} />
+        <span className="attention-counts">
+        {view.pendingCount > 0 && <Button className="text-link pending-count"
+          aria-label={t("home.pendingCountAria", { count: String(view.pendingCount) })} onClick={() => showNext("blocked")}>
+          <CircleAlert size={14} aria-hidden="true" />{t("home.pendingCount", { count: String(view.pendingCount) })}
+        </Button>}
+        <CompletionCount count={view.doneCount} onActivate={() => showNext("done")} />
+        </span>
       </p>
       <HerdBanners tone={view.status.tone} />
       {variant === "page" ? <AppNotice /> : null}
