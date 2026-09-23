@@ -1,4 +1,3 @@
-import { agentStatusLabel } from "../../../lib/dashboard";
 import { resetTestDOM } from "../../../../test-support/boot-dom";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act } from "react";
@@ -25,7 +24,7 @@ let connected = true;
 let back = 0, menu = 0, inspect = 0, switched = 0;
 const handlers = {
   onBack: () => { back++; }, onMenu: () => { menu++; },
-  onWorkspace: () => { inspect++; }, onSwitch: () => { switched++; }, onMode: () => {},
+  onWorkspace: () => { inspect++; }, onSwitch: () => { switched++; },
 };
 const parts = {
   Terminal: ({ model }: { model: PaneModel }) => <div data-testid="buffer">{model.texts.join("\n")}</div>,
@@ -84,6 +83,20 @@ afterEach(() => {
   snapshotRestorer.restore();
 });
 
+test("losing contact updates the header by itself, with no session repaint", () => {
+  paint();
+  const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
+  expect(appRoot().querySelector(".icon-stop") !== null).toBeTrue();
+  // A typed connection action only: nothing asks the session view to repaint.
+  act(() => setNetworkOnline(false));
+  expect(appRoot().querySelector(".icon-stop")).toBeNull();
+  expect(title.querySelector(".agent-unknown") !== null).toBeTrue();
+  expect(title.getAttribute("aria-label")).toContain(t("status.unverifiable"));
+  act(() => setNetworkOnline(true));
+  expect(appRoot().querySelector(".icon-stop") !== null).toBeTrue();
+  expect(title.getAttribute("aria-label")).toContain(t("status.working"));
+});
+
 test("status publication keeps header identity while updating visible status, accessibility and Stop together", () => {
   paint();
   const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
@@ -92,10 +105,10 @@ test("status publication keeps header identity while updating visible status, ac
   act(() => { applySnapshot(SNAPSHOT("idle")); notifySessionUI(); });
   expect(appRoot().querySelector(".chrome-title") === title).toBeTrue();
   expect(appRoot().querySelector(".icon-stop")).toBeNull();
-  expect(title.getAttribute("aria-label")).toContain(agentStatusLabel({ paneId: "p1", agent: "codex", status: "idle", cwd: "", workspaceId: "" }));
+  expect(title.getAttribute("aria-label")).toContain(t("status.waitingInput"));
   connected = false;
   act(notifySessionUI);
-  expect(appRoot().querySelector(".chrome-meta .agent-unknown") !== null).toBeTrue();
+  expect(title.querySelector(".agent-unknown") !== null).toBeTrue();
   expect(title.getAttribute("aria-label")).toContain(t("status.unverifiable"));
 });
 
@@ -146,7 +159,7 @@ test("notices update between chrome and buffer without resetting the pane", () =
   act(() => showStatus("session notice", true));
   expect(appRoot().querySelector(".pane-root") === pane).toBeTrue();
   const notice = appRoot().querySelector("[data-react-notice]")!;
-  expect(notice.previousElementSibling?.classList.contains("chrome")).toBeTrue();
+  expect(notice.previousElementSibling?.className).toBe("chrome");
   expect(notice.nextElementSibling?.getAttribute("data-testid")).toBe("buffer");
   act(clearNotice);
   expect(appRoot().querySelector("[data-react-notice]")).toBeNull();

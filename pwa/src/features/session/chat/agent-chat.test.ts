@@ -88,7 +88,6 @@ test("the phone entry mounts the React page and forwards its chrome callbacks", 
       onWorkspace: () => actions.push("workspace"),
       onMenu: () => actions.push("menu"),
       onSwitch: () => actions.push("switch"),
-      onMode: () => actions.push("mode"),
     },
   }));
   expect(appRoot().querySelector("[data-react-agent-chat]")?.getAttribute("data-back")).toBe("1");

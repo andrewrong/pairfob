@@ -203,7 +203,7 @@ test("every scene renders: 62 through the stable App (incl. mock-engine terminal
         // The deliberate QA FullTerminalScreen shell fixture, App unmounted.
         expect(isAppMounted()).toBeFalse();
         assertPaneRoot(PANE);
-        const detail = document.querySelector(".full-terminal-state-detail")?.textContent ?? "";
+        const detail = document.querySelector(".full-terminal-status")?.textContent ?? "";
         expect(detail).toBe(scene.name === "terminal-error" ? t("ft.stateError") : t("ft.preparing"));
         shellRendered.push(scene.name);
       } else if (scene.name === "terminal-live") {

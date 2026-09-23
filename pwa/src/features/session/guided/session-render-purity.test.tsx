@@ -20,7 +20,7 @@ import { SessionPane } from "./session-pane";
 
 const live = () => ({ isConnected: () => true });
 const noop = () => undefined;
-const handlers = { onBack: noop, onMenu: noop, onSwitch: noop, onMode: noop, onWorkspace: noop };
+const handlers = { onBack: noop, onMenu: noop, onSwitch: noop, onWorkspace: noop };
 
 beforeEach(async () => {
   await resetBoardTestDOM();

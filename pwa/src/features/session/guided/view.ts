@@ -31,7 +31,6 @@ export type SessionHandlers = {
   onBack: () => void;
   onMenu: () => void;
   onSwitch: () => void;
-  onMode: () => void;
   onWorkspace: () => void;
 };
 

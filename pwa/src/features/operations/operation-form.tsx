@@ -46,7 +46,9 @@ export function OperationFrame<T>({ modal, title, children, onSubmit, onInput, f
   onSubmit?: React.FormEventHandler<HTMLFormElement>; onInput?: React.FormEventHandler<HTMLFormElement>;
 }) {
   useLayoutEffect(() => {
-    return bindSheetDrag({ dialog: modal.dialog.current!, form: modal.form.current!, scroller: modal.dialog.current,
+    // On a phone the card — and its scroll — lives on the form, not the dialog;
+    // the drag must read the element that really scrolls or it eats the scroll.
+    return bindSheetDrag({ dialog: modal.dialog.current!, form: modal.form.current!, scroller: modal.form.current,
       close: modal.dismiss });
   }, [modal]);
   return <ModalFrame modal={modal} title={title} className="modal operation-modal" onSubmit={onSubmit} onInput={onInput}

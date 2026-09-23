@@ -274,7 +274,6 @@ export const zh = {
   "home.pinned": "已置顶",
   "home.pendingCount": "{count} 个待处理",
   "home.pendingCountAria": "定位下一个待处理的会话，共 {count} 个",
-  "mode.agentUnavailable": "此会话暂不提供 Agent 聊天记录，可继续使用终端。",
   "home.doneCount": "{count} 个新完成",
   "home.doneCountAria": "定位下一个新完成的会话，共 {count} 个",
   "home.switcherEmpty": "还没有读到别的会话。",

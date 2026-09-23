@@ -31,7 +31,7 @@ let back = 0, menu = 0, inspect = 0, switched = 0;
 const handlers: SessionHandlers = {
   onBack: () => { back++; },
   onMenu: () => { menu++; },
-  onSwitch: () => { switched++; }, onMode: () => {},
+  onSwitch: () => { switched++; },
   onWorkspace: () => { inspect++; },
 };
 
@@ -145,11 +145,10 @@ describe("pane header keeps status surfaces in step", () => {
     expect(appRoot().querySelectorAll(".icon-stop")).toHaveLength(1);
   });
 
-  test("current mode has a dedicated compact picker", () => {
+  test("pane modes live in the more menu, not as extra chrome slots", () => {
     paint();
     const chrome = appRoot().querySelector(".chrome")!;
-    expect(chrome.querySelector(".chrome-mode")?.textContent).toBe(t("mode.guided"));
-    expect(chrome.querySelector(".chrome-mode")?.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(chrome.querySelector(".mode-switch")).toBeNull();
     expect(chrome.textContent).not.toContain("完整终端");
     expect(chrome.textContent).not.toContain("进入对话");
     expect(chrome.textContent).not.toContain("更多操作");
@@ -186,7 +185,7 @@ describe("pane header keeps status surfaces in step", () => {
     act(() => showStatus("session notice", true));
     expect(appRoot().querySelector(".pane-root") === pane).toBeTrue();
     const notice = appRoot().querySelector("[data-react-notice]")!;
-    expect(notice.previousElementSibling?.classList.contains("chrome")).toBeTrue();
+    expect(notice.previousElementSibling?.className).toBe("chrome");
     expect(notice.nextElementSibling?.classList.contains("term-wrap")).toBeTrue();
     expect(paneSource).toContain("<AppNotice />");
     expect(viewSource).not.toContain("appendNotice");
@@ -198,12 +197,12 @@ describe("pane header keeps status surfaces in step", () => {
     paint();
     const title = appRoot().querySelector(".chrome-title")!;
     const name = title.querySelector(".chrome-name");
-    const meta = appRoot().querySelector(".chrome-secondary .chrome-meta");
-    const dot = meta?.querySelector(".agent-dot");
+    const meta = title.querySelector(".chrome-meta");
+    const dot = title.querySelector(".agent-dot");
     expect(name !== null).toBeTrue();
     expect(meta !== null).toBeTrue();
     expect(dot !== null).toBeTrue();
-    expect(name!.nextElementSibling?.tagName.toLowerCase()).toBe("svg");
+    expect(name!.nextElementSibling === meta).toBeTrue();
     expect(meta!.querySelector(".agent-dot") === dot).toBeTrue();
     expect(meta!.querySelector(".chrome-meta-text") !== null).toBeTrue();
     expect(title.querySelector(".chrome-name-row")).toBeNull();
@@ -213,16 +212,33 @@ describe("pane header keeps status surfaces in step", () => {
     expect(chromeSource).not.toContain("chrome-name-row");
   });
 
-  test("the visible subtitle includes status, agent, workspace and split context", () => {
+  test("the visible subtitle is a short status line, not the dashboard card meta", () => {
     paint();
-    const line = `${t("status.working")} · codex · project`;
-    expect(appRoot().querySelector(".chrome-meta-text")?.textContent).toBe(line);
+    const visible = appRoot().querySelector(".chrome-meta-text")?.textContent ?? "";
+    expect(visible).toContain("project");
+    expect(visible).toBe(`${t("status.working")} · project`);
     const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
-    expect(title.getAttribute("aria-label")).toBe(t("chrome.switchAriaMeta", { title: "demo", line }));
+    expect(title.title).toBe(`demo · ${t("status.working")} · codex · project`);
+    expect(title.getAttribute("aria-label")).toBe(t("chrome.switchAriaMeta", {
+      title: "demo", line: `${t("status.working")} · codex · project`,
+    }));
     act(() => {
-      applySnapshot({ ...AGENT_SNAPSHOT, panes: [AGENT_SNAPSHOT.panes[0]!, { ...AGENT_SNAPSHOT.panes[0]!, pane_id: "p2" }] });
+      applySnapshot({
+        ...AGENT_SNAPSHOT,
+        panes: [
+          AGENT_SNAPSHOT.panes[0]!,
+          { ...AGENT_SNAPSHOT.panes[0]!, pane_id: "p2" },
+        ],
+      });
       patchChromeTitle();
     });
-    expect(appRoot().querySelector(".chrome-meta-text")?.textContent).toBe(`${line} · ${t("chrome.split")}`);
+    expect(appRoot().querySelector(".chrome-meta-text")?.textContent)
+      .toBe(`${t("status.working")} · project · ${t("chrome.split")}`);
+    expect(chromeSource).toContain("cwdName(selected.cwd)");
+    expect(chromeSource).toContain('tabIsSplit(selected, [...agents]) ? t("chrome.split")');
+    expect(chromeSource).toContain("agentMeta(selected)");
+    expect(chromeSource).toContain("chromeName(selected)");
+    expect(chromeSource.indexOf("agentMeta(selected)")).toBeGreaterThan(-1);
+    expect(chromeSource.indexOf("cwdName(selected.cwd)")).toBeGreaterThan(-1);
   });
 });

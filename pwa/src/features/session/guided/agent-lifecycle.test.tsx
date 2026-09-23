@@ -16,7 +16,7 @@ import type { SessionHandlers } from "./view";
 
 const restorer = new WorkspaceSnapshotRestorer();
 const noop = () => {};
-const handlers: SessionHandlers = { onBack: noop, onMenu: noop, onSwitch: noop, onWorkspace: noop, onMode: noop };
+const handlers: SessionHandlers = { onBack: noop, onMenu: noop, onSwitch: noop, onWorkspace: noop };
 
 beforeEach(async () => {
   await resetBoardTestDOM();

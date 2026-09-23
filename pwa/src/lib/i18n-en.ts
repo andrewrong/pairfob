@@ -271,7 +271,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   "home.pinned": "Pinned",
   "home.pendingCount": "{count} need you",
   "home.pendingCountAria": "Locate the next session needing you, {count} waiting",
-  "mode.agentUnavailable": "Agent chat history is unavailable for this session. You can keep using the terminal.",
   "home.doneCount": "{count} newly done",
   "home.doneCountAria": "Locate the next newly finished session, {count} waiting",
   "home.switcherEmpty": "No other sessions yet.",

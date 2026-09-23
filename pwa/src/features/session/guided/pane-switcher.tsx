@@ -1,16 +1,15 @@
 import { Pin } from "lucide-react";
 import type { ReactElement } from "react";
-import { agentMeta, agentTitle, agentStatusLabel } from "../../../lib/dashboard";
+import { agentMeta, agentStatusLabel, agentTitle } from "../../../lib/dashboard";
 import { groupAgents, paneIsPinned } from "../../../lib/ranking";
 import { t } from "../../../lib/i18n";
 import { openPane } from "../../../features/connection/controller";
-import { useConnection, useRuntime } from "../../connection/hooks";
-import { herdLiveness } from "../../connection/runtime-status";
 import { useDashboard } from "../../dashboard/hooks";
 import { usePreferences } from "../../settings/hooks";
 import { useSession } from "../hooks";
 import { openPaneId } from "../session-store";
 import { SelectionRow, EmptyState } from "../../../shared/ui/primitives";
+import { useStatusUnverifiable } from "./session-chrome";
 import { MenuItem, showActionSheet, type ActionSheetController } from "../../../shared/ui/overlay/action-sheet";
 
 /**
@@ -20,9 +19,7 @@ import { MenuItem, showActionSheet, type ActionSheetController } from "../../../
  */
 function PaneSwitcherBody({ modal }: { modal: ActionSheetController }): ReactElement {
   const dashboard = useDashboard();
-  useConnection();
-  useRuntime();
-  const stale = herdLiveness() === "unverifiable";
+  const stale = useStatusUnverifiable();
   const preferences = usePreferences();
   const session = useSession();
   const agents = groupAgents(
@@ -34,6 +31,7 @@ function PaneSwitcherBody({ modal }: { modal: ActionSheetController }): ReactEle
   const group = preferences.listGroup;
   return <>
     <div className="switch-list">{agents.length ? agents.map((agent) => {
+      // The same status words the header and the list use, and nothing current while unverifiable.
       const meta = [stale ? t("status.unverifiable") : agentStatusLabel(agent), agentMeta(agent, group)].filter(Boolean).join(" · ");
       return <SelectionRow key={agent.paneId} selected={agent.paneId === session.paneId}
         onClick={() => modal.close(() => { if (agent.paneId !== openPaneId()) void openPane(agent.paneId); })}

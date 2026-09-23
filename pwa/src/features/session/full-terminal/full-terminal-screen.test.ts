@@ -1,4 +1,3 @@
-import { t } from "../../../lib/i18n";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { happy } from "../../../../test-support/dom";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -172,9 +171,7 @@ describe("react complete-terminal shell", () => {
     expect(host?.contains(root.querySelector(".full-terminal-scroll")!)).toBeTrue();
     expect(host?.querySelector(".full-terminal-pan > .full-terminal-canvas")).toBeTruthy();
     expect(chrome?.querySelector(".full-terminal-title")).toBeTruthy();
-    expect(chrome?.querySelector(".full-terminal-status")?.textContent).toContain(t("status.working"));
-    expect(chrome?.querySelector(".chrome-title")?.tagName).toBe("BUTTON");
-    expect(chrome?.querySelector(".chrome-mode")).toBeTruthy();
+    expect(chrome?.querySelector(".full-terminal-status")?.textContent).toBe(getFullTerminalView().detail);
     expect(chrome?.querySelector(".icon-workspace")).toBeTruthy();
     expect(chrome?.querySelector(".icon-more")).toBeTruthy();
     expect(getFullTerminalView().working).toBeTrue();
@@ -288,21 +285,21 @@ describe("react complete-terminal shell", () => {
     expect(layer.getAttribute("aria-live")).toBe("assertive");
     expect(layer.querySelector<HTMLButtonElement>(".full-terminal-state-retry")?.hidden).toBeFalse();
     expect(getFullTerminalView().retry).toBeTrue();
-    expect(layer.querySelector(".full-terminal-state-detail")?.textContent).toBe(getFullTerminalView().detail);
-    expect(app.querySelector(".full-terminal-status")?.textContent).toContain(t("status.working"));
+    expect(app.querySelector(".full-terminal-status")?.textContent).toBe(getFullTerminalView().detail);
   });
 
   test("FullTerminalScreen is the route component", () => {
     // Isolated component boundary: a private fixture root renders only the
     // shell with explicit ports; it never uses the App screen bridge.
     let isolated: Root | null = null;
+    let switched = 0;
     const container = document.createElement("div");
     document.body.append(container);
     act(() => {
       isolated = createRoot(container);
       isolated.render(createElement(FullTerminalScreen, {
         onBack: () => undefined,
-        onSwitch: () => undefined, onMode: () => undefined,
+        onSwitch: () => { switched++; },
         onWorkspace: () => undefined,
         onMenu: () => undefined,
         onStop: () => undefined,
@@ -315,6 +312,15 @@ describe("react complete-terminal shell", () => {
     });
     expect(container.querySelector(".full-terminal-root")).toBeTruthy();
     expect(container.querySelector("[data-react-full-terminal]")).toBeTruthy();
+    // The title opens the session switcher, as in the other two modes, and
+    // keeps the title/status structure the rest of the shell reads.
+    const heading = container.querySelector<HTMLButtonElement>("button.full-terminal-heading");
+    expect(heading).toBeTruthy();
+    expect(heading!.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(heading!.querySelector(".full-terminal-title")).toBeTruthy();
+    expect(heading!.querySelector(".full-terminal-status")).toBeTruthy();
+    act(() => heading!.click());
+    expect(switched).toBe(1);
     act(() => isolated?.unmount());
     container.remove();
   });
