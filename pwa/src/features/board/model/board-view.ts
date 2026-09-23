@@ -53,6 +53,7 @@ export type BoardTileView = {
 };
 
 export type BoardCanvasModel = {
+  highlightedPaneId?: string;
   /** Identity of the bound layout; the canvas rebinds gestures when it changes. */
   signature: string;
   tabId: string;

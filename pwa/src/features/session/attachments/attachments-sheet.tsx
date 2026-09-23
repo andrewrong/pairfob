@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { Camera, File, FileText, Image } from "lucide-react";
 import { AttachmentConnection, useAttachmentP2PReady } from "./attachments-connection";
 import { memo, useRef, useSyncExternalStore } from "react";
 import { presentModal } from "../../../shared/ui/overlay/modal";
@@ -62,9 +62,12 @@ type Source = "files" | "photos" | "camera";
 
 function SourceButtons({ onPick, disabled }: { onPick: (source: Source) => void; disabled: boolean }) {
   return <div className="attach-sources" role="group">
-    <Button className="attach-source" disabled={disabled} onClick={() => onPick("files")}>{attachT("attach.files")}</Button>
-    <Button className="attach-source" disabled={disabled} onClick={() => onPick("photos")}>{attachT("attach.photos")}</Button>
-    <Button className="attach-source" disabled={disabled} onClick={() => onPick("camera")}>{attachT("attach.camera")}</Button>
+    <Button className="attach-source" disabled={disabled} onClick={() => onPick("files")}>
+      <File size={16} aria-hidden="true" /><span>{attachT("attach.files")}</span></Button>
+    <Button className="attach-source" disabled={disabled} onClick={() => onPick("photos")}>
+      <Image size={16} aria-hidden="true" /><span>{attachT("attach.photos")}</span></Button>
+    <Button className="attach-source" disabled={disabled} onClick={() => onPick("camera")}>
+      <Camera size={16} aria-hidden="true" /><span>{attachT("attach.camera")}</span></Button>
   </div>;
 }
 
@@ -399,6 +402,8 @@ function AttachmentSheetBody({ scope }: { scope: AttachmentScope }) {
 
   return <div className="attach-sheet">
     <p className="attach-hint">{attachT("attach.hint")}</p>
+    {/* Connection first: uploads need P2P, and this is where it is fixed. */}
+    <AttachmentConnection scope={scope} current={scopeCurrent} ready={ready} />
     <SourceButtons disabled={!scopeCurrent} onPick={(source) => {
       haptic(2);
       (source === "files" ? filesInput : source === "photos" ? photosInput : cameraInput).current?.click();
@@ -410,7 +415,6 @@ function AttachmentSheetBody({ scope }: { scope: AttachmentScope }) {
     <input ref={cameraInput} type="file" tabIndex={-1} aria-hidden="true" className="attach-native-input"
       accept="image/*" capture="environment" onChange={(event) => void picked("camera", event.target.files)} />
 
-    <AttachmentConnection scope={scope} current={scopeCurrent} ready={ready} />
     {!scopeCurrent && <p className="attach-banner" role="alert">{attachT("attach.scopeMoved")}</p>}
 
     {items.length === 0

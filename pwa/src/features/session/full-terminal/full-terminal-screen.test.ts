@@ -1,3 +1,4 @@
+import { t } from "../../../lib/i18n";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { happy } from "../../../../test-support/dom";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -171,7 +172,9 @@ describe("react complete-terminal shell", () => {
     expect(host?.contains(root.querySelector(".full-terminal-scroll")!)).toBeTrue();
     expect(host?.querySelector(".full-terminal-pan > .full-terminal-canvas")).toBeTruthy();
     expect(chrome?.querySelector(".full-terminal-title")).toBeTruthy();
-    expect(chrome?.querySelector(".full-terminal-status")?.textContent).toBe(getFullTerminalView().detail);
+    expect(chrome?.querySelector(".full-terminal-status")?.textContent).toContain(t("status.working"));
+    expect(chrome?.querySelector(".chrome-title")?.tagName).toBe("BUTTON");
+    expect(chrome?.querySelector(".chrome-mode")).toBeTruthy();
     expect(chrome?.querySelector(".icon-workspace")).toBeTruthy();
     expect(chrome?.querySelector(".icon-more")).toBeTruthy();
     expect(getFullTerminalView().working).toBeTrue();
@@ -285,7 +288,8 @@ describe("react complete-terminal shell", () => {
     expect(layer.getAttribute("aria-live")).toBe("assertive");
     expect(layer.querySelector<HTMLButtonElement>(".full-terminal-state-retry")?.hidden).toBeFalse();
     expect(getFullTerminalView().retry).toBeTrue();
-    expect(app.querySelector(".full-terminal-status")?.textContent).toBe(getFullTerminalView().detail);
+    expect(layer.querySelector(".full-terminal-state-detail")?.textContent).toBe(getFullTerminalView().detail);
+    expect(app.querySelector(".full-terminal-status")?.textContent).toContain(t("status.working"));
   });
 
   test("FullTerminalScreen is the route component", () => {
@@ -298,6 +302,7 @@ describe("react complete-terminal shell", () => {
       isolated = createRoot(container);
       isolated.render(createElement(FullTerminalScreen, {
         onBack: () => undefined,
+        onSwitch: () => undefined, onMode: () => undefined,
         onWorkspace: () => undefined,
         onMenu: () => undefined,
         onStop: () => undefined,

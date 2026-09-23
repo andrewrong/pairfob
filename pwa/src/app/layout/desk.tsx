@@ -3,6 +3,7 @@ import { t } from "../../lib/i18n";
 import { ComputersContent } from "../../pages/computers/computers-page";
 import { HomeRail } from "../../pages/home";
 import { QuotaContent } from "../../pages/quota/quota-page";
+import { UpdateContent } from "../../pages/update/update-page";
 import { SettingsContent } from "../../pages/settings/settings-page";
 import { AppNotice } from "../notice";
 import type { DeskPage } from "../layout";
@@ -27,6 +28,7 @@ export function DeskShell({ deskPage, children }: { deskPage: DeskPage; children
     <section key={deskPage ?? "main"} className={`main${settings ? " main-settings" : ""}`}>
       {deskPage === "settings" ? <SettingsContent withBack />
         : deskPage === "quota" ? <QuotaContent />
+        : deskPage === "update" ? <UpdateContent />
         : deskPage === "computers" ? <ComputersContent withBack />
         : children ?? <>
           <AppNotice />

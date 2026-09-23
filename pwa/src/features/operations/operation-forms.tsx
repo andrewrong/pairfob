@@ -2,13 +2,14 @@ import { t } from "../../lib/i18n";
 import { fitOperationPrompt, type CreateConversationInput, type CreateTabInput, type CreateWorktreeInput,
   type LayoutDirection, type OpenWorktreeInput, type SplitDirection, type SplitPaneInput, type WorktreeDraft } from "../../lib/operations";
 import { accepted, loadLastAgentKind, openWorktreeTargetError, readAgentKind, rejected } from "./operation-form-model";
-import { formDialog, OperationField, OperationFrame, OperationPrompt, OperationSelect } from "./operation-form";
+import { formDialog, OperationChoice, OperationField, OperationFrame, OperationPrompt, OperationSelect } from "./operation-form";
 import { presentModal } from "../../shared/ui/overlay/modal";
 
 function AgentKindField({ kinds }: { kinds: string[] }) {
   return <>
-    <OperationSelect label={t("form.kind")} name="agent_kind" selected={loadLastAgentKind(kinds)} choices={[
-      { value: "", label: t("form.plainTerminal") }, ...kinds.map(kind => ({ value: kind, label: kind })),
+    <OperationChoice label={t("form.kind")} name="agent_kind" selected={loadLastAgentKind(kinds)} choices={[
+      { value: "", label: t("form.plainTerminalShort"), mark: ">_" },
+      ...kinds.map(kind => ({ value: kind, label: kind, mark: kind.slice(0, 2).toUpperCase() })),
     ]} />
     {!kinds.length && <p className="operation-hint">{t("form.noAgentKinds")}</p>}
   </>;
@@ -44,14 +45,20 @@ export function askCreateTab(agentKinds: string[], defaultCwd = ""): Promise<Omi
   });
 }
 
-export function askSplitPane(agentKinds: string[], defaultCwd = ""): Promise<Omit<SplitPaneInput, "pane_id"> | null> {
-  return formDialog(t("form.split"), t("form.splitAction"), <>
-    <OperationSelect label={t("form.place")} name="direction" choices={[
+export function askSplitPane(agentKinds: string[], defaultCwd = "", target?: { direction: SplitDirection; title: string }): Promise<Omit<SplitPaneInput, "pane_id"> | null> {
+  return formDialog(t("form.split"), t(target ? "boardMenu.createSplit" : "form.splitAction"), <>
+    {target ? <>
+      <p>{t("boardMenu.splitTarget", { title: target.title })}</p>
+      <div className={`board-split-preview ${target.direction}`} aria-label={t(target.direction === "right" ? "boardMenu.right" : "boardMenu.down")}>
+        <span>{target.title}</span><span>{t("boardMenu.newPane")}</span>
+      </div>
+      <input type="hidden" name="direction" value={target.direction} />
+    </> : <OperationSelect label={t("form.place")} name="direction" choices={[
       { value: "right", label: t("form.splitRight") }, { value: "down", label: t("form.splitDown") },
-    ]} />
+    ]} />}
     <OperationField label={t("form.cwdOptional")} name="cwd" value={defaultCwd} />
     <AgentKindField kinds={agentKinds} />
-    <p className="operation-hint">{t("form.splitHint")}</p>
+    <p className="operation-hint">{t(target ? "boardMenu.splitHint" : "form.splitHint")}</p>
   </>, data => {
     const direction = String(data.get("direction")) as SplitDirection;
     const cwd = String(data.get("cwd") || "").trim();

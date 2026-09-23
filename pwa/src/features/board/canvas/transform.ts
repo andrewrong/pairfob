@@ -10,6 +10,7 @@ import { boardStageSize, cameraTransform, fitCamera, zoomCameraAt, type BoardCam
 
 export function applyCameraTransform(stage: HTMLElement, camera: BoardCamera): void {
   stage.style.transform = cameraTransform(camera);
+  stage.style.setProperty("--board-control-scale", String(1 / Math.max(0.01, camera.scale)));
 }
 
 /** Fit the whole tab into the viewport; the result is a fitted camera. */

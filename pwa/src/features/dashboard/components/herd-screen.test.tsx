@@ -8,6 +8,7 @@ import { PINNED_GROUP_ID } from "../../../lib/ranking";
 import { appRoot } from "../../../app/dom-root";
 import { clearNotice, showStatus } from "../../../app/notices-store";
 import { setOperationBusy } from "../../operations/capabilities-store";
+import { preferencesStore } from "../../settings/preferences-store";
 import { selectPane } from "../../session/session-store";
 import { replaceAgentsFromSnapshot } from "../catalog-store";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
@@ -60,6 +61,11 @@ const actions: HerdActions = {
   openSettings: () => calls.push("settings"),
   openComputers: () => calls.push("computers"),
   runEmptyAction: (kind) => calls.push(`empty:${kind}`),
+  openTabLayout: (workspaceId, tabId) => calls.push(`layout:${workspaceId}:${tabId}`),
+  createTabIn: (anchor) => calls.push(`newTab:${anchor?.paneId ?? "none"}`),
+  setHomeView: (view) => calls.push(`view:${view}`),
+  chooseGrouping: () => calls.push("grouping"),
+  togglePin: (card) => calls.push(`pin:${card.paneId}`),
 };
 
 function paint(view: HerdViewModel, variant: "page" | "rail" = "page"): void {
@@ -111,16 +117,17 @@ describe("herd screen presentation", () => {
   test("the page carries notices above the list, the desktop rail carries none", () => {
     act(() => showStatus("notice above cards", true));
     paint(model(), "page");
-    expect(app().firstElementChild?.className).toBe("page");
+    expect(app().firstElementChild?.className).toBe("page herd-screen");
     const children = [...app().querySelector(".page")!.children];
     const noticeAt = children.findIndex((node) => node.matches("[data-react-notice]"));
-    const listAt = children.findIndex((node) => node.matches(".herd-list"));
+    const listAt = children.findIndex((node) => node.matches(".herd-body"));
     expect(noticeAt).toBeGreaterThan(-1);
     expect(listAt).toBeGreaterThan(noticeAt);
     expect(children[noticeAt].textContent).toBe("notice above cards");
-    expect(children.map((node) => node.className).slice(0, 2)).toEqual(["topbar herd-topbar", "statusline"]);
+    expect(children.map((node) => node.className).slice(0, 3)).toEqual(["topbar herd-topbar", "herd-heading", "statusline herd-summary"]);
+    expect(children.at(-1)?.className).toBe("herd-create-bar");
     paint(model(), "rail");
-    expect(app().firstElementChild?.className).toBe("rail");
+    expect(app().firstElementChild?.className).toBe("rail herd-screen");
     expect(app().querySelector(".rail [data-react-notice]")).toBeNull();
     expect(app().querySelector(".rail .herd-list")).not.toBeNull();
     expect(app().querySelector(".rail .topbar")).not.toBeNull();
@@ -172,18 +179,57 @@ describe("herd screen presentation", () => {
     expect(calls).toEqual(["empty:retry"]);
   });
 
-  test("the topbar fires one narrow action per control and follows the model gates", () => {
+  test("each control fires one narrow action and follows the model gates", () => {
     paint(model({ computerCount: 2 }));
-    act(() => app().querySelector<HTMLButtonElement>(".topbar-create")!.click());
-    const links = () => [...app().querySelectorAll<HTMLButtonElement>(".topbar-actions .text-link")];
-    act(() => links()[0].click());
-    act(() => links()[1].click());
-    act(() => links()[2].click());
-    expect(calls).toEqual(["create", "computers", "board", "settings"]);
+    const click = (selector: string) => act(() => app().querySelector<HTMLButtonElement>(selector)!.click());
+    click(".herd-create-bar .topbar-create");
+    click(".herd-computer");
+    click(".herd-settings");
+    click(".herd-grouping");
+    act(() => app().querySelectorAll<HTMLButtonElement>(".herd-view-option")[1].click());
+    expect(calls).toEqual(["create", "computers", "settings", "grouping", "view:layout"]);
+    expect(app().querySelector(".herd-create-bar")?.textContent).toBe(t("form.newConversation"));
+    expect(app().querySelector(".herd-computer")?.textContent).toBe("已连接");
     calls = [];
     paint(model({ createConversation: false, computerCount: 1, operationBusy: true }));
     expect(app().querySelector(".topbar-create")).toBeNull();
-    expect([...app().querySelectorAll(".topbar-actions button")]).toHaveLength(2);
+    expect([...app().querySelectorAll(".topbar-actions button")]).toHaveLength(1);
+  });
+
+  test("the layout view draws each tab's split and routes cells, captions and new tabs", () => {
+    const agents = [agent("p1", "alpha"), agent("p2", "alpha", "working")];
+    const layout = {
+      workspaceId: "alpha", tabId: "alpha:tab", zoomed: false, focusedPaneId: "p1",
+      area: { x: 0, y: 0, width: 100, height: 40 },
+      panes: [
+        { paneId: "p1", focused: true, rect: { x: 0, y: 0, width: 50, height: 40 } },
+        { paneId: "p2", focused: false, rect: { x: 50, y: 0, width: 50, height: 40 } },
+      ],
+    };
+    paint(model({ agents, homeView: "layout", createTab: true, board: {
+      workspaces: [{ id: "alpha", label: "alpha" }], tabs: [{ id: "alpha:tab", workspaceId: "alpha", label: "auth" }], layouts: [layout],
+    } }));
+    expect(app().querySelector(".herd-list")).toBeNull();
+    expect(app().querySelector(".herd-grouping")).toBeNull();
+    const cells = [...app().querySelectorAll<HTMLButtonElement>(".layout-cell")];
+    expect(cells.map((cell) => [cell.style.left, cell.style.width])).toEqual([["0.000%", "50.000%"], ["50.000%", "50.000%"]]);
+    expect(cells[1].classList.contains("status-working")).toBe(true);
+    act(() => cells[1].click());
+    act(() => app().querySelector<HTMLButtonElement>(".layout-tab-caption")!.click());
+    act(() => app().querySelector<HTMLButtonElement>(".layout-tab-new")!.click());
+    act(() => app().querySelector<HTMLButtonElement>(".layout-space .group-more")!.click());
+    expect(calls).toEqual(["openPane:p2:no-title", "layout:alpha:alpha:tab", "newTab:p1", "workspaceMenu:p1"]);
+    expect(app().querySelector(".layout-tab-name")?.textContent).toBe("auth");
+  });
+
+  test("a revealed row offers pin and more without opening the pane", () => {
+    paint(model());
+    const row = cardMain("p1").closest("article")!;
+    const [pin, more] = [...row.querySelectorAll<HTMLButtonElement>(".card-trail-act")];
+    expect(pin.textContent).toBe(t("menu.pin"));
+    act(() => pin.click());
+    act(() => more.click());
+    expect(calls).toEqual(["pin:p1", "paneMenu:p1"]);
   });
 
   test("shows every task status without status filter pills and keeps card actions", () => {
@@ -206,6 +252,38 @@ describe("herd screen presentation", () => {
     expect(document.activeElement).toBe(app().querySelector(".card.status-done .card-main"));
   });
 
+  test("attention shortcuts cycle independently without opening or filtering cards", () => {
+    paint(model({ agents: [agent("a", "alpha", "blocked"), agent("b", "alpha", "blocked"),
+      agent("c", "alpha", "done"), agent("d", "alpha", "done")] }));
+    const click = (selector: string) => act(() => app().querySelector<HTMLButtonElement>(selector)!.click());
+    const focused = () => (document.activeElement as HTMLElement).dataset.paneId;
+    click(".pending-count"); expect(focused()).toBe("a");
+    click(".done-count"); expect(focused()).toBe("c");
+    click(".pending-count"); expect(focused()).toBe("b");
+    click(".pending-count"); expect(focused()).toBe("a");
+    click(".done-count"); expect(focused()).toBe("d");
+    expect(calls).toEqual([]);
+    expect(app().querySelectorAll(".card-main")).toHaveLength(4);
+  });
+
+  test("attention expands the target group and focuses after the new projection", () => {
+    const agents = [agent("wait", "alpha", "blocked"), agent("done", "beta", "done")];
+    const input = { agents, listGroup: "space" as const, groupCollapsed: { alpha: true, beta: true } };
+    paint(model(input));
+    act(() => app().querySelector<HTMLButtonElement>(".pending-count")!.click());
+    expect(preferencesStore.get().listGroupCollapsed.alpha).toBe(false);
+    paint(model({ ...input, groupCollapsed: { alpha: false, beta: true } }));
+    expect((document.activeElement as HTMLElement).dataset.paneId).toBe("wait");
+    expect([...app().querySelectorAll(".group-title")].map(node => node.getAttribute("aria-expanded"))).toEqual(["true", "false"]);
+  });
+
+  test("stale sessions do not present attention shortcuts as current", () => {
+    paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("done", "beta", "done")], liveness: "unverifiable" }));
+    expect(app().querySelector(".pending-count")).toBeNull();
+    expect(app().querySelector(".done-count")).toBeNull();
+    expect(app().querySelectorAll(".card.unverifiable")).toHaveLength(2);
+  });
+
   test("grouped results still honor collapse and expand actions", () => {
     const checking = { ...agent("check", "alpha", "idle"), interactiveReady: false };
     const input = { listGroup: "space" as const, agents: [checking], groupCollapsed: {} };
@@ -223,8 +301,9 @@ describe("herd screen presentation", () => {
 
   test("the status line keeps its tone, text and completion count", () => {
     paint(model({ agents: [agent("p1", "alpha", "done"), agent("p2", "beta", "done")], status: { tone: "warn", text: t("chrome.unverifiable") } }));
-    expect(app().querySelector(".statusline .dot-warn")).not.toBeNull();
-    expect(app().querySelector(".statusline-text")?.textContent).toBe(t("chrome.unverifiable"));
+    expect(app().querySelector(".herd-computer .dot-warn")).not.toBeNull();
+    expect(app().querySelector(".herd-computer-text")?.textContent).toBe(t("chrome.unverifiable"));
+    expect(app().querySelector(".herd-summary .statusline-text")?.textContent).toBe(t("home.sessionCount", { count: "2" }));
     expect(app().querySelector(".done-count")?.textContent).toBe(t("home.doneCount", { count: "2" }));
     paint(model({ agents: [agent("p1", "alpha", "idle")] }));
     expect(app().querySelector(".done-count")).toBeNull();

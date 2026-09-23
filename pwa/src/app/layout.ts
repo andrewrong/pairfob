@@ -21,13 +21,14 @@ export type LayoutMode =
   | "desk"
   | "settings"
   | "quota"
+  | "update"
   | "computers"
   | "chat"
   | "pane"
   | "home";
 
 /** What the desk main column shows: a settings-family page, a pane, or nothing. */
-export type DeskPage = "settings" | "quota" | "computers" | null;
+export type DeskPage = "settings" | "quota" | "update" | "computers" | null;
 export type DeskChild = "chat" | "session" | null;
 
 export type LayoutInput = {
@@ -72,7 +73,7 @@ export function computeLayout(input: LayoutInput): LayoutDescriptor {
   const board = live && input.screen === "board";
   const desk = live && input.desk && !input.fullTerminal && !workspace && !board;
   const session = live && input.screen === "pane" && (!desk || input.fullTerminal);
-  const deskPage: DeskPage = desk && (input.screen === "settings" || input.screen === "quota"
+  const deskPage: DeskPage = desk && (input.screen === "settings" || input.screen === "quota" || input.screen === "update"
     || input.screen === "computers") ? input.screen : null;
   const deskChild: DeskChild = desk && !deskPage && input.hasSelectedPane
     ? input.agentChat ? "chat" : "session"
@@ -87,6 +88,7 @@ export function computeLayout(input: LayoutInput): LayoutDescriptor {
     : desk ? "desk"
     : input.screen === "settings" ? "settings"
     : input.screen === "quota" ? "quota"
+    : input.screen === "update" ? "update"
     : input.screen === "computers" ? "computers"
     : input.screen === "pane" ? input.agentChat ? "chat" : "pane"
     : "home";

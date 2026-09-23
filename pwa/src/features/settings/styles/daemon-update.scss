@@ -53,3 +53,26 @@
 }
 .daemon-update-footer .daemon-update-feedback[data-tone="error"] { color: var(--error); }
 .daemon-update-footer .daemon-update-feedback[data-tone="warn"] { color: var(--warn); }
+
+/* --- Computer update page ------------------------------------------------------------
+   The detailed view as its own page: the version sits in a card, feedback reads
+   as the card's status, and the actions fill the width below it.
+   ------------------------------------------------------------------------------------ */
+.update-page .daemon-update-footer {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.update-page .daemon-update-version code { font-size: var(--text-subhead); }
+
+.update-page .daemon-update-content > .btn {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  justify-content: center;
+}
+
+.daemon-update-entry { margin-top: 18px; }

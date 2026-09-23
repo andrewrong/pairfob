@@ -3,7 +3,6 @@ import { EmptyState } from "../../../shared/ui/primitives";
 import { WorktreeProgressList } from "../../operations/worktree-progress";
 // Not this slice: the daemon update banner stays with its own owner.
 import { DaemonUpdate } from "../../settings/daemon-update-view";
-import { ListGroupControl } from "./herd-controls";
 import type { HerdActions } from "../actions";
 import type { HerdViewModel } from "../model/herd-view";
 import { AgentCard } from "./agent-card";
@@ -25,8 +24,9 @@ function emptySpec(view: HerdViewModel, actions: HerdActions) {
 }
 
 /**
- * The herd list: daemon update, pending worktree jobs, the grouping control and
- * then either the empty state or the projected sections.
+ * The herd list: the activity strip (daemon update, pending worktree jobs), then
+ * either the empty state or the projected sections. Grouping is chosen from the
+ * summary line above, so the list starts with sessions.
  */
 export function HerdList({ view, actions }: {
   view: HerdViewModel;
@@ -36,9 +36,10 @@ export function HerdList({ view, actions }: {
   const empty = emptySpec(view, actions);
   return (
     <>
-      <DaemonUpdate compact />
-      <WorktreeProgressList />
-      <ListGroupControl />
+      <div className="herd-activity">
+        <DaemonUpdate compact />
+        <WorktreeProgressList />
+      </div>
       {empty ? <EmptyState spec={empty} /> : (
         <div className={`herd-list${view.stagger ? " enter" : ""}`}>
           {groups.map((group) => view.grouped ? (

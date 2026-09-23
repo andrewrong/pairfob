@@ -9,7 +9,7 @@ import { composeTransaction } from "../shared/model/compose-transaction";
  * renders the page for the current screen — so a navigation is one typed action
  * here plus a paint, never a `root.render(screen)` call.
  */
-export type Screen = "home" | "pane" | "workspace" | "settings" | "quota" | "computers" | "board";
+export type Screen = "home" | "pane" | "workspace" | "settings" | "quota" | "update" | "computers" | "board";
 
 export type NavigationRecord = {
   screen: Screen;

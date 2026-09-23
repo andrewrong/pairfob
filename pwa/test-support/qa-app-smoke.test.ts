@@ -203,7 +203,7 @@ test("every scene renders: 62 through the stable App (incl. mock-engine terminal
         // The deliberate QA FullTerminalScreen shell fixture, App unmounted.
         expect(isAppMounted()).toBeFalse();
         assertPaneRoot(PANE);
-        const detail = document.querySelector(".full-terminal-status")?.textContent ?? "";
+        const detail = document.querySelector(".full-terminal-state-detail")?.textContent ?? "";
         expect(detail).toBe(scene.name === "terminal-error" ? t("ft.stateError") : t("ft.preparing"));
         shellRendered.push(scene.name);
       } else if (scene.name === "terminal-live") {
@@ -297,9 +297,9 @@ test("language switch re-renders visible copy through the same App", async () =>
     expect(document.documentElement.lang).toBe("en");
     // Visible localized copy, not only the <html lang> attribute.
     const copy = document.body.textContent ?? "";
-    expect(copy).toContain(t("home.computers"));
-    expect(copy).toContain("Computers");
-    expect(copy).not.toContain("电脑");
+    expect(copy).toContain(t("form.newConversation"));
+    expect(copy).toContain("New session");
+    expect(copy).not.toContain("新建会话");
   } finally {
     await teardownScene(session, false);
   }

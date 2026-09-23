@@ -1,10 +1,13 @@
 @use "./features/agent-quota/styles/quota";
 /* Pairfob styles — split by screen/control family; imported by main.ts. */
 @use "./shared/ui/styles/tokens";
+@use "./shared/ui/styles/status-glyph";
 @use "./styles/base";
 @use "./shared/ui/styles/icons";
 @use "./styles/chrome";
 @use "./features/dashboard/styles/herd-card";
+@use "./features/dashboard/styles/home";
+@use "./features/dashboard/styles/home-layout";
 @use "./features/pairing/styles/connect";
 @use "./features/session/guided/session-shell";
 @use "./features/session/guided/terminal";
@@ -31,4 +34,5 @@
 @use "./features/workspace/file-icons";
 @use "./features/workspace/workspace-pending";
 @use "./features/board/styles/board";
+@use "./features/board/styles/pane-menu";
 @use "./styles/motion";

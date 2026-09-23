@@ -63,6 +63,8 @@ export function renderTerminalShell(error: boolean): void {
   shellRoot.render(
     createElement(FullTerminalScreen, {
       onBack: action("back"),
+      onSwitch: action("switch"),
+      onMode: action("mode"),
       onWorkspace: action("workspace"),
       onMenu: action("menu"),
       onStop: action("stop"),

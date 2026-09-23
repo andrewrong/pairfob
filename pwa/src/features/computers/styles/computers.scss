@@ -7,9 +7,12 @@
 .computer-row {
   display: flex;
   align-items: stretch;
-  gap: 4px;
-  margin-top: 8px;
+  gap: 0;
+  margin-top: 0;
+  border-bottom: 1px solid var(--hairline);
 }
+
+.computer-row .switch-item { border-bottom: 0; }
 
 .computer-row .switch-item {
   margin-top: 0;
@@ -19,9 +22,9 @@
 .computer-forget {
   flex: none;
   min-width: 44px;
-  min-height: 52px;
+  min-height: 52px; /* = --row-min */
   padding: 0 10px;
-  border-radius: var(--r-md);
+  border-radius: 0;
   color: var(--muted);
   font-size: var(--text-secondary);
   font-weight: 550;
@@ -31,7 +34,8 @@
 
 .computer-add {
   margin-top: 16px;
-  min-height: 52px;
+  border-top: 1px solid var(--hairline);
+  min-height: 52px; /* = --row-min */
   padding-top: 12px;
   padding-bottom: 12px;
   align-items: center;

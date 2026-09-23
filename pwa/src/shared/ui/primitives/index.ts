@@ -8,7 +8,7 @@
  */
 export { Button } from "./button";
 export { Spinner } from "./spinner";
-export { Brand, StatusDot, StatusLine, type StatusTone } from "./status";
+export { Brand, StatusDot, StatusGlyph, StatusLine, type GlyphStatus, type StatusTone } from "./status";
 export { Feedback, type FeedbackValue } from "./feedback";
 export { EmptyState, type EmptyFigure, type EmptySpec } from "./empty-state";
 export { BackBar, BackButton, Chevron, TopbarActions } from "./navigation";

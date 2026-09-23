@@ -16,7 +16,7 @@ import type { SessionHandlers } from "./view";
 
 const restorer = new WorkspaceSnapshotRestorer();
 const noop = () => {};
-const handlers: SessionHandlers = { onBack: noop, onMenu: noop, onSwitch: noop, onWorkspace: noop };
+const handlers: SessionHandlers = { onBack: noop, onMenu: noop, onSwitch: noop, onWorkspace: noop, onMode: noop };
 
 beforeEach(async () => {
   await resetBoardTestDOM();
@@ -56,7 +56,7 @@ test("session chrome separates launch, readiness and actual task states", () => 
     }));
     renderReact(<SessionChrome selected={selectedAgent()} includeBack={true} handlers={handlers} />);
     expect(appRoot().querySelector(".chrome-meta-text")?.textContent).toContain(t(phase.label));
-    expect(appRoot().querySelector(`.agent-dot.agent-${phase.dot}`)).not.toBeNull();
+    expect(appRoot().querySelector(`.status-glyph.glyph-${phase.dot}`)).not.toBeNull();
     expect(Boolean(appRoot().querySelector(".icon-stop"))).toBe(phase.stop);
   }
 });

@@ -10,6 +10,14 @@ export function StatusDot({ tone }: { tone: StatusTone }) {
   return <span className={`dot dot-${tone}`} />;
 }
 
+/** An agent state as a glyph; the words for it live in the caller's copy. */
+export type GlyphStatus = "working" | "blocked" | "done" | "idle" | "unknown";
+
+export function StatusGlyph({ status, small = false }: { status: string; small?: boolean }) {
+  const known: GlyphStatus = status === "working" || status === "blocked" || status === "done" || status === "idle" ? status : "unknown";
+  return <span className={`status-glyph glyph-${known}${small ? " small" : ""}`} aria-hidden="true" />;
+}
+
 export function StatusLine({ status }: { status: { tone: StatusTone; text: string } }) {
   return <p className="statusline"><StatusDot tone={status.tone} /><span className="statusline-text">{status.text}</span></p>;
 }

@@ -10,8 +10,10 @@ import { openComputers } from "../computers/actions";
 import type { AgentCard } from "../../lib/ranking";
 import type { EmptySessionAction } from "../../lib/ui-model";
 import { openPane, reconnectLiveSessions } from "../connection/controller";
-import { startNewConversation } from "../operations/controller";
+import { createSelectedTab, startNewConversation } from "../operations/controller";
 import { openSettings } from "../settings/actions";
+import { setHomeView, togglePanePin, type HomeView } from "../settings/preferences-store";
+import { openGroupingSheet } from "./components/grouping-sheet";
 
 export type HerdActionPorts = {
   /**
@@ -21,7 +23,7 @@ export type HerdActionPorts = {
   canOpenMenu(): boolean;
   /** `groupIds` is the order the clicked list was rendered from. */
   toggleGroup(groupId: string, groupIds: string[]): void;
-  openBoard(): void;
+  openBoard(target?: { workspaceId: string; tabId: string }): void;
   /** Hand the outgoing card title to the view transition that opens the pane. */
   shareTitle(element: HTMLElement | null): void;
   /** Object menus read the record when the press lands, so the page owns them. */
@@ -36,6 +38,12 @@ export type HerdActions = {
   toggleGroup(groupId: string, groupIds: string[]): void;
   createConversation(): void;
   openBoard(): void;
+  /** The full, zoomable layout of one tab. */
+  openTabLayout(workspaceId: string, tabId: string): void;
+  createTabIn(anchor: AgentCard | undefined): void;
+  setHomeView(view: HomeView): void;
+  chooseGrouping(): void;
+  togglePin(agent: AgentCard): void;
   openSettings(): void;
   openComputers(): void;
   runEmptyAction(kind: EmptySessionAction): void;
@@ -63,6 +71,22 @@ export function createHerdActions(ports: HerdActionPorts): HerdActions {
     },
     openBoard() {
       ports.openBoard();
+    },
+    openTabLayout(workspaceId, tabId) {
+      ports.openBoard({ workspaceId, tabId });
+    },
+    createTabIn(anchor) {
+      if (!anchor || !ports.canOpenMenu()) return;
+      void createSelectedTab(anchor);
+    },
+    setHomeView(view) {
+      setHomeView(view);
+    },
+    chooseGrouping() {
+      openGroupingSheet();
+    },
+    togglePin(agent) {
+      togglePanePin(agent.paneId);
     },
     openSettings() {
       openSettings();

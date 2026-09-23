@@ -2,14 +2,16 @@
 @mixin menu-sections {
   /* --- Menu sections + create controls ---------------------------------------- */
 
+  /* Section titles label the card below them, in the same quiet caption the
+     home list uses for its section headings. */
   .menu-section-title {
-    margin: 14px 0 0;
-    font-size: 0.68rem;
-    font-weight: 640;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    margin: 18px 2px 0;
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.02em;
     color: var(--muted);
   }
 
-  .menu-section-title:not(:first-of-type) { border-top: 1px solid var(--line); padding-top: var(--space-3); }
+  .menu-section-title + .menu-item,
+  .menu-section-title + .seg { margin-top: 6px; }
 }

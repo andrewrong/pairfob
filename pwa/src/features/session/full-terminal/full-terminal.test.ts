@@ -38,7 +38,7 @@ describe("complete-terminal chrome stays a distinct surface", () => {
     expect(source).toContain("syncFullTerminalChrome");
     const reactShell = await Bun.file(new URL("./full-terminal-screen.tsx", import.meta.url)).text();
     expect(reactShell).toContain("full-terminal-chrome");
-    expect(reactShell).toContain("SessionActions");
+    expect(reactShell).toContain("SessionChrome");
     expect(reactShell).toContain("working={view.working}");
     expect(reactShell).toContain("FullTerminalPad");
     // The terminal screen is composed declaratively, never injected.

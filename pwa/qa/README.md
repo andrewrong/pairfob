@@ -50,7 +50,7 @@ await window.qa.render();
 
 For the renderer fixture, select `terminal-live`, wait for a recorded `terminalOpen` and a hidden `.full-terminal-state`, then send a local frame with `window.qa.terminalFrame("\u001b[2J\u001b[Hpairfob renderer QA\r\n")`. The helper returns false if no local terminal is open; options accept `full`, `sequence`, `cols` and `rows` for stale/gap/resize probes. Terminal IDs change on each local open. `terminal-open-error` rejects the first local open, allowing retry with the real renderer. Both use the real xterm/WebGL modules and production terminal event/visibility handlers; the session RPC and frame source remain local stubs. No socket or PTY is involved.
 
-`emit(event)` only emits to subscribers on the fixture session; it does not simulate the production socket handshake. `appendChatTurn()` changes the bounded local trace backing store without rendering, while `refreshChat()` invokes the production `refreshAgentTrace` controller and records the resulting `agentTrace` read. Together they test refresh publication and ownership, not a socket reconnect. Fixture results are deterministic and reflect return shapes at the session API boundary. They are not a second implementation of the daemon. Some mutations update local snapshot data (rename/close); create/workspace mutation responses are logged canned results, so this is a UI call-count and ownership harness rather than backend semantics validation.
+`emit(event)` only emits to subscribers on the fixture session; it does not simulate the production socket handshake. `appendChatTurn()` changes the bounded local trace backing store without rendering, while `refreshChat()` invokes the production `refreshAgentTrace` controller and records the resulting `agentTrace` read. Together they test refresh publication and ownership, not a socket reconnect. Fixture results are deterministic and reflect return shapes at the session API boundary. They are not a second implementation of the daemon. Some mutations update local snapshot data (rename/close and board layout operations); other create/workspace mutation responses are logged canned results, so this is a UI call-count and ownership harness rather than backend semantics validation.
 
 Available scene families: boot/resuming; initial/manual/failed/add-computer pairing and computer approval; one/many computers; empty/populated/grouped/offline home; attention-rich, attention-rich-updated, attention-empty and attention-legacy task-state lists; responsive desktop empty/guided/chat; settings online/offline/devices/loading/error; quotas populated/loading/error; empty/populated board; workspace loading/root/nested/file/file-loading/changes/diff/diff-loading/error; guided draft/IME/expanded/slash/wrap/selection/row actions; agent chat streaming/complete/draft/empty/loading/error/older plus Phase 2 long Pi, unread, recovery-refresh and narrow focused-compose scenes; terminal loading/error shell.
 
@@ -63,3 +63,15 @@ Important gaps and limits:
 - Seeded scenes cover page states, not every modal or control combination. Open existing menus, operation forms, diff-note editors, help dialogs and file confirmations via browser interactions on these scenes. Dedicated declarative modal scenes, update-in-progress fixtures, live viewport keyboard simulation, and full native-device IME/pinch/foreground checks remain to add. The Phase 2 long trace is deterministic fixture coverage, not a real-runtime stress result.
 - Date/Date.now are fixed at `2026-09-08T04:00:00.000Z`; monotonic gesture/timer clocks remain real. Animations/transitions and caret paint are disabled without changing the browser motion preference or layout rules. This is static geometry/color parity, not animation acceptance.
 - When recording acceptance evidence, keep source/test, rendered fixture, live transport and physical-device results distinct.
+
+
+The `board` scene also supports context-menu layout feedback: split creates a
+new fixture pane, resize adjusts the initial horizontal pair, swap exchanges
+fixture rectangles, zoom/restoration changes visible fixture panes, and close
+removes the pane from its fixture layout. These deterministic mutations exercise
+PWA feedback and target identity; they do not validate Herdr layout semantics.
+Use `hold("resizePane")`, `failNext("resizePane", "unknown_outcome")`, and
+`setConnected(false)` to check busy, ambiguous-result, and reconnect behavior.
+Long-press input must use real browser touch events; invoking the menu directly
+only tests presentation. After opening or submitting a dialog, wait for the
+expected dialog or updated tile before taking the next snapshot.

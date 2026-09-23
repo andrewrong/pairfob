@@ -60,8 +60,8 @@
 .set-card {
   margin-top: 10px;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  border-radius: var(--group-radius);
   overflow: hidden;
 }
 
@@ -174,3 +174,11 @@
 .device-meta { margin: 4px 0 0; color: var(--muted); font-size: var(--text-secondary); line-height: 1.5; }
 
 .retry { margin-top: 12px; }
+
+/* Settings-family pages (settings, quota, computer update, computers) share one
+   top bar: full-bleed hairline under back + title, like the full-screen chromes. */
+.settings-page > .topbar {
+  margin: 0 -18px 8px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--hairline);
+}

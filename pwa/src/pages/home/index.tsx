@@ -6,6 +6,7 @@ import { dashboardStore } from "../../features/dashboard/catalog-store";
 import { preferencesStore } from "../../features/settings/preferences-store";
 import { runtimeStore } from "../../features/connection/runtime-store";
 import { sessionStore } from "../../features/session/session-store";
+import { boardStore } from "../../features/board/layout-store";
 import { createHerdActions } from "../../features/dashboard/actions";
 import { HerdScreen } from "../../features/dashboard/components/herd-screen";
 import { buildHerdViewModel, type HerdViewModel } from "../../features/dashboard/model/herd-view";
@@ -38,6 +39,7 @@ const watches: DomainWatch[] = [
   { store: computersStore },
   { store: runtimeStore },
   { store: sessionStore },
+  { store: boardStore },
 ];
 
 const updates = createDomainUpdates(watches);

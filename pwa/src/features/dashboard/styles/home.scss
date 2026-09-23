@@ -1,0 +1,316 @@
+/* --- Home surface ------------------------------------------------------------------
+   The redesigned herd screen: computer capsule and settings on top, a list/layout
+   switch, a quiet summary line, hairline session rows with an equal-weight
+   status glyph, and the create bar pinned where a thumb reaches it. Scoped to
+   .herd-screen so the card family keeps its other hosts (worktree jobs, desk).
+   ---------------------------------------------------------------------------------- */
+
+.herd-screen.page {
+  padding-bottom: 0;
+}
+
+.herd-screen .herd-topbar {
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+}
+
+.herd-computer {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 78%;
+  min-height: 36px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.herd-computer-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.herd-computer svg { flex: none; color: var(--muted); }
+.herd-computer:active { background: var(--surface-2); }
+
+.herd-settings { color: var(--muted); }
+
+.herd-heading {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin: 14px 0 0;
+}
+
+.herd-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--text-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.herd-view-toggle {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.herd-view-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: var(--h-inline);
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  font-weight: 600;
+}
+
+.herd-view-option::after { content: ""; position: absolute; inset: -6px -1px; } /* 44px target */
+.herd-view-option.on { background: var(--surface-2); color: var(--ink); }
+
+/* Summary: counts are quiet links; nothing on home competes with the list. */
+.herd-screen .herd-summary {
+  flex-wrap: wrap;
+  gap: 2px var(--space-1);
+  margin: 4px 0 6px;
+  font-size: var(--text-secondary);
+}
+
+.herd-screen .attention-counts { margin-left: 0; gap: 0; }
+.herd-screen .attention-counts > button { min-height: var(--h-control); padding: 0 6px; }
+.herd-screen .attention-counts > button::before { content: "·"; margin-right: 6px; color: var(--muted); }
+
+.herd-screen .pending-count,
+.herd-screen .done-count {
+  margin-left: 0;
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.herd-grouping {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: var(--h-control);
+  margin-left: auto;
+  padding: 0 2px 0 6px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+}
+
+/* --- Activity strip (daemon update + worktree jobs) ------------------------------ */
+
+.herd-activity {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.herd-activity:not(:has(.daemon-update-host:not([hidden]), .worktree-jobs)) { display: none; }
+.herd-activity > * + * { border-top: 1px solid var(--hairline); }
+.herd-activity .worktree-jobs .card { margin: 0; border: 0; border-radius: 0; background: transparent; }
+.herd-activity .worktree-jobs .card + .card { border-top: 1px solid var(--hairline); }
+
+.herd-activity .daemon-update { margin: 0; border: 0; border-radius: 0; background: transparent; }
+
+.herd-activity .daemon-update .set-row {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 6px 6px 12px;
+}
+
+.herd-activity .daemon-update .set-row strong { flex: 1 1 auto; font-size: var(--text-body); font-weight: 560; }
+.herd-activity .daemon-update .set-note { display: none; }
+.herd-activity .daemon-update .btn { min-height: var(--h-control); padding: 0 10px; font-size: var(--text-secondary); }
+
+/* --- Session rows ------------------------------------------------------------------- */
+
+.herd-screen .herd-body { margin: 6px -18px 0; }
+.herd-screen .herd-body > .herd-activity { margin: 0 18px 6px; }
+.herd-screen .herd-body > .empty { margin: 8px 18px 0; }
+
+.herd-screen .section-title,
+.herd-screen .group-head {
+  margin: 0;
+  padding: 16px 18px 6px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--text-caption);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.herd-screen .group-head {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px 0 16px;
+}
+
+.herd-screen .group-head .group-title {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.herd-screen .section-count {
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.group-more { flex: none; color: var(--muted); }
+
+.herd-screen .herd-list .card {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.herd-screen .herd-list .card::before { display: none; }
+.herd-screen .herd-list .card.sel { background: var(--surface); }
+.herd-screen .herd-list .card-main {
+  position: relative;
+  z-index: 1;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 10px 12px 18px;
+  border-radius: 0;
+  background: var(--bg);
+  transition: transform var(--dur-3) var(--ease);
+  touch-action: pan-y;
+}
+
+.herd-screen .herd-list .card.sel .card-main { background: var(--surface); }
+.herd-screen .herd-list .card-main:active { transform: none; background: var(--surface); }
+.herd-screen .herd-list .card-main > .chev { align-self: center; }
+
+.herd-screen .card-name { font-size: var(--text-subhead); font-weight: 620; }
+.herd-screen .card-meta { margin-top: 2px; }
+
+.card-status.pill {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: 0;
+}
+
+.card-status + .card-where::before { content: " · "; }
+.card-summary { font-family: var(--mono); font-size: var(--text-caption); }
+
+/* Trailing swipe actions sit under the row and are uncovered by the slide. */
+.card-trail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+}
+
+.card-trail-act {
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--text-secondary);
+}
+
+.card-trail-act + .card-trail-act { background: var(--surface); border-left: 1px solid var(--hairline); }
+
+/* Status glyphs live in shared/ui/styles/status-glyph; rows only place them. */
+.herd-screen .herd-list .status-glyph { margin-top: 4px; }
+
+/* --- Create bar ------------------------------------------------------------------------ */
+
+.herd-create-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin: 8px -18px 0;
+  padding: 8px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--hairline);
+  background: var(--bg);
+}
+
+.herd-create {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--h-primary);
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-subhead);
+  font-weight: 560;
+}
+
+.herd-create:disabled { opacity: 0.55; }
+
+.herd-create-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.rail .herd-create-bar { margin: 8px 0 0; padding-left: 0; padding-right: 0; }
+
+/* --- Grouping sheet ---------------------------------------------------------------------- */
+
+.grouping-option { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.grouping-option svg { color: var(--accent); }
+
+/* --- Scoped object menu ------------------------------------------------------------------- */
+
+.sheet-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+}
+
+.sheet-path-here { color: var(--ink); font-weight: 600; }
+.sheet-scope { margin-bottom: 10px; }

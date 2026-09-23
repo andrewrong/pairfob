@@ -155,7 +155,7 @@ describe("session list object controls", () => {
     const page = app().querySelector(".page");
     const children = page ? [...page.children] : [];
     const noticeIdx = children.findIndex((el) => el.hasAttribute("data-app-notice"));
-    const listIdx = children.findIndex((el) => el.classList.contains("herd-list"));
+    const listIdx = children.findIndex((el) => el.classList.contains("herd-body"));
     expect(noticeIdx).toBeGreaterThan(-1);
     expect(listIdx).toBeGreaterThan(noticeIdx);
   }));
@@ -231,7 +231,7 @@ describe("session list object controls", () => {
     expect(currentScreen()).toBe("home");
   }));
 
-  test("workspace grouping moves rename off the card and onto the heading", async () => await act(async () => {
+  test("workspace grouping adds the heading menu; the card keeps workspace actions in its workspace scope", async () => await act(async () => {
     boot();
     setListGroup("space");
     commitTest();
@@ -248,9 +248,10 @@ describe("session list object controls", () => {
 
     cardNamed("one").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
     const cardSheet = document.querySelector("dialog.sheet");
-    expect(cardSheet?.textContent).toContain("改会话名");
-    expect(cardSheet?.textContent).not.toContain("改工作区名");
-    expect(cardSheet?.textContent).not.toContain("关闭这个工作区");
+    expect(cardSheet?.querySelector("[data-scope=pane]")?.textContent).toContain("改会话名");
+    expect(cardSheet?.querySelector("[data-scope=pane]")?.textContent).not.toContain("改工作区名");
+    expect(cardSheet?.querySelector("[data-scope=workspace]")?.textContent).toContain("关闭这个工作区");
+    expect(cardSheet?.querySelector<HTMLElement>("[data-scope=workspace]")?.hidden).toBe(true);
   }));
 
   test("create_tab offers another tab on the card and the workspace heading", async () => await act(async () => {

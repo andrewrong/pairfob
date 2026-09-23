@@ -35,6 +35,28 @@ export function OperationSelect({ label, name, choices, selected }: {
   </select></label>;
 }
 
+/**
+ * One choice from a short list, as tiles instead of a dropdown: every option is
+ * visible and one tap away. Native radios keep the form value and keyboard
+ * behavior; the group carries the validation state.
+ */
+export function OperationChoice({ label, name, choices, selected }: {
+  label: string; name: string; choices: Array<{ value: string; label: string; mark: string }>; selected?: string;
+}) {
+  const invalid = useFieldValidation(name);
+  const value = choices.some(choice => choice.value === selected) ? selected : choices[0]?.value;
+  return <fieldset className="operation-field operation-choice" role="radiogroup" data-field={name} aria-label={label} {...invalid}>
+    <legend>{label}</legend>
+    <div className="operation-tiles">
+      {choices.map(choice => <label key={choice.value} className="operation-tile">
+        <input type="radio" name={name} value={choice.value} defaultChecked={choice.value === value} />
+        <span className="operation-tile-mark" aria-hidden="true">{choice.mark}</span>
+        <span className="operation-tile-label">{choice.label}</span>
+      </label>)}
+    </div>
+  </fieldset>;
+}
+
 export function OperationPrompt() {
   const invalid = useFieldValidation("text");
   return <label className="operation-field">{t("form.task")}<textarea name="text" required
@@ -64,8 +86,14 @@ function FormDialog<T>({ modal, title, submitLabel, fields, read }: {
   const validationId = `${modal.titleId}-validation`;
   useLayoutEffect(() => {
     if (!validation?.field) return;
-    const target = modal.form.current?.elements.namedItem(validation.field);
+    const form = modal.form.current;
+    const target = form?.elements.namedItem(validation.field);
     if (target instanceof HTMLElement) target.focus();
+    // A tile group names several radios: focus its chosen tile, else the first.
+    else if (form) {
+      const radios = [...form.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${validation.field}"]`)];
+      (radios.find(radio => radio.checked) ?? radios[0])?.focus();
+    }
   }, [modal, validation]);
   return <ValidationContext value={validation}>
     <OperationFrame modal={modal} title={title} onInput={() => setValidation(null)} onSubmit={event => {

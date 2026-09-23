@@ -163,7 +163,7 @@ describe("home list while unverifiable", () => {
     leftoverAgent();
     renderHome();
     const app = appRoot();
-    const statusline = app.querySelector(".statusline-text");
+    const statusline = app.querySelector(".herd-computer-text");
     expect(statusline?.textContent).toBe("连接中断，正在自动重连");
     expect(statusline?.textContent).not.toContain("已连接");
     expect(statusline?.textContent).not.toContain("Herdr 不可用");

@@ -729,8 +729,8 @@ describe("agent-chat remembers its mode per pane", () => {
     paintPane();
     expect(app.querySelector(".agent-confirm")).toBeNull();
     expect(app.textContent).not.toContain("等你确认");
-    expect(app.querySelector(".chrome-meta-text")?.textContent).toBe("未知");
-    expect(app.querySelector(".agent-unknown")).not.toBeNull();
+    expect(app.querySelector(".chrome-meta-text")?.textContent).toBe("未知 · demo");
+    expect(app.querySelector(".glyph-unknown")).not.toBeNull();
     expect(app.querySelector(".icon-stop")).toBeNull();
   }));
 

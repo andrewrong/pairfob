@@ -29,6 +29,7 @@ export const PAD_KIND_KEY = "pairfob:padKind";
 export const DEFAULT_COMPOSE_LIVE_KEY = "pairfob:defaultComposeLive";
 export const PANE_COMPOSE_LIVE_KEY = "pairfob:paneComposeLive";
 export const LIST_GROUP_KEY = "pairfob:listGroup";
+export const HOME_VIEW_KEY = "pairfob:homeView";
 export const PANE_TOUCHED_KEY = "pairfob:paneTouched";
 export const PANE_PINNED_KEY = "pairfob:panePinned";
 export const PANE_TERM_MODE_KEY = "pairfob:paneTermMode";
@@ -38,6 +39,9 @@ export type TermFit = "pan" | "fit";
 export const TERM_COL_PRESETS = [80, 100, 120] as const;
 export type TermCols = (typeof TERM_COL_PRESETS)[number];
 export type PadKind = "keys" | "slash";
+
+/** Home presentation: the ranked session list, or each workspace's tab layouts. */
+export type HomeView = "list" | "layout";
 
 export const TERM_FONT_MIN = 9;
 export const TERM_FONT_MAX = 22;
@@ -57,6 +61,7 @@ export type PreferencesRecord = {
   padKind: PadKind;
   quickCommands: QuickCommand[] | null;
   listGroup: ListGroup;
+  homeView: HomeView;
   /** true = that grouped heading is collapsed. Missing ids follow first-open. */
   listGroupCollapsed: Record<string, boolean>;
   paneTouched: TouchedAt;
@@ -104,6 +109,10 @@ function isRecordObject(value: unknown): value is Record<string, unknown> {
 
 export function loadListGroup(read: StoredValueReader = readStorage): ListGroup {
   return parseListGroup(read(LIST_GROUP_KEY));
+}
+
+export function loadHomeView(read: StoredValueReader = readStorage): HomeView {
+  return read(HOME_VIEW_KEY) === "layout" ? "layout" : "list";
 }
 
 export function loadTermFont(read: StoredValueReader = readStorage, desk = false): number {
@@ -187,6 +196,7 @@ export function initialPreferences(): PreferencesRecord {
     padKind: "keys",
     quickCommands: null,
     listGroup: "flat",
+    homeView: "list",
     listGroupCollapsed: {},
     paneTouched: {},
     panePinned: {},
@@ -216,6 +226,7 @@ export function hydratePreferences(environment: DomainEnvironment): void {
     record.padKind = loadPadKind(stored);
     record.quickCommands = parseQuickCommands(parseJSON(stored(QUICK_COMMANDS_KEY)));
     record.listGroup = loadListGroup(stored);
+    record.homeView = loadHomeView(stored);
     record.defaultTermMode = loadDefaultTermMode(stored);
     record.defaultComposeLive = loadDefaultComposeLive(stored);
   });
@@ -299,6 +310,20 @@ export function setListGroup(group: ListGroup): void {
       record.listGroup = group;
     });
     saveListGroup();
+  });
+}
+
+export function homeView(): HomeView {
+  return read().homeView;
+}
+
+export function setHomeView(view: HomeView): void {
+  if (read().homeView === view) return;
+  batch(() => {
+    write((record) => {
+      record.homeView = view;
+    });
+    writeStorage(HOME_VIEW_KEY, view);
   });
 }
 

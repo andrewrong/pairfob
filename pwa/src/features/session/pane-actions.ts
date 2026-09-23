@@ -8,6 +8,7 @@ import { applyComposeDraft, parkComposeView } from "./drafts/compose-drafts";
 import { enterWorkspace } from "../../features/workspace";
 import { initSwipeBack as bindSwipeBack } from "./guided/pane-swipe";
 import { nextTransition, shareOpening } from "../../app/transition";
+import { openModePicker } from "./guided/mode-picker";
 import { openPaneMenu } from "./guided/pane-menu";
 import { openPaneSwitcher } from "./guided/pane-switcher";
 import { dropQueuedKeys } from "../../features/session/guided/keys";
@@ -73,6 +74,7 @@ export function sessionHandlers(): SessionHandlers {
     onBack: goBackFromPane,
     onMenu: openPaneMenu,
     onSwitch: openPaneSwitcher,
+    onMode: openModePicker,
     onWorkspace: () => void openSelectedWorkspace(),
   };
 }

@@ -80,7 +80,8 @@ afterEach(async () => await act(async () => { closeTestDialogs(); await pause();
 test("object actions keep full facts above the list and pin the card rather than the selected pane", async () => {
   act(() => openListPaneMenu(targetCard()));
   const body = document.querySelector(".sheet-body")!;
-  expect(body.firstElementChild?.className).toBe("sheet-facts");
+  expect(body.firstElementChild?.className).toBe("sheet-path");
+  expect(body.querySelector("[data-scope=pane]")?.firstElementChild?.className).toBe("sheet-facts");
   expect(body.querySelector(".sheet-fact-path")?.textContent).toContain("/two/project");
   expect(labels()).toContain(t("menu.renamePane"));
   expect(labels()).toContain(t("op.closePane"));
@@ -119,11 +120,13 @@ test("tab rename requires a visible label or split; tab close requires a split",
   expect(labels()).toContain(t("op.closeTab"));
 });
 
-test("workspace grouping moves parent management to the workspace menu", async () => {
+test("parent management lives in the card's workspace scope and the workspace menu", async () => {
   setListGroup("space");
   act(() => openListPaneMenu(targetCard()));
-  expect(labels()).not.toContain(t("menu.renameWorkspace"));
-  expect(labels()).not.toContain(t("op.closeWorkspace"));
+  const workspace = () => [...document.querySelectorAll("[data-scope=workspace] .menu-item")].map((node) => node.textContent);
+  expect(workspace()).toEqual([t("menu.renameWorkspace"), t("op.closeWorkspace")]);
+  expect([...document.querySelectorAll("[data-scope=pane] .menu-item")].map((node) => node.textContent))
+    .not.toContain(t("menu.renameWorkspace"));
   await act(async () => { closeTestDialogs(); await pause(); });
   act(() => openListWorkspaceMenu(targetCard()));
   expect(labels()).toEqual([t("menu.renameWorkspace"), t("op.closeWorkspace")]);

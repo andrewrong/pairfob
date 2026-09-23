@@ -1,0 +1,133 @@
+/* --- Home layout view ----------------------------------------------------------------
+   Each workspace is a section; each tab is a thumbnail of its real split. Cells
+   open sessions, the caption opens the full board for that tab.
+   ------------------------------------------------------------------------------------ */
+
+.herd-layout { padding-bottom: 4px; }
+
+.layout-space {
+  padding: 14px 0 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.layout-space-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 8px 10px 18px;
+}
+
+.layout-space-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-subhead);
+  font-weight: 700;
+}
+
+.layout-space-meta {
+  flex: 1 1 auto;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+}
+
+.layout-strip {
+  display: flex;
+  gap: 10px;
+  padding: 0 18px 2px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.layout-strip::-webkit-scrollbar { display: none; }
+
+.layout-tab {
+  flex: none;
+  width: 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scroll-snap-align: start;
+}
+
+.layout-thumb {
+  position: relative;
+  height: 108px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.layout-cell {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  box-sizing: border-box;
+  padding: 6px 6px;
+  border: 3px solid var(--surface);
+  border-radius: 10px;
+  background: var(--surface-2);
+  background-clip: padding-box;
+  color: var(--muted);
+  font-size: 0.66rem;
+  text-align: left;
+  overflow: hidden;
+}
+
+.layout-cell .status-glyph { margin-top: 1px; }
+
+.layout-cell-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layout-cell:active { background-color: rgba(110, 168, 254, 0.14); color: var(--ink); }
+
+.layout-tab-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--h-control);
+  padding: 0 2px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.layout-tab-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.layout-tab-meta { flex: 1 1 auto; color: var(--muted); font-size: var(--text-caption); }
+.layout-tab-caption svg { flex: none; color: var(--muted); }
+
+.layout-tab-new {
+  flex: none;
+  width: 56px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  color: var(--muted);
+}
+
+.layout-hint {
+  margin: 14px 18px 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}

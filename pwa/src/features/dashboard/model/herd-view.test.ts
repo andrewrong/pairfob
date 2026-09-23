@@ -160,7 +160,7 @@ describe("herd list projection", () => {
     expect(view.stagger).toBe(true);
   });
 
-  test("the status line keeps its tone and the done count", () => {
+  test("unverifiable status does not claim fresh attention counts", () => {
     const view = buildHerdViewModel(input({
       agents: [agent("p1", "alpha", "done")],
       status: { tone: "warn", text: t("chrome.unverifiable") },
@@ -168,7 +168,8 @@ describe("herd list projection", () => {
       connected: false,
     }));
     expect(view.status).toEqual({ tone: "warn", text: t("chrome.unverifiable") });
-    expect(view.doneCount).toBe(1);
+    expect(view.doneCount).toBe(0);
+    expect(view.pendingCount).toBe(0);
     expect(view.groups[0].cards[0].className).toContain("unverifiable");
   });
 });
@@ -177,7 +178,7 @@ describe("herd chrome gates", () => {
   test("create follows its capability, then busy and connection", () => {
     expect(buildHerdViewModel(input()).create).toBeNull();
     const advertised = buildHerdViewModel(input({ createConversation: true }));
-    expect(advertised.create).toEqual({ label: t("home.new"), aria: t("home.newAria"), disabled: false });
+    expect(advertised.create).toEqual({ label: t("form.newConversation"), aria: t("home.newAria"), disabled: false });
     expect(buildHerdViewModel(input({ createConversation: true, operationBusy: true })).create)
       .toEqual({ label: t("home.creating"), aria: t("home.newAria"), disabled: true });
     expect(buildHerdViewModel(input({ createConversation: true, connected: false })).create?.disabled).toBe(true);

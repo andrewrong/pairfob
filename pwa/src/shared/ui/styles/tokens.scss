@@ -71,6 +71,28 @@
   --text-title: 1.05rem;
   --text-display: 1.45rem;
 
+  /* Visual language shared by every screen (see shared/ui/README.md).
+     Status: one colour per agent state, drawn by the status glyph only. */
+  --status-working: var(--accent);
+  --status-blocked: var(--warn);
+  --status-done: var(--ok);
+  --status-idle: var(--line-strong);
+
+  /* Object lists are hairline rows; settings and forms are grouped cards. */
+  --hairline: var(--line);
+  --row-min: 52px;
+  --row-pad-y: 12px;
+  --group-bg: var(--surface-2);
+  --group-radius: var(--r-md);
+
+  /* Heights. Every tappable control keeps a 44px target (the accessibility
+     guardrail in style.test.ts reads literal px, so guarded rules restate these
+     numbers); 32px is only the drawn shape of a chip inside its 44px target. */
+  --h-inline: 32px;
+  --h-control: 44px;
+  --h-primary: 46px;
+  --icon-hit: 44px;
+
   --vv-top: 0px;
   --vv-height: 100%;
   --kb: 0px;

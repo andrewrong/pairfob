@@ -35,7 +35,8 @@ export function showActionSheet(title: string, content: (modal: ActionSheetContr
 export function MenuItem({ modal, children, action, danger = false, disabled = false }: {
   modal: ActionSheetController; children: ReactNode; action?: SheetAction; danger?: boolean; disabled?: boolean;
 }) {
-  return <button type="button" className={`menu-item${danger ? " menu-danger" : ""}`} disabled={disabled}
+  // An item with no action only closes the sheet: it is the sheet's cancel.
+  return <button type="button" className={`menu-item${danger ? " menu-danger" : ""}${action ? "" : " menu-cancel"}`} disabled={disabled}
     onClick={() => action ? modal.close(action) : modal.dismiss()}>{children}</button>;
 }
 

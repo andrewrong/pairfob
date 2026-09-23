@@ -1,3 +1,4 @@
+import { agentStatusLabel } from "../../../lib/dashboard";
 import { resetTestDOM } from "../../../../test-support/boot-dom";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act } from "react";
@@ -24,7 +25,7 @@ let connected = true;
 let back = 0, menu = 0, inspect = 0, switched = 0;
 const handlers = {
   onBack: () => { back++; }, onMenu: () => { menu++; },
-  onWorkspace: () => { inspect++; }, onSwitch: () => { switched++; },
+  onWorkspace: () => { inspect++; }, onSwitch: () => { switched++; }, onMode: () => {},
 };
 const parts = {
   Terminal: ({ model }: { model: PaneModel }) => <div data-testid="buffer">{model.texts.join("\n")}</div>,
@@ -91,10 +92,10 @@ test("status publication keeps header identity while updating visible status, ac
   act(() => { applySnapshot(SNAPSHOT("idle")); notifySessionUI(); });
   expect(appRoot().querySelector(".chrome-title") === title).toBeTrue();
   expect(appRoot().querySelector(".icon-stop")).toBeNull();
-  expect(title.getAttribute("aria-label")).toContain(t("status.waitingInput"));
+  expect(title.getAttribute("aria-label")).toContain(agentStatusLabel({ paneId: "p1", agent: "codex", status: "idle", cwd: "", workspaceId: "" }));
   connected = false;
   act(notifySessionUI);
-  expect(title.querySelector(".agent-unknown") !== null).toBeTrue();
+  expect(appRoot().querySelector(".chrome-meta .glyph-unknown") !== null).toBeTrue();
   expect(title.getAttribute("aria-label")).toContain(t("status.unverifiable"));
 });
 
@@ -145,7 +146,7 @@ test("notices update between chrome and buffer without resetting the pane", () =
   act(() => showStatus("session notice", true));
   expect(appRoot().querySelector(".pane-root") === pane).toBeTrue();
   const notice = appRoot().querySelector("[data-react-notice]")!;
-  expect(notice.previousElementSibling?.className).toBe("chrome");
+  expect(notice.previousElementSibling?.classList.contains("chrome")).toBeTrue();
   expect(notice.nextElementSibling?.getAttribute("data-testid")).toBe("buffer");
   act(clearNotice);
   expect(appRoot().querySelector("[data-react-notice]")).toBeNull();

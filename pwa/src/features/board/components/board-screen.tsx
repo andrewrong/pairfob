@@ -88,11 +88,6 @@ export function BoardScreenView({
           <strong className="board-name">{view.title}</strong>
           {view.sub ? <span className="board-sub">{view.sub}</span> : null}
         </div>
-        <div className="board-zoom">
-          <Button className="icon-btn" aria-label={view.zoom.out} onClick={() => actions.zoom(-1)}><Minus size={20} aria-hidden="true" /></Button>
-          <Button className="text-link" aria-label={view.zoom.fit} onClick={actions.fit}>{view.zoom.fitLabel}</Button>
-          <Button className="icon-btn" aria-label={view.zoom.in} onClick={() => actions.zoom(1)}><Plus size={20} aria-hidden="true" /></Button>
-        </div>
       </header>
       <StatusLine status={view.status} />
       <HerdBanners tone={view.status.tone} />
@@ -134,7 +129,15 @@ export function BoardScreenView({
           ) : null}
         </div>
       </div>
-      <BoardCanvasView canvas={view.canvas} controller={controller} />
+      <div className="board-canvas-wrap">
+        <BoardCanvasView canvas={view.canvas} controller={controller} />
+        {/* Zoom floats over the canvas, bottom right, where the thumb already is. */}
+        <div className="board-zoom" role="group" aria-label={view.zoom.fit}>
+          <Button className="icon-btn" aria-label={view.zoom.out} onClick={() => actions.zoom(-1)}><Minus size={18} aria-hidden="true" /></Button>
+          <Button className="text-link" aria-label={view.zoom.fit} onClick={actions.fit}>{view.zoom.fitLabel}</Button>
+          <Button className="icon-btn" aria-label={view.zoom.in} onClick={() => actions.zoom(1)}><Plus size={18} aria-hidden="true" /></Button>
+        </div>
+      </div>
     </div>
   );
 }

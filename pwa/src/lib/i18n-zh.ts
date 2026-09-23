@@ -1,4 +1,6 @@
 import { zhAgentInfo } from "./i18n-zh-agent-info";
+import { zhBoardMenu } from "./i18n-board-menu";
+import { zhHome } from "./i18n-home";
 import { zhWorkspace } from "./i18n-zh-workspace.ts";
 
 /**
@@ -8,6 +10,8 @@ import { zhWorkspace } from "./i18n-zh-workspace.ts";
 export const zh = {
   ...zhWorkspace,
   ...zhAgentInfo,
+  ...zhBoardMenu,
+  ...zhHome,
   "fileActions.rename": "重命名",
   "fileActions.delete": "删除文件",
   "fileActions.confirmDelete": "确定删除「{name}」？文件将直接从电脑中删除，无法在此撤销。",
@@ -252,7 +256,7 @@ export const zh = {
   "home.new": "新建",
   "home.computers": "电脑",
   "home.board": "画板",
-  "board.title": "画板",
+  "board.title": "布局",
   "board.back": "返回列表",
   "board.fit": "适配",
   "board.fitAria": "适配整页布局",
@@ -270,8 +274,11 @@ export const zh = {
   "menu.board": "看标签页布局",
   "home.cardMenu": "{title}的操作",
   "home.pinned": "已置顶",
-  "home.doneCount": "{count} 个已完成",
-  "home.doneCountAria": "跳到第一个已完成的会话，共 {count} 个",
+  "home.pendingCount": "{count} 个待处理",
+  "home.pendingCountAria": "定位下一个待处理的会话，共 {count} 个",
+  "mode.agentUnavailable": "此会话暂不提供 Agent 聊天记录，可继续使用终端。",
+  "home.doneCount": "{count} 个新完成",
+  "home.doneCountAria": "定位下一个新完成的会话，共 {count} 个",
   "home.switcherEmpty": "还没有读到别的会话。",
   "home.switcherEmptyTitle": "只有这一个会话",
   "home.switcherTitle": "切换会话",
@@ -436,6 +443,7 @@ export const zh = {
   "form.projectDir": "项目目录",
   "form.kind": "Pane 类型",
   "form.plainTerminal": "纯终端（不启动 Agent）",
+  "form.plainTerminalShort": "纯终端",
   "form.noAgentKinds": "电脑没有可用的 Agent 类型，将创建纯终端会话。",
   "form.labelOptional": "名称（可选）",
   "form.labelExample": "例如：修复登录问题",
@@ -733,6 +741,7 @@ export const zh = {
   "ft.kbHide": "收起键盘",
   "ft.kbOpen": "打开键盘输入",
 
+  "update.title": "电脑端更新",
   "update.helpTitle": "电脑端很久没更新或无法连接？",
   "update.helpBody": "连接失败也可能由网络或电脑离线引起。若电脑端长期未更新，请在那台电脑执行下方命令，然后重新连接。",
   "update.copyCommand": "复制更新命令",

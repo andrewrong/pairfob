@@ -31,3 +31,25 @@ Reuse `Button`, `EmptyState`, `StatusLine`, setting rows and menu primitives as
 appropriate. `Button` deliberately retains native props and only defaults the
 button type; it does not own business loading or mutation state. Specialized
 terminal keys, board tabs and the camera scanner retain their own interactions.
+
+## Visual language
+
+Every screen draws from the same few rules; the values live as tokens in
+`styles/tokens.scss`.
+
+- **Agent status** is the `StatusGlyph` (ring = working, diamond = needs you,
+  check = turn finished, hollow circle = idle, dashed = unknown). Colour sits on
+  the glyph only (`--status-*`); the words beside it stay neutral. Coloured
+  pills are for non-agent states such as a computer being online.
+- **Object lists** (sessions, files, changes, computers, the switcher) are
+  hairline rows (`--hairline`, `--row-min`). **Settings and forms** are grouped
+  cards (`--group-bg`, `--group-radius`).
+- **Sheets and menus**: consecutive `MenuItem`s form one card; a section title
+  starts a new card; danger items form their own card after the rest; the
+  plain cancel stands apart.
+- **Controls**: every tappable target is at least 44px (`--h-control`,
+  `--icon-hit`); form primaries are `--h-primary`; `--h-inline` is only the
+  drawn shape of a chip inside its 44px target. One accent-filled primary per
+  screen; danger is red text on a quiet fill.
+- **Top bars**: full-screen chromes and settings-family pages share a 52px bar
+  on `--bg` with a hairline below and a subhead-weight title.

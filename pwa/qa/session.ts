@@ -1,3 +1,5 @@
+import { boardLayoutFixture } from "./board-layout";
+import type { SplitPaneInput, ResizePaneInput, SwapPaneInput, ZoomPaneInput } from "../src/lib/operations";
 import { ProtocolError } from "../src/lib/protocol/errors";
 import { NO_OPERATION_CAPABILITIES } from "../src/lib/operations";
 import type { LiveSession, SessionEvent } from "../src/lib/protocol/session-types";
@@ -34,6 +36,7 @@ export function createSession(): FixtureSession {
   const waiters = new Map<string, Array<{ resolve(): void; reject(error: Error): void }>>();
   const failures = new Map<string, string>();
   const snapshot = data.snapshot();
+  const board = boardLayoutFixture(snapshot);
   const deviceList = data.devices();
   let trace = data.trace();
   let appendedTurns = 0;
@@ -70,12 +73,12 @@ export function createSession(): FixtureSession {
     renamePane: (id: string, label: string | null) => mutation("renamePane", [id, label], () => { const pane = snapshot.panes?.find((item) => item.pane_id === id); if (pane) pane.label = label; }),
     renameTab: (id: string, label: string) => mutation("renameTab", [id, label], () => { const tab = snapshot.tabs?.find((item) => item.tab_id === id); if (tab) tab.label = label; }),
     renameWorkspace: (id: string, label: string) => mutation("renameWorkspace", [id, label], () => { const workspace = snapshot.workspaces?.find((item) => item.workspace_id === id); if (workspace) workspace.label = label; }),
-    closePane: (id: string) => mutation("closePane", [id], () => { snapshot.panes = snapshot.panes?.filter((pane) => pane.pane_id !== id); }),
+    closePane: (id: string) => mutation("closePane", [id], () => { snapshot.panes = snapshot.panes?.filter((pane) => pane.pane_id !== id); board.close(id); }),
     closeTab: (id: string) => mutation("closeTab", [id], () => { snapshot.panes = snapshot.panes?.filter((pane) => pane.tab_id !== id); }),
     closeWorkspace: (id: string) => mutation("closeWorkspace", [id], () => { snapshot.panes = snapshot.panes?.filter((pane) => pane.workspace_id !== id); }),
     createConversation: (params: unknown) => mutation("createConversation", [params], created),
     createTab: (params: unknown) => mutation("createTab", [params], created),
-    splitPane: (params: unknown) => mutation("splitPane", [params], created),
+    splitPane: (params: SplitPaneInput) => mutation("splitPane", [params], () => ({ ...created(), ...board.split(params) })),
     history: (...args: unknown[]) => request("history", args, () => ({ items: [], nextCursor: null, truncated: false })),
     agentTrace: (...args: unknown[]) => request("agentTrace", args, () => ({ items: structuredClone(trace), nextCursor: null, truncated: false })),
     agentTraceDetail: (paneId: string, detailRef: string) => request("agentTraceDetail", [paneId, detailRef], () => {
@@ -104,9 +107,9 @@ export function createSession(): FixtureSession {
     ] })),
     createWorktree: (params: unknown) => mutation("createWorktree", [params], () => ({ ...created(), path: "/work/pairfob-react", branch: "feature/react" })),
     openWorktree: (params: unknown) => mutation("openWorktree", [params], () => ({ ...created(), path: "/work/pairfob-react", branch: "feature/react" })),
-    resizePane: (params: unknown) => mutation("resizePane", [params], created),
-    swapPane: (params: unknown) => mutation("swapPane", [params], created),
-    zoomPane: (params: unknown) => mutation("zoomPane", [params], created),
+    resizePane: (params: ResizePaneInput) => mutation("resizePane", [params], () => { board.resize(params); return created(); }),
+    swapPane: (params: SwapPaneInput) => mutation("swapPane", [params], () => { board.swap(params); return created(); }),
+    zoomPane: (params: ZoomPaneInput) => mutation("zoomPane", [params], () => { board.zoom(params); return created(); }),
     terminalOpen: (paneId: string, cols: number, rows: number, takeover?: boolean) => mutation("terminalOpen", [paneId, cols, rows, takeover], () => {
       const terminalId = `term_${(++terminalSerial).toString(16).padStart(32, "0")}`;
       terminal = { id: terminalId, cols, rows, sequence: 0n };
