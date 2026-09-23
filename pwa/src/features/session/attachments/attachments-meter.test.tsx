@@ -252,28 +252,27 @@ describe("upload meter integrated with the controller", () => {
     const pending = pendingPort();
     setAttachmentTransferPort(pending);
     const id = await startJob("p.txt", 1_048_576);
-    act(() => pending.progress()?.(524_288, 1_048_576)); // baseline: publishes, arms stall
-    await act(async () => wait(120));
-    act(() => pending.progress()?.(600_000, 1_048_576)); // inside the window: one trailing timer queued
-    // Cancel claims and aborts BEFORE either timer fires. The abort signal must
-    // dispose the meter even though the upload promise never settles.
-    act(() => cancelUpload(SCOPE, id));
-    expect(queueSnapshot(KEY)?.items[0].status).toBe("cancelling");
-    expect(pending.settled()).toBe(false); // the cancel job is queued behind upload
-    // The second sample rode only the trailing edge, so disposing that timer
-    // leaves acknowledged at the last PUBLISHED value with no waiting flip.
-    const frozen = { status: "cancelling", acknowledged: 524_288, waiting: false };
-    // Past the 150ms trailing window: no timer-driven row update.
-    await act(async () => wait(250));
-    expect(queueSnapshot(KEY)?.items[0]).toMatchObject(frozen);
-    // Past the 3s stall window as well: a disposed stall timer flips nothing.
-    await act(async () => wait(3_200));
-    expect(queueSnapshot(KEY)?.items[0]).toMatchObject(frozen);
-    expect(pending.settled()).toBe(false);
-    // Cleanup: release the pending upload as a confirmed cancel so the serial
-    // cancel job runs and the queue drains for afterEach (never awaited above).
-    act(() => pending.resolveCancelled());
-    await act(async () => settleTransferQueue());
+    try {
+      // Queue the second sample and abort in the same turn: a real 120ms sleep
+      // can overshoot the 150ms throttle on a busy machine and publish it first.
+      act(() => {
+        pending.progress()?.(524_288, 1_048_576);
+        pending.progress()?.(600_000, 1_048_576);
+        cancelUpload(SCOPE, id);
+      });
+      expect(queueSnapshot(KEY)?.items[0].status).toBe("cancelling");
+      expect(pending.settled()).toBe(false);
+      const frozen = { status: "cancelling", acknowledged: 524_288, waiting: false };
+      await act(async () => wait(250));
+      expect(queueSnapshot(KEY)?.items[0]).toMatchObject(frozen);
+      await act(async () => wait(3_200));
+      expect(queueSnapshot(KEY)?.items[0]).toMatchObject(frozen);
+      expect(pending.settled()).toBe(false);
+    } finally {
+      // Always release the serial queue, even when an assertion fails.
+      act(() => pending.resolveCancelled());
+      await act(async () => settleTransferQueue());
+    }
     expect(queueSnapshot(KEY)?.items[0].status).toBe("cancelled");
     expect(pending.calls).toEqual(["upload", "cancel"]);
   });
