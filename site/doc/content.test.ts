@@ -42,8 +42,7 @@ describe("user-facing documentation", () => {
     expect(app).toContain("| **终端** |");
     expect(app).toContain("| **对话** |");
     expect(app).toContain("| 模式 | 自动、控制、终端（vim / TUI）、对话");
-    expect(app).toContain("| 输入 |");
-    expect(app).toContain("| 显示 |");
+    expect(app).toContain("| 输入与显示 |");
     expect(app).not.toContain("更早的输出");
     expect(app).not.toContain("给 Agent 发任务");
     expect(app).not.toContain("铺满全屏");
@@ -52,7 +51,8 @@ describe("user-facing documentation", () => {
     expect(app).not.toContain("完整终端");
     expect(app).not.toContain("会话顶栏会直接显示 **历史**");
     expect(app).not.toContain("| 画面 |");
-    expect(app).toContain("顶部「新建」");
+    expect(app).toContain("**新建** 在电脑支持时出现：手机上在右下角");
+    expect(app).not.toContain("顶部「新建」");
     expect(app).toContain("**画板**");
     expect(app).toContain("看标签页布局");
     expect(app).toContain("**会话操作**");
@@ -65,6 +65,33 @@ describe("user-facing documentation", () => {
     expect(docs).not.toContain("两个按钮");
     expect(docs).not.toContain("选项会抬成可点的按钮");
     expect(docs).not.toContain("对话框可点");
+  });
+
+  test("matches the current PWA list, send button and settings", async () => {
+    const appEn = await Bun.file(new URL("./app.md", import.meta.url)).text();
+    // Grouping lives on the list's Workspace button, default by workspace; opens order the list.
+    expect(app).toContain("**分组方式**");
+    expect(app).toContain("状态变化不会挪动位置");
+    expect(app).not.toContain("**会话列表**：分组方式");
+    expect(app).toContain("| 本轮结束 |");
+    expect(app).not.toContain("| 完成 |");
+    // Send button states follow session-stop.ts sendKind.
+    expect(app).toContain("**发送**");
+    expect(app).toContain("**停止**");
+    expect(app).toContain("**强制停止**");
+    expect(app).toContain("**键盘回车直接发送**");
+    expect(app).not.toContain("点它可以切换到别的会话");
+    expect(app).not.toContain("在输入框上方直接切换");
+    expect(appEn).toContain("**Group by**");
+    expect(appEn).toContain("**Turn finished**");
+    expect(appEn).toContain("**Force stop**");
+    expect(appEn).toContain("**Return key sends**");
+    expect(appEn).not.toContain("tap to switch sessions");
+    // Attachments ride along with Send; there is no separate Upload / Insert step.
+    expect(app).toContain("**不带它发送**");
+    expect(app).not.toContain("**插入全部路径**");
+    expect(appEn).toContain("**Send without them**");
+    expect(appEn).not.toContain("**Insert all paths**");
   });
 
   test("describes empty sessions without claiming Herdr is offline", () => {

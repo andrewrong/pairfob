@@ -1,30 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useData } from "vitepress";
+import { switchDocsLanguage } from "./lang-switch";
 
 const { lang } = useData();
 const zh = computed(() => lang.value.startsWith("zh"));
 
-function go(next: "zh" | "en") {
-  const api = (window as unknown as { PairfobLang?: {
-    set: (lang: string) => string;
-    docPath: (path: string, lang: string) => string;
-    samePath: (a: string, b: string) => boolean;
-  } }).PairfobLang;
-  if (api) {
-    api.set(next);
-    const target = api.docPath(location.pathname, next);
-    if (!api.samePath(target, location.pathname)) {
-      location.assign(target + location.search + location.hash);
-    }
-    return;
-  }
-  // Fallback when lang.js has not loaded. English is the root locale.
-  const path = location.pathname;
-  const rest = path.startsWith("/doc") ? path.slice(4) || "/" : "/";
-  const body = rest === "/zh" || rest.startsWith("/zh/") ? rest.slice(3) || "/" : rest;
-  location.assign(next === "zh" ? (body === "/" ? "/doc/zh/" : "/doc/zh" + body) : body === "/" ? "/doc/" : "/doc" + body);
-}
+const go = switchDocsLanguage;
 </script>
 
 <template>

@@ -7,30 +7,23 @@ type Node = {
   title: string;
   detail: string;
   hop?: string;
-  relay?: boolean;
   chain?: string[];
 };
 
 const { lang } = useData();
 const zh = computed(() => lang.value.startsWith("zh"));
 
+// P2P is the preferred path; the relay is the fallback (docs security.md).
 const copy = computed(() =>
   zh.value
     ? {
-        aria: "会话从另一台设备经 pairfob.com 到你的电脑",
+        aria: "会话从另一台设备到你的电脑：优先直连，连不上时经 pairfob.com 中转",
         nodes: [
           {
             k: "设备",
             title: "另一台设备上的 Pairfob",
             detail: "手机、平板或另一台电脑。密钥在这一端。",
-            hop: "密文",
-          },
-          {
-            k: "中转",
-            title: "pairfob.com",
-            detail: "只转发密文。不看内容，不跑 agent。",
-            hop: "密文",
-            relay: true,
+            hop: "P2P 直连 · 密文 · 默认优先",
           },
           {
             k: "电脑",
@@ -39,22 +32,20 @@ const copy = computed(() =>
             chain: ["pairfob", "Herdr", "CLI"],
           },
         ],
+        fallback: {
+          k: "直连不通时",
+          title: "经 pairfob.com 中转",
+          detail: "只转发密文，不看内容，不跑 agent。中转也负责帮两边找到对方。",
+        },
       }
     : {
-        aria: "A session travels from another device through pairfob.com to your computer",
+        aria: "A session travels from another device to your computer: direct first, through pairfob.com when direct fails",
         nodes: [
           {
             k: "Device",
             title: "Pairfob on another device",
             detail: "Phone, tablet, or another computer. Keys stay here.",
-            hop: "ciphertext",
-          },
-          {
-            k: "Relay",
-            title: "pairfob.com",
-            detail: "Forwards ciphertext. Does not read content or run agents.",
-            hop: "ciphertext",
-            relay: true,
+            hop: "P2P direct · ciphertext · preferred",
           },
           {
             k: "Computer",
@@ -63,13 +54,19 @@ const copy = computed(() =>
             chain: ["pairfob", "Herdr", "CLI"],
           },
         ],
+        fallback: {
+          k: "If direct fails",
+          title: "Through the pairfob.com relay",
+          detail: "Forwards ciphertext only. Does not read content or run agents. It also helps the two sides find each other.",
+        },
       },
 );
 </script>
 
 <template>
-  <ol class="pf-rail" :aria-label="copy.aria">
-    <li v-for="n in copy.nodes" :key="n.k" :class="{ relay: n.relay }">
+  <div class="pf-path" :aria-label="copy.aria" role="group">
+  <ol class="pf-rail">
+    <li v-for="n in copy.nodes" :key="n.k">
       <p class="k">{{ n.k }}</p>
       <p class="t">{{ n.title }}</p>
       <p class="d">{{ n.detail }}</p>
@@ -79,12 +76,22 @@ const copy = computed(() =>
       <p v-if="n.hop" class="hop">{{ n.hop }}</p>
     </li>
   </ol>
+  <div class="pf-fallback">
+    <p class="k">{{ copy.fallback.k }}</p>
+    <p class="t">{{ copy.fallback.title }}</p>
+    <p class="d">{{ copy.fallback.detail }}</p>
+  </div>
+  </div>
 </template>
 
 <style scoped>
+.pf-path {
+  margin: 24px 0 4px;
+}
+
 .pf-rail {
   list-style: none;
-  margin: 24px 0 4px;
+  margin: 0;
   padding: 4px 0 2px;
   border: 1px solid var(--vp-c-divider);
   background: var(--vp-c-bg-alt);
@@ -110,10 +117,6 @@ const copy = computed(() =>
   border: 2px solid var(--vp-c-brand-1);
   border-radius: 50%;
   background: var(--vp-c-bg-alt);
-}
-
-.pf-rail li.relay::before {
-  border-color: var(--vp-c-text-3);
 }
 
 .pf-rail li:not(:last-child)::after {
@@ -149,11 +152,6 @@ const copy = computed(() =>
   text-wrap: pretty;
 }
 
-.relay .t {
-  color: var(--vp-c-text-2);
-  font-weight: 500;
-}
-
 .chain {
   display: flex;
   flex-wrap: wrap;
@@ -168,6 +166,17 @@ const copy = computed(() =>
   content: "→";
   margin-left: 6px;
   color: var(--vp-c-text-3);
+}
+
+.pf-fallback {
+  margin-top: 8px;
+  padding: 12px 20px 14px 44px;
+  border: 1px dashed var(--vp-c-border);
+}
+
+.pf-fallback .t {
+  color: var(--vp-c-text-2);
+  font-weight: 600;
 }
 
 .hop {

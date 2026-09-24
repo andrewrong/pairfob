@@ -24,8 +24,8 @@ pageClass: pf-intro
     <p>新建、分屏、worktree、自动 / 控制 / 终端 / 对话，都以电脑当时为准。做不到的，手机上不会出现，也不会假装成功。</p>
   </article>
   <article>
-    <p class="pf-claim-t">家里不开端口</p>
-    <p>电脑自己连出去。不绑 Tailscale，不把 Herdr 暴露到公网。配对完成后，内容是加密的。</p>
+    <p class="pf-claim-t">不开端口，能直连就直连</p>
+    <p>电脑自己连出去，不绑 Tailscale，不把 Herdr 暴露到公网。手机和电脑优先直连（P2P），会话不经过 pairfob.com；连不上才走中转。两条路内容都是加密的。</p>
   </article>
 </div>
 

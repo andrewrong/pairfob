@@ -24,8 +24,8 @@ pageClass: pf-intro
     <p>New conversations, splits, worktrees, and Auto / Control / Terminal / Chat follow the computer. If it cannot do it, the phone does not draw it and does not pretend it succeeded.</p>
   </article>
   <article>
-    <p class="pf-claim-t">No inbound ports at home</p>
-    <p>The computer dials out. No Tailscale. Herdr is not exposed to the public internet. After pairing, the session is encrypted.</p>
+    <p class="pf-claim-t">No inbound ports, direct when possible</p>
+    <p>The computer dials out. No Tailscale. Herdr is not exposed to the public internet. Phone and computer connect directly (P2P) when they can, so the session skips pairfob.com; otherwise it goes through the relay. Either way it is encrypted.</p>
   </article>
 </div>
 

@@ -8,7 +8,10 @@ export default defineConfig({
   description: "How to use Pairfob",
   base: "/doc/",
   cleanUrls: true,
-  appearance: "force-dark",
+  // Follows the system like the homepage; the navbar switch can override it.
+  // disableTransition would inject an inline <style> on every switch, which the
+  // site CSP (style-src without 'unsafe-inline') blocks.
+  appearance: { disableTransition: false },
   ignoreDeadLinks: true,
   lastUpdated: false,
   markdown: {
@@ -31,8 +34,18 @@ export default defineConfig({
   },
   head: [
     ["link", { rel: "icon", href: "/doc/icon.svg", type: "image/svg+xml" }],
-    ["meta", { name: "theme-color", content: "#07090d" }],
-    ["meta", { name: "color-scheme", content: "dark" }],
+    ["meta", { name: "theme-color", content: "#ffffff", media: "(prefers-color-scheme: light)" }],
+    ["meta", { name: "theme-color", content: "#07090d", media: "(prefers-color-scheme: dark)" }],
+    ["meta", { name: "color-scheme", content: "light dark" }],
+    ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
+    ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
+    [
+      "link",
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap",
+      },
+    ],
     // Versioned so a locale-routing change is not masked by a cached copy.
     // Kept in step with index.html; scripts/pack-origin-assets.sh fails on drift.
     ["script", { src: "/lang.js?v=49" }],
