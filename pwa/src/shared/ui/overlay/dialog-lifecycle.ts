@@ -11,13 +11,15 @@ type DialogLifecycle = {
   focus?: () => void;
   restoreFocus?: boolean;
   cancelGuardMs?: number;
+  /** False keeps the dialog open on a backdrop tap (editors with a draft). */
+  backdropDismiss?: boolean;
   sheet?: { form: ElementRef<HTMLFormElement>; scroller: ElementRef<HTMLElement> };
   /** Two sheet heights; read through the latest callbacks so the binding stays put. */
   detents?: { expanded(): boolean; set(expanded: boolean): void };
 };
 
 /** Native dialog ownership shared by promise dialogs and state-controlled portals. */
-export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancelGuardMs = 400, ...callbacks }: DialogLifecycle) {
+export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancelGuardMs = 400, backdropDismiss = true, ...callbacks }: DialogLifecycle) {
   const expandable = !!callbacks.detents;
   const latest = useRef(callbacks);
   latest.current = callbacks;
@@ -34,7 +36,7 @@ export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancel
       if (performance.now() - openedAt >= cancelGuardMs) (latest.current.onCancel ?? dismiss)();
     };
     const backdrop = (event: MouseEvent) => {
-      if (event.target === element && performance.now() - openedAt >= 400) dismiss();
+      if (backdropDismiss && event.target === element && performance.now() - openedAt >= 400) dismiss();
     };
     const closed = () => latest.current.onClose();
     element.addEventListener("cancel", cancel);
@@ -59,5 +61,5 @@ export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancel
         if (trigger?.isConnected) trigger.focus({ preventScroll: true });
       });
     };
-  }, [dialog, form, scroller, restoreFocus, cancelGuardMs, expandable]);
+  }, [dialog, form, scroller, restoreFocus, cancelGuardMs, expandable, backdropDismiss]);
 }

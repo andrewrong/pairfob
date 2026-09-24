@@ -80,16 +80,19 @@ afterEach(async () => await act(async () => {
   await happy.happyDOM.abort();
 }));
 
-function row() { return app.querySelector<HTMLButtonElement>(".workspace-file")!; }
-function button(text: string) { return [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find((b) => b.textContent === text)!; }
+function row() { return app.querySelector<HTMLButtonElement>(".workspace-file .workspace-row-main")!; }
+function button(text: string) { return [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find((b) => b.textContent?.replace(/…$/, "") === text)!; }
 function menu() { row().dispatchEvent(new happy.MouseEvent("contextmenu", { bubbles: true, cancelable: true }) as unknown as Event); }
 function pointer(target: HTMLElement, type: string, x = 10) {
   target.dispatchEvent(new happy.PointerEvent(type, { bubbles: true, isPrimary: true, pointerId: 1, pointerType: "touch", clientX: x, clientY: 10 }) as unknown as Event);
 }
 
-test("old daemon has no file actions", async () => await act(async () => {
-  await boot(false); menu();
-  expect(document.querySelector("dialog")).toBeNull();
+test("old daemon offers only capability-free file actions", async () => await act(async () => {
+  await boot(false); menu(); await pause();
+  const sheet = document.querySelector("dialog.sheet");
+  expect(sheet?.textContent).toContain("复制路径");
+  expect(sheet?.textContent).not.toContain("重命名");
+  expect(sheet?.textContent).not.toContain("删除文件");
 }));
 test("long hold opens once and releasing after a second does not open the file", async () => await act(async () => {
   await boot(); const target = row();

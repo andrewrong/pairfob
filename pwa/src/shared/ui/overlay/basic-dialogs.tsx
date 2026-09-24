@@ -23,19 +23,23 @@ export type TextRequest = {
   emptyHint?: string;
   /** When false, Save stays disabled for a blank value. */
   allowEmpty?: boolean;
+  /** Live check; a message marks the field invalid, replaces the hint and blocks Save. */
+  validate?: (value: string) => string | null;
 };
 
 function TextDialog({ modal, request }: { modal: ModalController<string>; request: TextRequest }) {
-  const { title, initial = "", maxLength, label, hint, emptyHint, allowEmpty = true } = request;
+  const { title, initial = "", maxLength, label, hint, emptyHint, allowEmpty = true, validate } = request;
   const input = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(initial);
   const fieldId = useId();
   const hintId = `${fieldId}-hint`;
   const blank = !value.trim();
-  const canSave = value !== initial && (allowEmpty || !blank);
-  const guidance = !value && emptyHint ? emptyHint : !allowEmpty && blank ? t("text.nameRequired") : hint;
+  const problem = value === initial ? null : validate?.(value) ?? null;
+  const canSave = value !== initial && (allowEmpty || !blank) && !problem;
+  const guidance = problem ?? (!value && emptyHint ? emptyHint : !allowEmpty && blank ? t("text.nameRequired") : hint);
   const commit = (next: string) => {
     if (next === initial) modal.dismiss();
+    else if (validate?.(next)) return;
     else if (allowEmpty || next.trim()) modal.close(next);
   };
   return <ModalFrame modal={modal} title={title} className="modal text-edit" describedBy={guidance ? hintId : undefined}
@@ -50,9 +54,9 @@ function TextDialog({ modal, request }: { modal: ModalController<string>; reques
       commit((event.currentTarget.elements.namedItem("value") as HTMLInputElement).value);
     }}>
     <label className="text-edit-label" htmlFor={fieldId}>{label ?? t("op.fieldName")}</label>
-    <div className="text-edit-field">
+    <div className={`text-edit-field${problem ? " is-invalid" : ""}`}>
       <input ref={input} id={fieldId} name="value" type="text" autoComplete="off" spellCheck={false} enterKeyHint="done"
-        defaultValue={initial} maxLength={maxLength} onInput={event => setValue(event.currentTarget.value)}
+        defaultValue={initial} maxLength={maxLength} aria-invalid={problem ? true : undefined} onInput={event => setValue(event.currentTarget.value)}
         onKeyDown={event => {
           if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
           event.preventDefault();
@@ -65,7 +69,7 @@ function TextDialog({ modal, request }: { modal: ModalController<string>; reques
         input.current.focus();
       }}><X size={14} aria-hidden="true" /></Button>}
     </div>
-    {guidance && <p id={hintId} className="text-edit-hint">{guidance}</p>}
+    {guidance && <p id={hintId} className={`text-edit-hint${problem ? " is-invalid" : ""}`} role={problem ? "alert" : undefined}>{guidance}</p>}
   </ModalFrame>;
 }
 

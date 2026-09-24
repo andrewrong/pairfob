@@ -1,0 +1,324 @@
+/* Workspace browsing: breadcrumbs, file rows, Git marks, the change list and the branch sheet. */
+
+/* --- Breadcrumbs: up · root / … / parent / current ------------------------------ */
+
+.workspace-breadcrumbs {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px 0 4px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  flex: none;
+}
+
+.workspace-up {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  color: var(--muted);
+  flex: none;
+}
+.workspace-up:disabled { opacity: 0.3; }
+.workspace-up:active:not(:disabled) { background: var(--surface); }
+
+.workspace-crumbs {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.workspace-crumb {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 9rem;
+  min-height: 36px;
+  padding: 0 6px;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  color: inherit;
+  font-size: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-crumb:active { background: var(--surface); }
+/* The current folder never gives way to its ancestors. */
+.workspace-crumb.is-current { flex-shrink: 0; max-width: 11rem; color: var(--ink); font-weight: 650; }
+.workspace-crumb-fold { flex: none; min-width: 32px; letter-spacing: 0.05em; }
+.workspace-crumb-sep { flex: none; opacity: 0.45; }
+
+/* --- Rows: an open button and, for files, a ⋯ button beside it ------------------ */
+
+.workspace-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 5px 8px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.workspace-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  border-radius: var(--r-md);
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.workspace-row-main {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  gap: 11px;
+  padding: 6px 6px 6px 8px;
+  border-radius: var(--r-md);
+  text-align: left;
+}
+
+.workspace-row-main:active:not(:disabled),
+.workspace-row.active .workspace-row-main,
+.workspace-change:active { background: var(--surface); }
+.workspace-row-main:disabled { cursor: default; opacity: 0.52; }
+.workspace-row.is-hidden { opacity: 0.68; }
+.workspace-row.is-busy { opacity: 0.55; }
+.workspace-row .chev { flex: none; color: var(--muted); }
+.workspace-row-spinner { flex: none; width: 14px; height: 14px; }
+
+.workspace-row-more {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  color: var(--muted);
+  flex: none;
+}
+.workspace-row-more:active:not(:disabled) { background: var(--surface); color: var(--ink); }
+.workspace-row-more:disabled { opacity: 0.35; }
+
+.workspace-entry-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.workspace-row-body,
+.workspace-change-head,
+.workspace-branch-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.workspace-row-name { font-family: var(--mono); font-size: var(--text-secondary); }
+.workspace-row-meta { overflow: hidden; color: var(--muted); font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (hover: hover) and (pointer: fine) {
+  .workspace-row-main:hover:not(:disabled),
+  .workspace-row-more:hover:not(:disabled) { background: var(--surface); }
+}
+
+/* --- Git marks: the glyph tells kinds apart; colour only supports it ------------ */
+
+.workspace-git-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: rgba(154, 165, 180, 0.14);
+  color: var(--muted);
+  font: 750 0.68rem/1 var(--mono);
+  flex: none;
+}
+.workspace-git-mark.mark-modified { background: rgba(255, 178, 36, 0.13); color: #ffc46b; }
+.workspace-git-mark.mark-added,
+.workspace-git-mark.mark-untracked { background: rgba(70, 214, 140, 0.13); color: #6fe3a5; }
+.workspace-git-mark.mark-deleted { background: rgba(255, 128, 128, 0.13); color: #ff9a9a; }
+.workspace-git-mark.mark-renamed,
+.workspace-git-mark.mark-copied,
+.workspace-git-mark.mark-type { background: rgba(110, 168, 254, 0.14); color: #8fb8ff; }
+.workspace-git-mark.mark-conflict { background: #ffb224; color: #1a0d00; }
+
+.workspace-dir-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #ffc46b;
+  font: 650 0.68rem/1 var(--mono);
+  flex: none;
+}
+.workspace-dir-mark i { width: 6px; height: 6px; border-radius: 3px; background: var(--warn); }
+
+/* --- Change list ------------------------------------------------------------------ */
+
+.workspace-change-groups {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 8px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.workspace-change-group + .workspace-change-group { margin-top: 4px; }
+
+.workspace-change-group-title {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: left;
+}
+.workspace-change-group-title .group-chev { transition: transform var(--dur-2) var(--ease); }
+.workspace-change-group-title[aria-expanded="true"] .group-chev { transform: rotate(90deg); }
+.workspace-change-group-count { color: var(--muted); font-family: var(--mono); font-size: 0.67rem; font-weight: 600; }
+.workspace-change-group-conflict .workspace-change-group-title { color: var(--warn); }
+.workspace-change-group-hint { margin-left: auto; font-weight: 500; opacity: 0.85; }
+
+.workspace-change {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  gap: 10px;
+  padding: 6px 8px 6px 10px;
+  border-radius: var(--r-md);
+  color: var(--ink);
+  text-align: left;
+}
+.workspace-change.active { background: rgba(110, 168, 254, 0.12); }
+.workspace-change-head { gap: 2px; }
+.workspace-change .chev { flex: none; color: var(--muted); }
+.workspace-rename { overflow: hidden; color: var(--muted); font-size: 0.65rem; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-change-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+  font: 650 0.68rem/1 var(--mono);
+  flex: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .workspace-change:hover,
+  .workspace-change-group-title:not(.is-static):hover { background: var(--surface); }
+}
+
+/* --- Branches and worktrees sheet --------------------------------------------------- */
+
+.workspace-root-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  margin: 8px 0 0;
+  padding: 0 6px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #0e1218;
+}
+.workspace-root-card code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: 0.74rem/1.4 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-root-copy {
+  flex: none;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  color: var(--accent);
+  font-size: var(--text-secondary);
+  font-weight: 650;
+}
+
+.workspace-branch-section { margin-top: 16px; }
+.workspace-branch-section .menu-group { margin-top: 6px; }
+.workspace-branch-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.workspace-branch-section-title small { font-size: inherit; font-weight: 500; }
+
+.workspace-branch-list {
+  margin-top: 6px;
+  padding: 0 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+}
+.workspace-branch-row {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  gap: 8px;
+  padding: 7px 0;
+}
+.workspace-branch-row + .workspace-branch-row,
+.workspace-remote-toggle + .workspace-branch-row { border-top: 1px solid var(--line); }
+.workspace-branch-body { gap: 2px; }
+.workspace-branch-body strong { overflow: hidden; font: 600 0.8rem/1.4 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.workspace-branch-row .workspace-row-meta { font-family: var(--mono); }
+.workspace-current {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: rgba(110, 168, 254, 0.15);
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex: none;
+}
+.workspace-remote-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  color: var(--muted);
+  font-size: var(--text-body);
+}
+.workspace-remote-toggle svg { transition: transform var(--dur-2) var(--ease); }
+.workspace-remote-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+.workspace-jump-indent { display: inline-flex; color: #7fb0ff; }
+
+@media (min-width: 900px) {
+  .workspace-row,
+  .workspace-row-main { min-height: 44px; }
+  .workspace-change { min-height: 48px; }
+}

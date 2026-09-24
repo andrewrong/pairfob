@@ -196,7 +196,9 @@ describe("React diff notes", () => {
   test("hides send without prompt_agent and disables it without an agent", async () => {
     await boot(liveFixture(), { prompt_agent: false, hasAgent: true });
     await act(async () => { await loadGitDiff("src/app.ts", "worktree"); });
-    await addNote(rowContaining("false"), "invisible batch");
+    await act(() => { rowContaining("false").click(); });
+    await settle();
+    expect(document.querySelector("dialog.diff-note-modal")).toBeNull();
     expect(appRoot().querySelector(".workspace-notes-bar")).toBeNull();
 
     const live = liveFixture(async () => { throw new Error("must not send"); });

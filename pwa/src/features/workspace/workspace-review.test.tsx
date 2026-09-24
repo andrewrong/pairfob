@@ -166,13 +166,19 @@ describe("independent React workspace review", () => {
 
   test("new file action capability binds to the existing keyed file row", async () => {
     await boot();
-    const row = appRoot().querySelector<HTMLButtonElement>(".workspace-file")!;
-    expect(row.getAttribute("aria-haspopup")).toBeNull();
+    const row = appRoot().querySelector<HTMLButtonElement>(".workspace-file .workspace-row-main")!;
+    expect(appRoot().querySelector(".workspace-file .workspace-row-more")?.getAttribute("aria-haspopup")).toBe("dialog");
+    await act(() => { row.dispatchEvent(new window.KeyboardEvent("keydown", {
+      key: "ContextMenu", bubbles: true, cancelable: true,
+    })); });
+    expect(document.querySelector("dialog.sheet")?.textContent).toContain(t("workspace.copyPath"));
+    expect(document.querySelector("dialog.sheet")?.textContent).not.toContain(t("fileActions.rename"));
+    await act(async () => { document.querySelector<HTMLDialogElement>("dialog.sheet")!.close(); });
+    await settle();
     await act(async () => {
       applyCapabilities({ ...NO_OPERATION_CAPABILITIES, rename_file: true }, []);
     });
-    expect(appRoot().querySelector(".workspace-file") === row).toBe(true);
-    expect(row.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(appRoot().querySelector(".workspace-file .workspace-row-main") === row).toBe(true);
     await act(() => { row.dispatchEvent(new window.KeyboardEvent("keydown", {
       key: "ContextMenu", bubbles: true, cancelable: true,
     })); });
@@ -218,9 +224,9 @@ describe("independent React workspace review", () => {
     await act(async () => {
       applyCapabilities({ ...NO_OPERATION_CAPABILITIES, delete_file: true }, []);
     });
-    await act(() => { appRoot().querySelector(".workspace-file")!.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true })); });
+    await act(() => { appRoot().querySelector(".workspace-file .workspace-row-main")!.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true })); });
     const choose = () => [...document.querySelectorAll<HTMLButtonElement>("dialog button")]
-      .find(button => button.textContent === t("fileActions.delete"))!;
+      .find(button => button.textContent?.replace(/…$/, "") === t("fileActions.delete"))!;
     await act(async () => { choose().click(); });
     await settle();
     await act(async () => { selectPane("p2"); await enterWorkspace("p2"); });
@@ -242,9 +248,9 @@ describe("independent React workspace review", () => {
     await act(async () => {
       applyCapabilities({ ...NO_OPERATION_CAPABILITIES, delete_file: true }, []);
     });
-    await act(() => { appRoot().querySelector(".workspace-file")!.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true })); });
+    await act(() => { appRoot().querySelector(".workspace-file .workspace-row-main")!.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true })); });
     const choose = () => [...document.querySelectorAll<HTMLButtonElement>("dialog button")]
-      .find(button => button.textContent === t("fileActions.delete"))!;
+      .find(button => button.textContent?.replace(/…$/, "") === t("fileActions.delete"))!;
     await act(async () => { choose().click(); });
     await settle();
     await act(async () => { choose().click(); });
@@ -257,6 +263,7 @@ describe("independent React workspace review", () => {
 
   test("note draft, focus, selection and one editor survive unrelated repaint", async () => {
     await boot();
+    await act(async () => { applyCapabilities({ ...NO_OPERATION_CAPABILITIES, prompt_agent: true }, []); });
     await act(async () => { await loadGitDiff("app.ts", "worktree"); });
     await act(async () => { appRoot().querySelector<HTMLButtonElement>(".diff-comment-btn")!.click(); });
     const field = document.querySelector<HTMLTextAreaElement>(".diff-note-modal textarea")!;

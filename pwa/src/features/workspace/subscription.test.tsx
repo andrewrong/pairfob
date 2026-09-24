@@ -349,14 +349,14 @@ describe("workspace screen behavior (actual App)", () => {
     await settle();
     expect(root2.querySelectorAll(".workspace-change-group-title").length).toBe(2);
     expect(root2.querySelectorAll(".workspace-change")).toHaveLength(2);
-    expect(root2.querySelectorAll(".workspace-change-mark")[0]?.textContent).toBe("M");
+    expect(root2.querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
     await act(() => { buttonNamed("已暂存的更改").click(); });
     expect(root2.querySelectorAll(".workspace-change")).toHaveLength(1);
     expect(buttonNamed("已暂存的更改").getAttribute("aria-expanded")).toBe("false");
     await act(() => { buttonNamed("已暂存的更改").click(); });
     await act(() => { buttonNamed("src/app.ts · 已暂存 · 修改").click(); });
     await settle();
-    expect(root2.querySelector(".workspace-layer-label")?.textContent).toBe("已暂存");
+    expect(root2.querySelector(".workspace-layer-switch [aria-pressed='true']")?.textContent).toBe("已暂存");
     expect(root2.querySelectorAll(".workspace-diff-line")).toHaveLength(3);
     // The base live diff patch is "-old\n+new".
     expect(root2.querySelector(".diff-add")?.textContent).toContain("new");

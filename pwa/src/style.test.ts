@@ -177,7 +177,7 @@ describe("UI accessibility guardrails", () => {
     expect(css).not.toContain(".workspace-refresh::before");
     expect(css).not.toMatch(/\.workspace-refresh::after\s*\{/);
     expect(rule(".workspace-change-group-title")).toMatch(/min-height:\s*44px/);
-    expect(rule(".workspace-change")).toMatch(/min-height:\s*50px/);
+    expect(rule(".workspace-change")).toMatch(/min-height:\s*52px/);
     expect(rule(".workspace-layer-label")).not.toMatch(/border|border-radius|min-height/);
     expect(rule(".workspace-detail-name")).toMatch(/flex:\s*1/);
     expect(css).toMatch(/\.workspace-list-pending,\s*\.workspace-change-pending,\s*\.workspace-file-pending,\s*\.workspace-diff-pending\s*\{[^}]*flex:\s*1/);

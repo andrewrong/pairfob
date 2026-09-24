@@ -200,14 +200,14 @@ describe("React workspace screen", () => {
     await settle();
     expect(appRoot().querySelectorAll(".workspace-change-group-title")).toHaveLength(2);
     expect(appRoot().querySelectorAll(".workspace-change")).toHaveLength(2);
-    expect(appRoot().querySelectorAll(".workspace-change-mark")[0]?.textContent).toBe("M");
+    expect(appRoot().querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
     await act(() => { buttonNamed("已暂存的更改").click(); });
     expect(appRoot().querySelectorAll(".workspace-change")).toHaveLength(1);
     expect(buttonNamed("已暂存的更改").getAttribute("aria-expanded")).toBe("false");
     await act(() => { buttonNamed("已暂存的更改").click(); });
     await act(() => { buttonNamed("src/app.ts · 已暂存 · 修改").click(); });
     await settle();
-    expect(appRoot().querySelector(".workspace-layer-label")?.textContent).toBe("已暂存");
+    expect(appRoot().querySelector(".workspace-layer-switch [aria-pressed='true']")?.textContent).toBe("已暂存");
     expect(appRoot().querySelectorAll(".workspace-diff-line")).toHaveLength(3);
     expect(appRoot().querySelector(".diff-add")?.textContent).toContain("true");
   });

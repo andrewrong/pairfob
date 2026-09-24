@@ -70,6 +70,21 @@ function samePin(note: DiffNotePin, target: DiffNotePin): boolean {
   return note.path === target.path && note.layer === target.layer && note.side === target.side && note.line === target.line;
 }
 
+/**
+ * Pending notes per `${layer}:${path}` for one session + pane, across diff
+ * revisions, so lists can show where unsent comments are waiting.
+ */
+export function diffNoteCounts(session: object | null, paneId: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (!session || !paneId) return counts;
+  for (const note of notes) {
+    if (note.session !== session || note.paneId !== paneId) continue;
+    const key = `${note.layer}:${note.path}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
 export function diffNoteForPin(target: DiffNotePin): DiffNote | undefined {
   return visibleNotes().find((note) => samePin(note, target));
 }

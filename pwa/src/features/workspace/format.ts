@@ -31,7 +31,7 @@ export function layerLabel(change: GitChange, layer: GitLayer): string {
 
 export const CHANGE_CODES: Record<GitChangeKind, string> = {
   added: "A",
-  conflict: "U",
+  conflict: "!",
   copied: "C",
   deleted: "D",
   modified: "M",

@@ -208,11 +208,15 @@ describe("diff notes batch send", () => {
     expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(0);
   });
 
-  test("hides the send control when prompt_agent is off", async () => {
+  test("lines take no comments and no send control shows when prompt_agent is off", async () => {
     await boot(liveFixture(), { prompt_agent: false, hasAgent: true });
     await openDiff();
-    await addNote(rowContaining("false"), "invisible batch");
-    expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(1);
+    act(() => rowContaining("false").click());
+    await settle();
+    expect(document.querySelector("dialog.diff-note-modal")).toBeNull();
+    expect(app.querySelector(".diff-comment-btn")).toBeNull();
+    expect(app.querySelector(".workspace-diff-hint")).toBeNull();
+    expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(0);
     expect(app.querySelector(".workspace-notes-send")).toBeNull();
     expect(app.querySelector(".workspace-notes-bar")).toBeNull();
   });
@@ -263,7 +267,7 @@ describe("diff notes batch send", () => {
     expect(dialog?.getAttribute("aria-labelledby")).toBeTruthy();
     expect(dialog?.querySelector(".modal-title")?.textContent).toContain("第 2 行");
     const quote = dialog?.querySelector(".diff-note-quote");
-    const field = dialog?.querySelector(".operation-field");
+    const field = dialog?.querySelector(".diff-note-body-field");
     expect(quote?.textContent).toContain("第 2 行（旧）");
     expect(quote?.textContent).toContain("false");
     expect(quote && field && Boolean(quote.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTrue();

@@ -10,6 +10,7 @@ import { clearWorkspaceMedia, loadWorkspaceMedia, prepareWorkspaceMedia } from "
 import { classifyWorkspaceFile } from "./media-model";
 import { applyWorkspaceNavigation, leaveWorkspaceToHome, prepareWorkspaceEnter, restoreWorkspaceLeave } from "./navigation";
 import { cloneData } from "./immutable";
+import { reviewOrder, type ChangeStep } from "./git-marks";
 import {
   activeScope,
   applyBrowserTab,
@@ -271,6 +272,26 @@ export async function loadGitDiff(path: string, layer: GitLayer): Promise<void> 
   } finally {
     ticket.finishLoad();
   }
+}
+
+/** Where the open diff sits in the review order, and its neighbours. */
+export function workspaceDiffStep(): { index: number; total: number; prev: ChangeStep | null; next: ChangeStep | null } {
+  const snap = getWorkspaceSnapshot();
+  const order = reviewOrder(snap.status?.changes ?? []);
+  const index = order.findIndex((step) => step.path === snap.detailPath && step.layer === snap.diffLayer);
+  return {
+    index,
+    total: order.length,
+    prev: index > 0 ? order[index - 1] : null,
+    next: index >= 0 && index < order.length - 1 ? order[index + 1] : null,
+  };
+}
+
+/** Open the previous (-1) or next (+1) changed file without leaving the diff. */
+export function stepWorkspaceDiff(offset: -1 | 1): void {
+  const step = workspaceDiffStep();
+  const target = offset < 0 ? step.prev : step.next;
+  if (target) void loadGitDiff(target.path, target.layer);
 }
 
 export function showWorkspaceTab(tab: WorkspaceTab): void {

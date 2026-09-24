@@ -3,8 +3,13 @@ import { diffNoteTarget, diffNotesFor, type DiffNoteTarget } from "../../lib/dif
 import { parseDiffLines, type DiffLine, type GitLayer } from "../../lib/workspace";
 import { t } from "../../lib/i18n";
 import { Button } from "../../shared/ui/primitives";
-import { loadGitDiff, refreshWorkspace } from "./actions";
-import { FileIcon } from "./file-icon";
+import { useCapabilities } from "../operations/hooks";
+import { loadGitDiff, loadWorkspaceFile, refreshWorkspace } from "./actions";
+import { DiffStepper } from "./diff-stepper";
+import { DetailIdentity, DetailMoreButton } from "./file-detail";
+import { changeKindLabel } from "./format";
+import { GitMark } from "./git-mark";
+import { changeSections, layersFor } from "./git-marks";
 import type { WorkspaceSnapshot } from "./model";
 import { DiffNoteCards, DiffNotesBar, diffLineHasNote, diffNoteLineLabel, openNoteEditorAllowed } from "./notes";
 import { DiffPending, ReservedStat } from "./pending";
@@ -42,6 +47,13 @@ export function DiffScroller({ diffKey, children }: { diffKey: string; children:
   </div>;
 }
 
+const SIGN: Partial<Record<DiffLine["kind"], string>> = { add: "+", delete: "−" };
+
+/**
+ * One gutter: the new line number, or the old one for a deletion. When the
+ * line can take a note the number itself is the keyboard target; a tap
+ * anywhere on the line opens the same editor.
+ */
 function DiffLineRow({
   line, noteable, path, layer, onEdit,
 }: {
@@ -50,6 +62,7 @@ function DiffLineRow({
   const target = noteable ? diffNoteTarget(path, layer, line) : null;
   const noted = target ? diffLineHasNote(target) : false;
   const label = target ? t(noted ? "diffNotes.editTitle" : "diffNotes.addTitle", { line: target.line }) : undefined;
+  const number = line.newLine ?? line.oldLine;
   const open = () => {
     if (!target || !openNoteEditorAllowed(target)) return;
     onEdit(target);
@@ -66,23 +79,43 @@ function DiffLineRow({
         open();
       }}
     >
-      {target && <Button className="diff-comment-btn" aria-label={label} title={diffNoteLineLabel(target)} onClick={(event) => {
-        event.stopPropagation();
-        open();
-      }}>+</Button>}
-      <span className="diff-line-number">{line.oldLine === null ? "" : String(line.oldLine)}</span>
-      <span className="diff-line-number">{line.newLine === null ? "" : String(line.newLine)}</span>
+      {target
+        ? <Button className="diff-comment-btn diff-line-number" aria-label={label} title={diffNoteLineLabel(target)} onClick={(event) => {
+          event.stopPropagation();
+          open();
+        }}>{number === null ? "" : String(number)}</Button>
+        : <span className="diff-line-number">{number === null || line.kind === "hunk" || line.kind === "meta" ? "" : String(number)}</span>}
+      <span className="diff-line-sign" aria-hidden="true">{SIGN[line.kind] ?? ""}</span>
       <code className="diff-line-text">{line.text || " "}</code>
     </div>
     {target && <DiffNoteCards target={target} onEdit={onEdit} />}
   </>;
 }
 
+function LayerSwitch({ snapshot, layers }: { snapshot: WorkspaceSnapshot; layers: GitLayer[] }) {
+  return <div className="workspace-layer-switch" role="group" aria-label={t("workspace.layerSwitch")}>
+    {layers.map((layer) => <Button key={layer} aria-pressed={snapshot.diffLayer === layer}
+      onClick={() => { if (snapshot.diffLayer !== layer) void loadGitDiff(snapshot.detailPath, layer); }}>
+      {layer === "staged" ? t("workspace.staged") : t("workspace.worktree")}
+    </Button>)}
+  </div>;
+}
+
 export function DiffDetail({ snapshot, onEditNote }: { snapshot: WorkspaceSnapshot; onEditNote: (target: DiffNoteTarget) => void }) {
+  const capabilities = useCapabilities();
   const diff = snapshot.diff;
-  const parsed = diff && !diff.binary ? parseDiffLines(diff.patch) : [];
-  const noteable = Boolean(diff && !diff.truncated);
+  const path = diff?.path || snapshot.detailPath;
+  // `diff --git`, `---`/`+++` and `index` lines repeat the header; hunks and code remain.
+  const parsed = diff && !diff.binary ? parseDiffLines(diff.patch).filter((line) => line.kind !== "meta") : [];
+  const noteable = Boolean(diff && !diff.truncated && capabilities.operationCapabilities.prompt_agent);
   const diffKey = diff ? `${diff.path}:${snapshot.diffLayer}` : "";
+  const changes = snapshot.status?.changes ?? [];
+  const layers = layersFor(changes, path);
+  const sections = changeSections(changes.filter((change) => change.path === path));
+  const step = [...sections.conflict, ...sections.staged, ...sections.worktree].find((item) => item.layer === snapshot.diffLayer);
+  const kind = step?.kind;
+  const conflict = kind === "conflict";
+  const canOpenFile = kind !== "deleted";
   const retry = () => {
     if (snapshot.detailPath) void loadGitDiff(snapshot.detailPath, snapshot.diffLayer);
     else void refreshWorkspace();
@@ -90,9 +123,12 @@ export function DiffDetail({ snapshot, onEditNote }: { snapshot: WorkspaceSnapsh
 
   return <section className="workspace-detail-view workspace-diff-view" aria-label={t("workspace.diff")}>
     <div className="workspace-detail-head">
-      <FileIcon kind="file" path={diff?.path || snapshot.detailPath} />
-      <strong className="workspace-detail-name">{diff?.path || snapshot.detailPath}</strong>
-      <span className="workspace-layer-label">{snapshot.diffLayer === "staged" ? t("workspace.staged") : t("workspace.worktree")}</span>
+      <DetailIdentity path={path} />
+      {layers.length > 1 ? <LayerSwitch snapshot={snapshot} layers={layers} />
+        : <>
+          {kind && <GitMark kind={kind} />}
+          <span className="workspace-layer-label">{[kind && changeKindLabel(kind), snapshot.diffLayer === "staged" ? t("workspace.staged") : t("workspace.worktree")].filter(Boolean).join(" · ")}</span>
+        </>}
       {diff ? (
         <>
           <span className="workspace-additions">{t("workspace.additions", { count: diff.additions })}</span>
@@ -101,14 +137,19 @@ export function DiffDetail({ snapshot, onEditNote }: { snapshot: WorkspaceSnapsh
       ) : snapshot.loading ? (
         <><ReservedStat className="workspace-additions" text={null} /><ReservedStat className="workspace-deletions" text={null} /></>
       ) : null}
+      <span className="workspace-detail-actions">
+        {canOpenFile && <Button className="workspace-chip" onClick={() => loadWorkspaceFile(path)}>{t("workspace.openFile")}</Button>}
+        <DetailMoreButton />
+      </span>
     </div>
+    {conflict && <p className="workspace-diff-banner" role="note">{t("workspace.conflictBanner")}</p>}
     {snapshot.error ? (
       <div className="workspace-feedback workspace-error workspace-feedback-pane" role="alert">
         <p>{snapshot.error}</p>
         <Button className="btn btn-small" onClick={retry}>{t("ft.retry")}</Button>
       </div>
     ) : !diff ? (
-      snapshot.loading && snapshot.pendingReveal ? <DiffPending /> : null
+      snapshot.loading && snapshot.pendingReveal ? <DiffPending /> : <div className="workspace-diff-spacer" />
     ) : diff.binary ? (
       <p className="workspace-empty">{t("workspace.binary")}</p>
     ) : !parsed.length || !diff.patch ? (
@@ -124,9 +165,12 @@ export function DiffDetail({ snapshot, onEditNote }: { snapshot: WorkspaceSnapsh
         </DiffScroller>
         {parsed.length > MAX_RENDERED_DIFF_LINES &&
           <p className="workspace-limit">{t("workspace.diffRenderLimit", { count: MAX_RENDERED_DIFF_LINES })}</p>}
-        <DiffNotesBar path={diff.path} layer={snapshot.diffLayer} />
       </>
     )}
     {diff?.truncated && <p className="workspace-limit">{`${t("workspace.diffTruncated")} ${t("diffNotes.truncated")}`}</p>}
+    <div className="workspace-diff-footer">
+      {diff && !diff.binary && <DiffNotesBar key={diffKey} path={diff.path} layer={snapshot.diffLayer} paneId={snapshot.paneId} />}
+      <DiffStepper snapshot={snapshot} />
+    </div>
   </section>;
 }

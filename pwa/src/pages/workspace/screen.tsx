@@ -1,14 +1,11 @@
-import { RefreshCw, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { DiffNoteTarget } from "../../lib/diff-notes";
 import { t } from "../../lib/i18n";
 import { AppNotice, useAppNotice } from "../../app/notice";
-import { BackButton, Button } from "../../shared/ui/primitives";
+import { Button } from "../../shared/ui/primitives";
 import {
   bumpWorkspaceNotes,
-  closeWorkspaceDetail,
   ensureBranches,
-  leaveWorkspace,
   loadGitDiff,
   loadWorkspaceFile,
   refreshWorkspace,
@@ -21,14 +18,9 @@ import { ChangeList } from "../../features/workspace/changes";
 import { DiffDetail } from "../../features/workspace/diff";
 import { FileDetail } from "../../features/workspace/file-detail";
 import { FileList } from "../../features/workspace/files";
-import { branchLabel } from "../../features/workspace/format";
+import { WorkspaceHeader } from "../../features/workspace/header";
 import { DiffNoteEditor } from "../../features/workspace/notes";
 import { ChangePending, ListPending } from "../../features/workspace/pending";
-
-function workspaceBack(snapshot: WorkspaceSnapshot): void {
-  if (snapshot.view === "browser") leaveWorkspace();
-  else closeWorkspaceDetail();
-}
 
 function retryCurrent(snapshot: WorkspaceSnapshot): void {
   if (snapshot.view === "file" && snapshot.detailPath) void loadWorkspaceFile(snapshot.detailPath);
@@ -41,47 +33,26 @@ function navHasContent(snapshot: WorkspaceSnapshot): boolean {
   return snapshot.status !== null;
 }
 
-function WorkspaceHeader({ snapshot, onBranches }: { snapshot: WorkspaceSnapshot; onBranches: () => void }) {
-  return <header className="workspace-chrome">
-    <BackButton onBack={() => workspaceBack(snapshot)} label={snapshot.view === "browser" ? t("workspace.back") : t("workspace.closeDetail")} />
-    <div className="workspace-title">
-      <strong className="workspace-name">{snapshot.descriptor?.name || t("workspace.title")}</strong>
-      <span className="workspace-root">{snapshot.descriptor?.root || ""}</span>
-    </div>
-    <div className="workspace-actions">
-      {snapshot.descriptor?.features.git_branches && (
-        <Button className="workspace-branch" disabled={snapshot.loadingBranches} aria-label={t("workspace.branches")} onClick={onBranches}>
-          {branchLabel(snapshot.descriptor?.git)}
-        </Button>
-      )}
-      <Button className="icon-btn workspace-refresh" aria-label={t("workspace.refresh")} disabled={snapshot.loading} onClick={refreshWorkspace}><RefreshCw size={18} aria-hidden="true" /></Button>
-      {snapshot.view !== "browser" && (
-        <Button className="icon-btn workspace-dismiss" aria-label={t("workspace.dismiss")} title={t("workspace.dismiss")} onClick={leaveWorkspace}><X size={20} aria-hidden="true" /></Button>
-      )}
-    </div>
-  </header>;
-}
-
 function WorkspaceTabs({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   const count = snapshot.status?.changes.length ?? 0;
-  return <div className="workspace-tabs" role="tablist">
+  // Without Git status there is only one view, so no tab strip at all.
+  if (!snapshot.descriptor?.features.git_status) return null;
+  return <div className="workspace-tabs" role="tablist" aria-label={t("workspace.title")}>
     <Button
       className={`workspace-tab${snapshot.tab === "files" ? " on" : ""}`}
       role="tab"
       aria-selected={snapshot.tab === "files"}
       onClick={() => showWorkspaceTab("files")}
     >{t("workspace.files")}</Button>
-    {snapshot.descriptor?.features.git_status && (
-      <Button
-        className={`workspace-tab${snapshot.tab === "changes" ? " on" : ""}`}
-        role="tab"
-        aria-selected={snapshot.tab === "changes"}
-        onClick={() => showWorkspaceTab("changes")}
-      >
-        {t("workspace.changes")}
-        {count > 0 && <span className="workspace-count">{String(count)}</span>}
-      </Button>
-    )}
+    <Button
+      className={`workspace-tab${snapshot.tab === "changes" ? " on" : ""}`}
+      role="tab"
+      aria-selected={snapshot.tab === "changes"}
+      onClick={() => showWorkspaceTab("changes")}
+    >
+      {t("workspace.changes")}
+      {count > 0 && <span className="workspace-count">{`${count}${snapshot.status?.truncated ? "+" : ""}`}</span>}
+    </Button>
   </div>;
 }
 
@@ -90,6 +61,14 @@ function WorkspaceFeedback({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   return <div className="workspace-feedback workspace-error workspace-feedback-pane" role="alert">
     <p>{snapshot.error}</p>
     <Button className="btn btn-small" onClick={() => retryCurrent(snapshot)}>{t("ft.retry")}</Button>
+  </div>;
+}
+
+/** A failed action over content that is still valid: say why above it, keep the list. */
+function WorkspaceErrorBar({ snapshot }: { snapshot: WorkspaceSnapshot }) {
+  return <div className="workspace-feedback workspace-error workspace-feedback-bar" role="alert">
+    <p>{snapshot.error}</p>
+    <Button className="btn btn-small" onClick={() => retryCurrent(snapshot)}>{t("workspace.refresh")}</Button>
   </div>;
 }
 
@@ -128,7 +107,8 @@ export function WorkspaceScreen() {
       <div className="workspace-body">
         <aside className="workspace-nav">
           <WorkspaceTabs snapshot={snapshot} />
-          {snapshot.view === "browser" && snapshot.error ? <WorkspaceFeedback snapshot={snapshot} />
+          {snapshot.view === "browser" && snapshot.error && navHasContent(snapshot) && <WorkspaceErrorBar snapshot={snapshot} />}
+          {snapshot.view === "browser" && snapshot.error && !navHasContent(snapshot) ? <WorkspaceFeedback snapshot={snapshot} />
             : pendingNav ? (snapshot.tab === "files" ? <ListPending /> : <ChangePending />)
             : snapshot.tab === "files" ? <FileList snapshot={snapshot} />
             : <ChangeList snapshot={snapshot} />}

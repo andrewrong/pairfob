@@ -58,7 +58,7 @@ function liveFixture() {
 
 function buttonNamed(label: string): HTMLButtonElement {
   const found = [...appRoot().querySelectorAll("button"), ...document.querySelectorAll("button")]
-    .find((item) => item.getAttribute("aria-label") === label || item.textContent?.trim().includes(label));
+    .find((item) => item.getAttribute("aria-label")?.includes(label) || item.textContent?.trim().includes(label));
   if (!found) throw new Error(`missing button ${label}`);
   return found as HTMLButtonElement;
 }

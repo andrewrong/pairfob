@@ -1,0 +1,354 @@
+/* Workspace detail views: the info bar, file source with line numbers, the diff with its
+   one-column gutter, diff notes, the notes bar and receipt, the stepper and the note editor. */
+
+.workspace-detail-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* --- Info bar ------------------------------------------------------------------- */
+
+.workspace-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 8px 0 14px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--text-caption);
+  flex: none;
+}
+.workspace-detail-head .workspace-row-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+.workspace-detail-head .is-pending { visibility: hidden; }
+
+/* Name and ⋯ belong to the phone header; the desktop pane shows them here. */
+.workspace-detail-ident,
+.workspace-detail-more-inline { display: none; }
+.workspace-detail-ident { align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; }
+.workspace-detail-name { flex: 1; min-width: 0; font-family: var(--mono); font-size: var(--text-secondary); }
+
+.workspace-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex: none;
+}
+
+.workspace-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+  flex: none;
+}
+.workspace-chip[aria-pressed="true"] { border-color: rgba(110, 168, 254, 0.55); background: rgba(110, 168, 254, 0.09); color: var(--accent); }
+.workspace-chip.is-change { border-color: rgba(255, 178, 36, 0.4); color: #ffc46b; }
+.workspace-chip .workspace-git-mark { min-width: 18px; height: 18px; }
+.workspace-chip:active { background: var(--surface-2); }
+
+.workspace-layer-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--r-sm);
+  background: #0e1218;
+  flex: none;
+}
+.workspace-layer-switch button {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+}
+.workspace-layer-switch button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); }
+
+.workspace-layer-label { color: var(--muted); font-size: var(--text-caption); white-space: nowrap; flex: none; }
+.workspace-additions,
+.workspace-deletions {
+  font-family: var(--mono);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.workspace-additions { color: var(--ok); }
+.workspace-deletions { color: var(--error); }
+
+/* --- Source ------------------------------------------------------------------------ */
+
+.workspace-code {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 0 calc(22px + env(safe-area-inset-bottom, 0px));
+  overflow: auto;
+  color: var(--term-ink);
+  font: 0.76rem/1.6 var(--mono);
+  tab-size: 2;
+  white-space: pre;
+  counter-reset: source-line;
+  -webkit-overflow-scrolling: touch;
+}
+.workspace-highlight { display: block; width: max-content; min-width: 100%; }
+/* Numbers are counters, so copying the code never copies them. */
+.workspace-code-line { display: block; position: relative; padding: 0 18px 0 3.4rem; counter-increment: source-line; }
+.workspace-code-line::before {
+  content: counter(source-line);
+  position: absolute;
+  left: 0;
+  width: 2.7rem;
+  color: #4f5968;
+  text-align: right;
+  user-select: none;
+}
+.workspace-code.is-wrap .workspace-highlight { width: auto; }
+.workspace-code.is-wrap .workspace-code-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+.syntax-comment { color: #98a3b3; font-style: italic; }
+.syntax-keyword { color: #c9a7ff; }
+.syntax-literal { color: #78dce8; }
+.syntax-number { color: #f6c177; }
+.syntax-property { color: #8bd5ca; }
+.syntax-string { color: #a6da95; }
+.syntax-tag { color: #82aaff; }
+
+/* --- Diff ------------------------------------------------------------------------ */
+
+.workspace-diff {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font: 0.72rem/1.6 var(--mono);
+  -webkit-overflow-scrolling: touch;
+}
+.workspace-diff-spacer { flex: 1; }
+
+.workspace-diff-hint {
+  margin: 0;
+  padding: 8px 14px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.45;
+  flex: none;
+}
+
+.workspace-diff-banner {
+  margin: 10px 12px 2px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 178, 36, 0.3);
+  border-radius: var(--r-md);
+  background: rgba(255, 178, 36, 0.09);
+  color: #ffd28a;
+  font-size: var(--text-caption);
+  line-height: 1.5;
+  flex: none;
+}
+
+/* number · sign · text; the text wraps so nothing scrolls sideways on a phone. */
+.workspace-diff-line {
+  display: grid;
+  grid-template-columns: 2.7rem 0.95rem minmax(0, 1fr);
+  width: 100%;
+  min-height: 1.6em;
+}
+.diff-line-number {
+  padding: 0 6px 0 0;
+  color: #647083;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+button.diff-line-number {
+  display: block;
+  align-self: start;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.diff-line-sign { color: #647083; text-align: center; user-select: none; }
+.diff-line-text { padding: 0 12px 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.diff-add { background: rgba(70, 214, 140, 0.1); }
+.diff-add .diff-line-number,
+.diff-add .diff-line-sign { color: #6fe3a5; }
+.diff-delete { background: rgba(255, 128, 128, 0.1); }
+.diff-delete .diff-line-number,
+.diff-delete .diff-line-sign { color: #ff9a9a; }
+.diff-hunk { margin-top: 6px; background: rgba(110, 168, 254, 0.1); color: #9fc3ff; }
+.diff-hunk .diff-line-text { font-size: 0.66rem; }
+.diff-meta { color: var(--muted); }
+
+.workspace-diff-line.diff-noteable { cursor: pointer; }
+.workspace-diff-line.diff-noteable:active { background: rgba(110, 168, 254, 0.2); }
+.workspace-diff-line.has-note { box-shadow: inset 3px 0 0 var(--accent); }
+/* A phone keeps :hover after the tap, so hover-only affordances would stay
+   stuck on the last line the reader touched. */
+@media (hover: hover) and (pointer: fine) {
+  .workspace-diff-line.diff-noteable:hover { background: rgba(110, 168, 254, 0.1); }
+  .workspace-diff-line.diff-noteable:hover .diff-line-number { color: var(--accent); }
+}
+
+.workspace-diff-note {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin: 4px 10px 8px calc(2.7rem + 0.95rem);
+  padding: 9px 10px 4px 12px;
+  border: 1px solid rgba(110, 168, 254, 0.28);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-family: var(--font);
+}
+.workspace-diff-note.is-fresh { animation: note-fresh 1.1s var(--ease); }
+.workspace-diff-note.is-sending { opacity: 0.6; }
+@keyframes note-fresh {
+  0% { opacity: 0; transform: translateY(-6px); box-shadow: 0 0 0 0 rgba(110, 168, 254, 0); }
+  25% { opacity: 1; transform: none; box-shadow: 0 0 0 4px rgba(110, 168, 254, 0.35); }
+  100% { box-shadow: 0 0 0 0 rgba(110, 168, 254, 0); }
+}
+.diff-note-main { display: flex; align-items: flex-start; gap: 8px; min-width: 0; cursor: pointer; }
+.diff-note-mark { flex: none; margin-top: 2px; color: var(--accent); }
+.diff-note-body { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-secondary); line-height: 1.5; }
+.diff-note-actions { display: flex; justify-content: flex-end; gap: 2px; }
+.btn.diff-note-action {
+  width: auto;
+  min-width: 44px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+
+/* --- Footer: notes bar or receipt, then the stepper -------------------------------- */
+
+.workspace-diff-footer {
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--dock-bg);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.workspace-notes-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 10px 8px 14px;
+  border-bottom: 1px solid var(--line);
+  animation: notes-bar-in var(--dur-3) var(--ease);
+}
+@keyframes notes-bar-in {
+  from { opacity: 0; transform: translateY(40%); }
+  to { opacity: 1; transform: none; }
+}
+.workspace-notes-copy { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
+.workspace-notes-copy strong { font-size: var(--text-body); font-weight: 650; }
+.workspace-notes-copy small { overflow: hidden; color: var(--muted); font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-notes-copy small.workspace-notes-hint { color: var(--warn); }
+.btn.workspace-notes-send { flex: none; width: auto; min-height: 40px; margin: 0; padding: 0 16px; font-size: var(--text-body); }
+.workspace-notes-send .spinner { width: 14px; height: 14px; }
+.workspace-notes-bar.is-sent { background: rgba(70, 214, 140, 0.08); }
+.workspace-notes-ok { flex: none; color: var(--ok); }
+.workspace-notes-dismiss { flex: none; color: var(--muted); }
+
+.workspace-stepper {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 54px;
+  padding: 0 4px;
+}
+.workspace-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--r-md);
+  color: var(--ink);
+  font-size: var(--text-body);
+}
+.workspace-step:disabled { opacity: 0.3; }
+.workspace-step:active:not(:disabled) { background: var(--surface); }
+.workspace-step-where { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+.workspace-step-where strong {
+  max-width: 100%;
+  overflow: hidden;
+  font: 600 var(--text-secondary) var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-step-where span { color: var(--muted); font-size: 0.68rem; font-variant-numeric: tabular-nums; }
+
+/* --- Note editor (a text-edit sheet) -------------------------------------------------- */
+
+.diff-note-quote {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #0e1218;
+  color: var(--muted);
+}
+.diff-note-quote-line { display: block; margin-bottom: 3px; color: var(--muted); font-size: 0.68rem; font-weight: 600; }
+.diff-note-quote-text { display: block; overflow-wrap: anywhere; font: 0.74rem/1.5 var(--mono); white-space: pre-wrap; color: var(--ink); }
+.diff-note-quote.side-new .diff-note-quote-text { color: #9df0c2; }
+.diff-note-quote.side-old .diff-note-quote-text { color: #ffb3b3; }
+.diff-note-body-field {
+  display: block;
+  width: 100%;
+  min-height: 6.5rem;
+  max-height: 40dvh;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #0e1218;
+  color: var(--ink);
+  font: 400 16px/1.45 var(--font);
+  resize: none;
+}
+.diff-note-body-field:focus { border-color: var(--accent); outline: none; box-shadow: var(--focus-ring); }
+.diff-note-foot { display: flex; align-items: center; justify-content: space-between; min-height: 36px; margin-top: 4px; }
+.diff-note-count { color: var(--muted); font-size: 0.68rem; font-variant-numeric: tabular-nums; }
+.diff-note-remove { min-height: 36px; padding: 0 8px; border-radius: var(--r-sm); color: var(--danger-bright); font-size: var(--text-secondary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-diff-note.is-fresh,
+  .workspace-notes-bar { animation: none; }
+}
+
+@media (min-width: 900px) {
+  .workspace-detail-ident { display: inline-flex; }
+  .workspace-detail-more-inline { display: grid; }
+  .workspace-detail-head .workspace-row-meta { flex: 0 1 auto; }
+  .btn.workspace-notes-send { min-width: 11rem; }
+}

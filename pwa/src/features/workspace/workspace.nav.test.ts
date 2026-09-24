@@ -97,7 +97,7 @@ function addSibling(): void {
 }
 
 function buttonNamed(label: string): HTMLButtonElement {
-  const found = [...app.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === label || item.textContent?.trim().includes(label));
+  const found = [...app.querySelectorAll("button")].find((item) => item.getAttribute("aria-label")?.includes(label) || item.textContent?.trim().includes(label));
   if (!found) throw new Error(`missing button ${label}: ${app.innerHTML.slice(0, 500)}`);
   return found as HTMLButtonElement;
 }
@@ -432,7 +432,7 @@ describe("mobile workspace navigation", () => {
     await settle();
     expect(app.querySelectorAll(".workspace-change-group-title")).toHaveLength(2);
     expect(app.querySelectorAll(".workspace-change")).toHaveLength(2);
-    expect(app.querySelectorAll(".workspace-change-mark")[0]?.textContent).toBe("M");
+    expect(app.querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
 
     act(() => buttonNamed("已暂存的更改").click());
     expect(app.querySelectorAll(".workspace-change")).toHaveLength(1);
@@ -441,7 +441,7 @@ describe("mobile workspace navigation", () => {
 
     act(() => buttonNamed("src/app.ts · 已暂存 · 修改").click());
     await settle();
-    expect(app.querySelector(".workspace-layer-label")?.textContent).toBe("已暂存");
+    expect(app.querySelector(".workspace-layer-switch [aria-pressed='true']")?.textContent).toBe("已暂存");
     expect(app.querySelectorAll(".workspace-diff-line")).toHaveLength(3);
     expect(app.querySelector(".diff-add")?.textContent).toContain("true");
   });
@@ -531,7 +531,15 @@ describe("mobile workspace navigation", () => {
     await settle();
     expect(calls).toEqual({ open: 1, list: 2, read: 1, status: 1 });
 
-    act(() => buttonNamed("关闭工作区查看").click());
+    act(() => buttonNamed("更多操作").click());
+    await settle();
+    const close = [...document.querySelectorAll<HTMLButtonElement>("dialog.sheet .menu-row")]
+      .find((row) => row.textContent?.includes("关闭工作区"));
+    expect(close).toBeTruthy();
+    await actRun(async () => {
+      close!.click();
+      await new Promise<void>((resolve) => setTimeout(resolve, 30));
+    });
     expect(currentScreen()).toBe("pane");
     expect(workspaceModel.view).toBe("file");
     await actRun(() => enterWorkspace("p1"));

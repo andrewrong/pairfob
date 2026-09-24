@@ -13,16 +13,18 @@ type WorkspaceDialogProps = {
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   children: ReactNode;
   initialFocus?: () => HTMLElement | null;
+  /** Editors keep their draft: a backdrop tap does not dismiss them. */
+  keepOnBackdrop?: boolean;
 };
 
 /** Native `<dialog>` for workspace note editor and branch sheet. */
 export function WorkspaceDialog({
-  className, titleId, title, sheet = false, onDismiss, onSubmit, children, initialFocus,
+  className, titleId, title, sheet = false, onDismiss, onSubmit, children, initialFocus, keepOnBackdrop = false,
 }: WorkspaceDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  useDialogLifecycle({ dialog: dialogRef, onDismiss, onClose: onDismiss, restoreFocus: true,
+  useDialogLifecycle({ dialog: dialogRef, onDismiss, onClose: onDismiss, restoreFocus: true, backdropDismiss: !keepOnBackdrop,
     sheet: sheet ? { form: formRef, scroller: bodyRef } : undefined,
     focus: () => {
       const target = initialFocus?.() ?? formRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled):not(.sheet-close)");
