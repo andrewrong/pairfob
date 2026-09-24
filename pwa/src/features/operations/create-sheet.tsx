@@ -1,5 +1,5 @@
 import { ChevronLeft, MoreHorizontal, Pencil, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../lib/i18n";
 import { OPERATION_INPUT_LIMITS } from "../../lib/operations";
 import { SheetFrame } from "../../shared/ui/overlay/action-sheet";
@@ -55,6 +55,16 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   // form keeps everything already chosen while the reader browses.
   const [picking, setPicking] = useState(false);
   const isNew = where === NEW_WORKSPACE;
+  // Start on the chosen place, not on whichever chip happens to come first.
+  const body = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const chip = body.current?.querySelector<HTMLElement>(".create-scroll[role=radiogroup] .create-chip.on");
+      chip?.focus({ preventScroll: true });
+      chip?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
   const worktree = isNew && start === "worktree";
   const favorites = useMemo(() => favoriteKinds(input.kinds, memory, kind), [input.kinds, memory, kind]);
   const workspace = input.workspaces.find((item) => item.id === where);
@@ -116,9 +126,9 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   );
 
   return (
-    <div className="create-sheet-body">
+    <div ref={body} className="create-sheet-body">
       {recents.length ? <>
-        <h3 className="menu-section-title">{t("create.recent")}</h3>
+        <h3 className="create-label">{t("create.recent")}</h3>
         <div className="create-scroll">
           {recents.map((combo) => {
             const space = input.workspaces.find((item) => item.id === combo.workspaceId)!;
@@ -135,18 +145,19 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
         </div>
       </> : null}
 
-      <h3 className="menu-section-title">{t("create.where")}</h3>
+      <h3 className="create-label">{t("create.where")}</h3>
       <div className="create-scroll" role="radiogroup" aria-label={t("create.where")}>
-        {input.canCreateTab ? input.workspaces.map((space) => (
-          <Button key={space.id} className={`create-chip${where === space.id ? " on" : ""}`} role="radio" aria-checked={where === space.id}
-            onClick={() => { setWhere(space.id); setError(""); }}>{space.label}</Button>
-        )) : null}
+        {/* A new workspace leads the row, so it is never scrolled out of reach. */}
         {canNew ? (
           <Button className={`create-chip is-new${isNew ? " on" : ""}`} role="radio" aria-checked={isNew}
             onClick={() => { setWhere(NEW_WORKSPACE); setError(""); }}>
             <Plus size={15} aria-hidden="true" />{t("create.newWorkspace")}
           </Button>
         ) : null}
+        {input.canCreateTab ? input.workspaces.map((space) => (
+          <Button key={space.id} className={`create-chip${where === space.id ? " on" : ""}`} role="radio" aria-checked={where === space.id}
+            onClick={() => { setWhere(space.id); setError(""); }}>{space.label}</Button>
+        )) : null}
       </div>
       {!isNew && workspace?.path ? <p className="create-path">{workspace.path}</p> : null}
 
@@ -175,7 +186,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
           </p>
         ) : null}
         {input.canCreateWorktree ? <>
-          <h3 className="menu-section-title">{t("create.start")}</h3>
+          <h3 className="create-label">{t("create.start")}</h3>
           <div className="seg create-seg" role="radiogroup" aria-label={t("create.start")}>
             <button type="button" className={`seg-item${start === "dir" ? " on" : ""}`} role="radio" aria-checked={start === "dir"}
               onClick={() => setStart("dir")}>{t("create.startBranch")}</button>
@@ -197,7 +208,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
         </> : null}
       </> : null}
 
-      <h3 className="menu-section-title">{t("create.what")}</h3>
+      <h3 className="create-label">{t("create.what")}</h3>
       {worktree ? <p className="create-hint">{t("create.worktreeTerminal")}</p> : (
         <div className="create-kinds" role="radiogroup" aria-label={t("create.what")}>
           {favorites.map((item) => (

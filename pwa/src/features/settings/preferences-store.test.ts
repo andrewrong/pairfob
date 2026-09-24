@@ -163,4 +163,28 @@ describe("per-pane preferences", () => {
     applyHerdTouches([card("p1", "working")], [card("p1", "working")], 30);
     expect(preferencesStore.get().paneTouched).toEqual(before);
   });
+
+  test("only the reader's own opens write the activation order; status changes never do", () => {
+    setCredential(credential("d_aaaaaaaaaaaaaaaaaaaa"));
+    adoptDaemonPreferences();
+    const card = (paneId: string, status: "idle" | "working") => ({
+      paneId, paneLabel: paneId, agent: "codex", status, workspaceId: "w", workspaceLabel: "w", cwd: "/tmp",
+    });
+    rememberPane("p1");
+    const opened = preferencesStore.get().paneActivated.p1;
+    expect(opened).toBeNumber();
+    expect(JSON.parse(localStorage.getItem("pairfob:paneActivated:d_aaaaaaaaaaaaaaaaaaaa")!)).toEqual({ p1: opened });
+    // A new pane and a status change stamp recency, not the activation order.
+    applyHerdTouches([card("p1", "idle")], [card("p1", "working"), card("p2", "idle")], opened + 50);
+    expect(preferencesStore.get().paneTouched.p2).toBe(opened + 50);
+    expect(preferencesStore.get().paneActivated).toEqual({ p1: opened });
+    // A pane that disappeared drops out of the activation order too.
+    applyHerdTouches([card("p1", "working"), card("p2", "idle")], [card("p2", "idle")], opened + 60);
+    expect(preferencesStore.get().paneActivated).toEqual({});
+    // Activation is per computer.
+    rememberPane("p2");
+    setCredential(credential("d_bbbbbbbbbbbbbbbbbbbb"));
+    adoptDaemonPreferences();
+    expect(preferencesStore.get().paneActivated).toEqual({});
+  });
 });

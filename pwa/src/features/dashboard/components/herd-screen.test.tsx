@@ -37,6 +37,7 @@ function model(overrides: Partial<HerdModelInput> = {}): HerdViewModel {
     agents: [agent("p1", "alpha"), agent("p2", "beta", "working")],
     listGroup: "flat",
     paneTouched: {},
+    paneActivated: {},
     panePinned: {},
     groupCollapsed: {},
     selectedPaneId: "p1",

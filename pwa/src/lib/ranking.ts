@@ -72,13 +72,16 @@ export function prunePinnedAt(current: PinnedAt, liveIds: Iterable<string>): Pin
   return changed ? out : current;
 }
 
+/**
+ * Pinned first, then the most recent stamp. Equal stamps keep the order the
+ * computer reported (the sort is stable), so a row never moves without a
+ * reason the reader can see.
+ */
 export function rankAgents(agents: readonly AgentCard[], touchedAt: TouchedAt = {}, pinnedAt: PinnedAt = {}): AgentCard[] {
   return [...agents].sort((a, b) => {
     const pinnedDelta = Number(paneIsPinned(pinnedAt, b.paneId)) - Number(paneIsPinned(pinnedAt, a.paneId));
     if (pinnedDelta !== 0) return pinnedDelta;
-    const delta = (touchedAt[b.paneId] ?? 0) - (touchedAt[a.paneId] ?? 0);
-    if (delta !== 0) return delta;
-    return a.paneId.localeCompare(b.paneId);
+    return (touchedAt[b.paneId] ?? 0) - (touchedAt[a.paneId] ?? 0);
   });
 }
 
@@ -145,11 +148,10 @@ export function groupAgents(
   touchedAt: TouchedAt = {},
   pinnedAt: PinnedAt = {},
 ): AgentGroup[] {
-  // Workspace grouping keeps the computer's own order — workspaces and panes as
-  // the snapshot lists them — so a status change never moves a row or a group.
-  // Only the pinned section is ordered by the reader's pins.
-  const stable = mode === "space";
-  const ranked = stable ? [...agents] : rankAgents(agents, touchedAt, pinnedAt);
+  // `touchedAt` is the reader's own activation: the pane opened last leads its
+  // group, and the group holding it leads the list. Ties keep the computer's
+  // order, so nothing else — a status change included — moves a row.
+  const ranked = rankAgents(agents, touchedAt, pinnedAt);
   const pinnedItems: AgentCard[] = [];
   const rest: AgentCard[] = [];
   for (const agent of ranked) {
@@ -158,7 +160,7 @@ export function groupAgents(
   }
   const groups: AgentGroup[] = [];
   if (pinnedItems.length) {
-    groups.push({ id: PINNED_GROUP_ID, title: t("group.pinned"), items: stable ? rankAgents(pinnedItems, {}, pinnedAt) : pinnedItems });
+    groups.push({ id: PINNED_GROUP_ID, title: t("group.pinned"), items: pinnedItems });
   }
   if (mode === "flat") {
     if (rest.length) groups.push({ id: "all", title: t("group.sessions"), items: rest });
@@ -176,10 +178,6 @@ export function groupAgents(
     }
     group.items.push(agent);
   }
-  if (stable) {
-    return groups.concat(order.map((id) => buckets.get(id)!).sort((left, right) =>
-      Number(left.id === "unbound") - Number(right.id === "unbound")));
-  }
   return groups.concat(
     order
       .map((id) => {
@@ -189,9 +187,8 @@ export function groupAgents(
       .sort((left, right) => {
         const unbound = Number(left.id === "unbound") - Number(right.id === "unbound");
         if (unbound !== 0) return unbound;
-        const recency = groupTouched(right, touchedAt) - groupTouched(left, touchedAt);
-        if (recency !== 0) return recency;
-        return left.title.localeCompare(right.title, "zh-CN");
+        // Equal recency keeps first appearance, i.e. the computer's order.
+        return groupTouched(right, touchedAt) - groupTouched(left, touchedAt);
       }),
   );
 }

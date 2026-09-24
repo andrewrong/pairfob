@@ -11,7 +11,7 @@
 .herd-head {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 4;
   margin: 0 -18px;
   padding: calc(env(safe-area-inset-top, 0px) + 6px) 18px 4px;
   background: var(--bg);
@@ -55,7 +55,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: font-size var(--dur-2) var(--ease);
 }
 
 .host-title-name svg { flex: none; color: var(--muted); }
@@ -157,6 +156,18 @@
   align-items: center;
   gap: 2px;
   margin: var(--space-2) 0 6px;
+}
+
+/* On the phone page a section heading sticks under the header while its rows
+   scroll beneath it, so the workspace in view is always named. */
+.herd-page .group-head,
+.herd-page .herd-group > .section-title {
+  position: sticky;
+  top: var(--herd-head-h, 0px);
+  z-index: 3;
+  margin: 0;
+  padding: var(--space-2) 0 6px;
+  background: var(--bg);
 }
 
 .group-head .group-title {

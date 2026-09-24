@@ -16,8 +16,13 @@ import { HerdList } from "./herd-list";
 import { HostTitle } from "./host-title";
 import { closeOpenSwipeRow } from "./swipe-row";
 
-/** Scroll distance after which the phone header folds to one row. */
-const FOLD_PX = 24;
+/**
+ * The phone header folds past FOLD_PX and unfolds only back near the top. The
+ * gap is wider than the height the fold removes, so the layout shift of a fold
+ * can never scroll the page back across the other threshold (no flicker).
+ */
+const FOLD_PX = 120;
+const UNFOLD_PX = 12;
 
 function RailTopActions({ view, actions }: { view: HerdViewModel; actions: HerdActions }) {
   return (
@@ -93,16 +98,38 @@ export function HerdScreen({
   const reveal = useReveal(view, root);
   const lastLocated = useRef({ blocked: "", done: "" });
   const [folded, setFolded] = useState(false);
+  const head = useRef<HTMLElement>(null);
   useMinuteTick();
   useEffect(() => {
     if (variant !== "page") return;
+    let frame = 0;
     const onScroll = () => {
-      setFolded(window.scrollY > FOLD_PX);
       closeOpenSwipeRow();
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const y = window.scrollY;
+        setFolded((current) => current ? y > UNFOLD_PX : y > FOLD_PX);
+      });
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [variant]);
+  // Section headings stick right under the header, whatever its current height.
+  useLayoutEffect(() => {
+    const node = head.current;
+    const page = root.current;
+    if (variant !== "page" || !node || !page) return;
+    const apply = () => page.style.setProperty("--herd-head-h", `${node.offsetHeight}px`);
+    apply();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => observer.disconnect();
   }, [variant]);
   const revealNext = (status: "blocked" | "done", groupId?: string) => {
     const candidates = view.groups
@@ -146,7 +173,7 @@ export function HerdScreen({
   return (
     <div ref={bindRoot} className="page herd-page">
       <h1 className="sr-only">{t("tabs.sessions")}</h1>
-      <header className={`herd-head${folded ? " is-folded" : ""}`}>
+      <header ref={head} className={`herd-head${folded ? " is-folded" : ""}`}>
         <div className="herd-head-row">
           <HostTitle host={view.host} onOpen={actions.openHostMenu} />
           {folded && view.attention.length ? (

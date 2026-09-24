@@ -37,6 +37,8 @@ export type HerdModelInput = {
   agents: readonly DashboardAgentCard[];
   listGroup: ListGroup;
   paneTouched: TouchedAt;
+  /** The reader's own opens: the list order. `paneTouched` only dates the rows. */
+  paneActivated: TouchedAt;
   panePinned: PinnedAt;
   groupCollapsed: Record<string, boolean>;
   selectedPaneId: string;
@@ -266,7 +268,7 @@ export function groupHasMenu(listGroup: ListGroup, group: AgentGroup): boolean {
  * what the model says.
  */
 export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
-  const groups = groupAgents([...input.agents], input.listGroup, input.paneTouched, input.panePinned);
+  const groups = groupAgents([...input.agents], input.listGroup, input.paneActivated, input.panePinned);
   const stale = input.liveness === "unverifiable";
   const grouped = input.listGroup !== "flat";
   const richAgents = new Map(input.agents.map((agent) => [agent.paneId, agent]));

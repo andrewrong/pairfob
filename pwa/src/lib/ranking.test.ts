@@ -28,8 +28,8 @@ describe("rankAgents", () => {
     expect(r.map((item) => item.paneId)).toEqual(["c", "a", "b", "d"]);
   });
 
-  test("falls back to pane id when nothing has been touched", () => {
-    expect(rankAgents(sample).map((item) => item.paneId)).toEqual(["a", "b", "c", "d"]);
+  test("keeps the computer's order when nothing has been opened", () => {
+    expect(rankAgents(sample).map((item) => item.paneId)).toEqual(["b", "a", "c", "d"]);
   });
 
   test("pinned sessions sit above recency and keep recency among themselves", () => {
@@ -95,15 +95,17 @@ describe("groupAgents", () => {
     expect(groups[0].items.map((item) => item.paneId)).toEqual(["d", "b", "a", "c"]);
   });
 
-  test("space groups keep the computer's order, whatever changed last", () => {
+  test("space groups follow the pane the reader opened last, ties keep the computer's order", () => {
     const groups = groupAgents(sample, "space", { b: 20, a: 10, c: 9, d: 1 });
     expect(groups.map((group) => group.title)).toEqual(["Relay", "Pairfob"]);
     expect(groups[0].items.map((item) => item.paneId)).toEqual(["b", "d"]);
     expect(groups[1].items.map((item) => item.paneId)).toEqual(["a", "c"]);
-    // A fresh status change on the last pane moves neither its row nor its group.
-    const changed = groupAgents(sample, "space", { c: 99, d: 98 });
-    expect(changed.map((group) => group.id)).toEqual(["w-x", "w-k"]);
-    expect(changed[1].items.map((item) => item.paneId)).toEqual(["a", "c"]);
+    // Opening c lifts it to the top of its workspace and lifts that workspace.
+    const opened = groupAgents(sample, "space", { b: 20, c: 99 });
+    expect(opened.map((group) => group.id)).toEqual(["w-k", "w-x"]);
+    expect(opened[0].items.map((item) => item.paneId)).toEqual(["c", "a"]);
+    // Nothing opened yet: the computer's own order.
+    expect(groupAgents(sample, "space", {}).map((group) => group.id)).toEqual(["w-x", "w-k"]);
   });
 
   test("agent groups by type and parks unbound panes together", () => {

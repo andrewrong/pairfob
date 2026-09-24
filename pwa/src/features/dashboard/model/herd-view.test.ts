@@ -39,6 +39,7 @@ function input(overrides: Partial<HerdModelInput> = {}): HerdModelInput {
     agents: [],
     listGroup: "flat",
     paneTouched: {},
+    paneActivated: {},
     panePinned: {},
     groupCollapsed: {},
     selectedPaneId: "",
@@ -270,5 +271,19 @@ describe("phone list projection", () => {
     expect(herdAgo(now - 5 * 60_000, now)).toBe(t("list.agoMin", { n: "5" }));
     expect(herdAgo(now - 3 * 3_600_000, now)).toBe(t("list.agoHour", { n: "3" }));
     expect(herdAgo(now - 2 * 86_400_000, now)).toBe(t("list.agoDay", { n: "2" }));
+  });
+
+  test("rows and workspaces follow the reader's last open; a status change moves nothing", () => {
+    const agents = [agent("a1", "alpha"), agent("a2", "alpha"), agent("b1", "beta"), agent("b2", "beta")];
+    const order = (view: ReturnType<typeof buildHerdViewModel>) =>
+      view.groups.map((group) => `${group.id}:${group.cards.map((card) => card.paneId).join(",")}`);
+    // Nothing opened: the computer's order.
+    expect(order(buildHerdViewModel(input({ agents, listGroup: "space" }))))
+      .toEqual(["alpha:a1,a2", "beta:b1,b2"]);
+    // b2 changed status most recently, but the reader opened a2 last.
+    const view = buildHerdViewModel(input({ agents, listGroup: "space", paneTouched: { b2: 90 }, paneActivated: { a2: 10, b1: 5 } }));
+    expect(order(view)).toEqual(["alpha:a2,a1", "beta:b1,b2"]);
+    const later = buildHerdViewModel(input({ agents, listGroup: "space", paneActivated: { a2: 10, b2: 20 } }));
+    expect(order(later)).toEqual(["beta:b2,b1", "alpha:a2,a1"]);
   });
 });

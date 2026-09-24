@@ -3,12 +3,12 @@ import { t } from "../../../lib/i18n";
 import { groupAgents, type ListGroup } from "../../../lib/ranking";
 import { MenuChoice, showActionSheet } from "../../../shared/ui/overlay";
 import { dashboardStore } from "../catalog-store";
-import { listGroup, panePinned, paneTouched, setListGroupCollapsed } from "../../settings/preferences-store";
+import { listGroup, paneActivated, panePinned, setListGroupCollapsed } from "../../settings/preferences-store";
 import { chooseListGroup } from "./herd-controls";
 
 /** Fold or open every group the current grouping shows. */
 function foldAll(collapsed: boolean): void {
-  const groups = groupAgents([...dashboardStore.get().agents], listGroup(), paneTouched(), panePinned());
+  const groups = groupAgents([...dashboardStore.get().agents], listGroup(), paneActivated(), panePinned());
   setListGroupCollapsed(Object.fromEntries(groups.map((group) => [group.id, collapsed])));
 }
 

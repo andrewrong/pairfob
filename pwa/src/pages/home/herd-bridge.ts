@@ -28,7 +28,7 @@ import { settingsNetworkPath } from "../../features/settings/model";
 import { t } from "../../lib/i18n";
 import { connectionStore, networkOnline } from "../../features/connection/connection-store";
 import { dashboardStore, liveAgents } from "../../features/dashboard/catalog-store";
-import { listGroup, listGroupCollapsed, panePinned, paneTouched, preferencesStore, setListGroupCollapsed, togglePanePin } from "../../features/settings/preferences-store";
+import { listGroup, listGroupCollapsed, paneActivated, panePinned, paneTouched, preferencesStore, setListGroupCollapsed, togglePanePin } from "../../features/settings/preferences-store";
 import { acknowledgePaneCompletion } from "../../features/dashboard/catalog-store";
 import { openGroupModeSheet } from "../../features/dashboard/components/group-mode-sheet";
 import { openCreateSheet, openQuickCreate } from "./create-bridge";
@@ -145,6 +145,7 @@ export function readHerdInput(painted: HerdPaint): HerdModelInput {
     agents: dashboard.agents,
     listGroup: listGroup(),
     paneTouched: preferences.paneTouched,
+    paneActivated: preferences.paneActivated,
     panePinned: preferences.panePinned,
     groupCollapsed: preferences.listGroupCollapsed,
     selectedPaneId: openPaneId(),
@@ -178,7 +179,7 @@ export function presentHerdView(): HerdViewModel {
   const consumed = openHerdPaint([...agents], group);
   if (consumed.completed.length && document.visibilityState === "visible") haptic(COMPLETION_HAPTIC_MS);
   if (group !== "flat") {
-    const groups = groupAgents([...agents], group, paneTouched(), panePinned());
+    const groups = groupAgents([...agents], group, paneActivated(), panePinned());
     const collapsed = listGroupCollapsed();
     const synced = syncGroupCollapsed(groups, collapsed);
     if (!sameCollapsed(synced, collapsed)) setListGroupCollapsed(synced);

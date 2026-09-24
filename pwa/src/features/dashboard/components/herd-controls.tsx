@@ -40,7 +40,7 @@ export function chooseListGroup(id: ListGroup): void {
           groupAgents(
             [...dashboardStore.get().agents],
             id,
-            preferencesStore.get().paneTouched,
+            preferencesStore.get().paneActivated,
             preferencesStore.get().panePinned,
           ),
           {},

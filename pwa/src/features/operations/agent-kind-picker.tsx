@@ -67,9 +67,9 @@ export function AgentKindPicker({ kinds, memory, selected, onPick, onPinsChange 
           aria-label={t("create.pickerFilter")} autoComplete="off" autoCapitalize="off" spellCheck={false}
           onChange={(event) => setFilter(event.currentTarget.value)} />
       ) : null}
-      <h3 className="menu-section-title">{t("create.pinnedGroup")}</h3>
+      <h3 className="create-label">{t("create.pinnedGroup")}</h3>
       {pinned.length ? pinned.map(row) : <p className="kind-empty">{t("create.pinnedGroupEmpty")}</p>}
-      {others.length ? <h3 className="menu-section-title">{t("create.otherGroup")}</h3> : null}
+      {others.length ? <h3 className="create-label">{t("create.otherGroup")}</h3> : null}
       {others.map(row)}
       <p className="kind-note">{t("create.pickerNote")}</p>
     </div>

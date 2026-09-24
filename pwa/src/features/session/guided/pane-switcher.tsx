@@ -25,7 +25,7 @@ function PaneSwitcherBody({ modal }: { modal: ActionSheetController }): ReactEle
   const agents = groupAgents(
     dashboard.agents,
     preferences.listGroup,
-    preferences.paneTouched,
+    preferences.paneActivated,
     preferences.panePinned,
   ).flatMap((group) => group.items);
   const group = preferences.listGroup;

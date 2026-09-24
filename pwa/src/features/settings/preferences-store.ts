@@ -30,6 +30,7 @@ export const DEFAULT_COMPOSE_LIVE_KEY = "pairfob:defaultComposeLive";
 export const PANE_COMPOSE_LIVE_KEY = "pairfob:paneComposeLive";
 export const LIST_GROUP_KEY = "pairfob:listGroup";
 export const PANE_TOUCHED_KEY = "pairfob:paneTouched";
+export const PANE_ACTIVATED_KEY = "pairfob:paneActivated";
 export const PANE_PINNED_KEY = "pairfob:panePinned";
 export const PANE_TERM_MODE_KEY = "pairfob:paneTermMode";
 export const DEFAULT_TERM_MODE_KEY = "pairfob:defaultTermMode";
@@ -60,6 +61,8 @@ export type PreferencesRecord = {
   /** true = that grouped heading is collapsed. Missing ids follow first-open. */
   listGroupCollapsed: Record<string, boolean>;
   paneTouched: TouchedAt;
+  /** When the reader last opened each pane; only their own taps write it. */
+  paneActivated: TouchedAt;
   panePinned: PinnedAt;
   /** Fallback preference when a pane has no stored mode of its own. */
   defaultTermMode: TermMode;
@@ -143,7 +146,14 @@ export function loadDefaultTermMode(read: StoredValueReader = readStorage): Term
 }
 
 export function loadPaneTouched(read: StoredValueReader = readStorage): TouchedAt {
-  const raw = parseJSON(read(paneTouchedKey()));
+  return parseStamps(parseJSON(read(paneTouchedKey())));
+}
+
+export function loadPaneActivated(read: StoredValueReader = readStorage): TouchedAt {
+  return parseStamps(parseJSON(read(paneActivatedKey())));
+}
+
+function parseStamps(raw: unknown): TouchedAt {
   if (!isRecordObject(raw)) return {};
   const out: TouchedAt = {};
   for (const [paneId, stamp] of Object.entries(raw)) {
@@ -189,6 +199,7 @@ export function initialPreferences(): PreferencesRecord {
     listGroup: "flat",
     listGroupCollapsed: {},
     paneTouched: {},
+    paneActivated: {},
     panePinned: {},
     defaultTermMode: "auto",
     paneTermModes: {},
@@ -230,6 +241,10 @@ export function paneTouchedKey(): string {
   return `${PANE_TOUCHED_KEY}:${daemonScope()}`;
 }
 
+export function paneActivatedKey(): string {
+  return `${PANE_ACTIVATED_KEY}:${daemonScope()}`;
+}
+
 function panePinnedKey(): string {
   return `${PANE_PINNED_KEY}:${daemonScope()}`;
 }
@@ -246,6 +261,7 @@ function paneComposeLiveKey(): string {
 export function adoptDaemonPreferences(): void {
   write((record) => {
     record.paneTouched = loadPaneTouched();
+    record.paneActivated = loadPaneActivated();
     record.panePinned = loadPanePinned();
     record.paneTermModes = loadPaneTermModes();
     record.paneComposeLive = loadPaneComposeLive();
@@ -269,6 +285,11 @@ export function paneTouched(): TouchedAt {
   return { ...read().paneTouched };
 }
 
+/** Detached per-pane activation stamps: the list's order. */
+export function paneActivated(): TouchedAt {
+  return { ...read().paneActivated };
+}
+
 /** Detached per-pane pin stamps for ranking; callers cannot edit canonical data. */
 export function panePinned(): PinnedAt {
   return { ...read().panePinned };
@@ -283,6 +304,7 @@ export function listGroupCollapsed(): Record<string, boolean> {
 export function resetHerdPresentationChoices(): void {
   write((record) => {
     record.paneTouched = {};
+    record.paneActivated = {};
     record.panePinned = {};
     record.listGroupCollapsed = {};
   });
@@ -313,12 +335,16 @@ export function savePaneTouched(): void {
   writeStorage(paneTouchedKey(), JSON.stringify(read().paneTouched));
 }
 
+/** The reader opened this pane: it becomes the most recent in its workspace. */
 export function rememberPane(paneId: string): void {
+  const now = Date.now();
   batch(() => {
     write((record) => {
-      record.paneTouched = touchPane(record.paneTouched, paneId);
+      record.paneTouched = touchPane(record.paneTouched, paneId, now);
+      record.paneActivated = touchPane(record.paneActivated, paneId, now);
     });
     savePaneTouched();
+    writeStorage(paneActivatedKey(), JSON.stringify(read().paneActivated));
   });
 }
 
@@ -334,12 +360,20 @@ function sameTouched(left: TouchedAt, right: TouchedAt): boolean {
 export function applyHerdTouches(previous: readonly AgentCard[], next: readonly AgentCard[], now = Date.now()): void {
   const current = read().paneTouched;
   const updated = nextTouchedAt([...previous], [...next], current, now);
-  if (sameTouched(updated, current)) return;
+  // Activation is the reader's alone; a status change never writes it, but a
+  // pane that disappeared drops out of it too.
+  const live = new Set(next.map((agent) => agent.paneId));
+  const activated = read().paneActivated;
+  const keptActivated = Object.fromEntries(Object.entries(activated).filter(([paneId]) => live.has(paneId)));
+  const activationChanged = !sameTouched(keptActivated, activated);
+  if (sameTouched(updated, current) && !activationChanged) return;
   batch(() => {
     write((record) => {
       record.paneTouched = updated;
+      if (activationChanged) record.paneActivated = keptActivated;
     });
     savePaneTouched();
+    if (activationChanged) writeStorage(paneActivatedKey(), JSON.stringify(read().paneActivated));
   });
 }
 
