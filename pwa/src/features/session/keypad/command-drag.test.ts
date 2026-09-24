@@ -84,3 +84,39 @@ test("resting on another page's dot turns the page under the dragged command", a
   expect(flipped).toBe(1);
   pointer(document, "pointerup", 80, 110);
 });
+
+test("the ghost keeps the grab point under the finger wherever the pad sits", () => {
+  const { own } = fixture();
+  dispose = bindCommandDrag(own, () => undefined);
+  pointer(own, "pointerdown", 10, 10);
+  pointer(document, "pointermove", 60, 700);
+  const ghost = document.querySelector<HTMLElement>(".pad-drag-ghost")!;
+  // Positioned by `translate`, which the ghost's own `scale` does not multiply.
+  expect(ghost.style.translate).toBe("50px 690px");
+  expect(ghost.style.transform).toBe("");
+  pointer(document, "pointerup", 60, 700);
+});
+
+test("a press on the command cancels native touch moves so the browser cannot pan it away", () => {
+  const { own } = fixture();
+  dispose = bindCommandDrag(own, () => undefined);
+  const view = appRoot().ownerDocument.defaultView!;
+  const touchmove = () => {
+    const event = new view.Event("touchmove", { bubbles: true, cancelable: true });
+    own.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  expect(touchmove()).toBeFalse();
+  pointer(own, "pointerdown", 10);
+  expect(touchmove()).toBeTrue();
+  pointer(document, "pointerup", 10);
+  expect(touchmove()).toBeFalse();
+  // A page turn unmounts the carried command; its finger still must not pan.
+  pointer(own, "pointerdown", 10);
+  pointer(document, "pointermove", 60);
+  dispose!();
+  dispose = null;
+  expect(touchmove()).toBeTrue();
+  pointer(document, "pointerup", 60);
+  expect(touchmove()).toBeFalse();
+});

@@ -8,5 +8,5 @@ test("network wakeups retain one fresh dial through real encrypted transports", 
     new Response(process.stdout).text(), new Response(process.stderr).text(), process.exited,
   ]);
   if (code !== 0) throw new Error(`${stdout}\n${stderr}`);
-  expect(stderr).toContain("8 pass");
-}, 15_000);
+  expect(stderr).toContain("9 pass");
+}, 30_000);

@@ -81,9 +81,8 @@
 /* Settings scroll as a page; cards must retain their full content height. */
 .main-settings > * { flex-shrink: 0; }
 
-.main-settings .set-card,
-.main-settings .notice,
-.main-settings .retry { max-width: 40rem; }
+/* One column: the bar, every group and the notice share the same width and edges. */
+.main-settings > * { width: 100%; max-width: 40rem; }
 
 .desk .key { min-width: 0; min-height: 44px; font-size: var(--text-body); }
 

@@ -80,7 +80,6 @@ describe("UI accessibility guardrails", () => {
   });
 
   test("Lucide disclosure icons rotate while CSS no longer draws duplicate marks", () => {
-    expect(rule(".manual-pair[open] .manual-pair-chevron")).toMatch(/rotate\(180deg\)/);
     expect(rule('.group-title[aria-expanded="true"] .group-chev')).toMatch(/rotate\(90deg\)/);
     expect(rule(".lucide")).toMatch(/flex:\s*none/);
     for (const selector of [".manual-pair summary::after", ".btn-scan::before", ".add-mark::before",
@@ -94,7 +93,6 @@ describe("UI accessibility guardrails", () => {
     expect(rule("dialog.modal.help")).not.toMatch(/margin:\s*auto auto 0/);
     expect(css).toMatch(/@media \(max-width: 899\.98px\)[\s\S]*dialog\.modal\.help\s*\{[^}]*margin:\s*auto;/);
     expect(rule(".help-copy")).toMatch(/line-height:\s*1\.55/);
-    expect(css).toMatch(/\.set-heading\s*\{[^}]*min-height:\s*44px/);
   });
 
   test("dialog confirm is the filled action and cancel stays quiet", () => {
@@ -106,7 +104,7 @@ describe("UI accessibility guardrails", () => {
   });
 
   test("interactive touch controls keep a 44px target", () => {
-    for (const selector of [".manual-pair summary", ".btn-small", ".key", ".desk .key", ".text-link", ".topbar-create", ".quota-details", ".back", ".send-btn", ".menu-item", ".icon-btn", ".card-main", ".operation-field input", ".operation-field select", ".lang-select", ".seg-item", ".dock-form textarea", ".chrome-title", ".row-act", ".switch-item", ".computer-forget", ".computer-add", ".set-nav", ".device-forget", ".full-terminal-action", ".full-terminal-scroll-btn", ".full-terminal-state-retry", ".full-terminal-kb", ".agent-step-summary", ".agent-process-summary", ".agent-older", ".agent-reply-copy", ".slash-cmd"]) {
+    for (const selector of [".connect-manual", ".pair-paste", ".btn-small", ".key", ".desk .key", ".text-link", ".topbar-create", ".back", ".send-btn", ".menu-item", ".icon-btn", ".card-main", ".operation-field input", ".operation-field select", ".lang-select", ".seg-item", ".dock-form textarea", ".chrome-title", ".row-act", ".switch-item", ".computer-forget", ".computer-add", ".set-nav", ".set-action", ".full-terminal-action", ".full-terminal-scroll-btn", ".full-terminal-state-retry", ".full-terminal-kb", ".agent-step-summary", ".agent-process-summary", ".agent-older", ".agent-reply-copy", ".slash-cmd"]) {
       const match = rule(selector).match(/min-height:\s*(\d+)px/);
       expect(match, selector).not.toBeNull();
       expect(Number(match?.[1]), selector).toBeGreaterThanOrEqual(44);
@@ -136,10 +134,10 @@ describe("UI accessibility guardrails", () => {
     expect(css).not.toContain(".topbar-create::before");
   });
 
-  test("quota details refresh is a topbar chip and summary headings keep settings type", () => {
+  test("quota refresh is a topbar chip and quota meters stay on the token scale", () => {
     expect(css).not.toContain(".topbar-create.quota-refresh::before");
-    expect(css).not.toMatch(/\.quota-summary-heading h2\s*\{/);
-    expect(rule(".quota-details")).toMatch(/color:\s*var\(--accent\)/);
+    expect(rule(".quota-bar")).toMatch(/background:\s*var\(--line-strong\)/);
+    expect(rule(".quota-pct")).toMatch(/font-variant-numeric:\s*tabular-nums/);
   });
 
   test("SVG back icons stay centered without a font-glyph nudge", () => {
@@ -204,7 +202,7 @@ describe("UI accessibility guardrails", () => {
     expect(rule(".sheet-fact-path")).toMatch(/word-break:\s*break-all/);
   });
 
-  test("the connect loading screen fills the viewport and centers its copy", () => {
+  test("the boot screen centers its copy; the connect page pins its actions to the floor", () => {
     expect(rule("#app.boot-screen")).toMatch(/position:\s*fixed/);
     expect(rule("#app.boot-screen")).toMatch(/top:\s*0/);
     expect(rule("#app.boot-screen")).toMatch(/bottom:\s*0/);
@@ -214,8 +212,9 @@ describe("UI accessibility guardrails", () => {
     expect(rule(".boot")).toMatch(/align-items:\s*center/);
     expect(rule(".boot")).toMatch(/text-align:\s*center/);
     expect(rule(".boot")).not.toMatch(/position:\s*fixed/);
-    expect(rule(".prelude.pairing")).toMatch(/justify-content:\s*center/);
-    expect(rule(".prelude.pairing")).toMatch(/align-items:\s*center/);
+    expect(rule(".page.connect-page")).toMatch(/min-height:\s*100dvh/);
+    expect(rule(".page.connect-page")).toMatch(/flex-direction:\s*column/);
+    expect(rule(".connect-actions")).toMatch(/margin-top:\s*auto/);
   });
 
   test("session chrome is three zones with a compact phone action cluster", () => {

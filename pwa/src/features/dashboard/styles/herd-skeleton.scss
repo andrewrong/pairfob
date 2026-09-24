@@ -1,0 +1,44 @@
+/* --- Herd placeholder rows ------------------------------------------------------
+   Shown until the first snapshot (or the first runtime read) answers. Same
+   boxes as the real rows; a slow sheen says "still working", and stops for
+   reduced motion.
+   ------------------------------------------------------------------------------ */
+
+.herd-sk {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.herd-sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(233, 237, 243, 0.06), transparent);
+  animation: herd-sk-sheen 1.4s ease-in-out infinite;
+}
+
+@keyframes herd-sk-sheen {
+  to { transform: translateX(100%); }
+}
+
+.herd-sk-head { gap: 8px; min-height: 44px; }
+.herd-sk-row { cursor: default; pointer-events: none; }
+.herd-sk-row + .herd-sk-row { border-top: 1px solid var(--line); }
+.herd-sk-row .card-copy { gap: 8px; }
+.herd-sk-avatar { flex: none; width: 40px; height: 40px; border-radius: 12px; }
+
+/* Boot frame: the computer name's place before the credential is read. */
+.boot-shell-name { width: 150px; height: 24px; border-radius: 7px; margin-block: 2px; }
+.boot-shell .host-title { cursor: default; }
+
+/* Nothing is loading: the shapes stay, dimmed and still. */
+.herd-skeleton.is-still { opacity: 0.45; }
+.herd-skeleton.is-still .herd-sk::after { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .herd-sk::after { animation: none; }
+}

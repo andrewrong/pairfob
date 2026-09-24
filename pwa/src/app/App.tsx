@@ -4,7 +4,7 @@ import { AgentChatPane } from "../features/session/chat/agent-chat";
 import { SessionPane } from "../features/session/guided/session-pane";
 import { FullTerminalRoute } from "../features/session/full-terminal/full-terminal-route";
 import { BoardPage as BoardScreen } from "../pages/board";
-import { BootScreen } from "../pages/boot";
+import { BootScreen, BootShell, UnreachableShell } from "../pages/boot";
 import { ComputersScreen } from "../pages/computers/computers-page";
 import { ConnectScreen } from "../pages/connect/connect-page";
 import { HomePage } from "../pages/home";
@@ -61,11 +61,11 @@ function scrollOf(frame: FrameSnapshot): SessionScroll {
 export function pageFor(layout: ShellLayout, frame: FrameSnapshot): ReactNode {
   switch (layout.mode) {
     case "boot":
-      return <BootScreen />;
+      return layout.shell.booting ? <BootScreen /> : <BootShell />;
     case "connect":
       return <ConnectScreen />;
     case "pick":
-      return <ComputersScreen />;
+      return layout.shell.unreachable ? <UnreachableShell /> : <ComputersScreen />;
     case "workspace":
       return <WorkspaceScreen />;
     case "board":

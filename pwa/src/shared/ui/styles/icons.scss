@@ -13,13 +13,6 @@
 
 .group-title[aria-expanded="true"] .group-chev { transform: rotate(90deg); }
 
-.manual-pair-chevron {
-  opacity: 0.7;
-  transition: transform var(--dur-1) var(--ease);
-}
-
-.manual-pair[open] .manual-pair-chevron { transform: rotate(180deg); }
-
 .add-mark {
   display: inline-flex;
   align-items: center;

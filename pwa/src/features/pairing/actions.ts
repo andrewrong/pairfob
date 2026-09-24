@@ -1,4 +1,3 @@
-import { appRoot } from "../../app/dom-root";
 import { commitView } from "../../app/host";
 import {
   applyPairingFragment, clearPairingFragment, originProtocol, pairingFragment, phase, setPhase, wsURL,
@@ -78,12 +77,13 @@ function runIfCurrentWork(work: number, run: () => void): void {
  * Focus an error field only while `work` still owns the page. Callers capture
  * the initiating work before any notification/render: render can install a
  * replacement page, and re-reading the generation afterwards would authorize
- * the old callback's app-global selector on the new page.
+ * the old callback's document-global selector on the new page. The field lives
+ * in the code sheet, a dialog portaled to the document body, not under #app.
  */
 function focusPairField(name: PairErrorField, work: number): void {
   if (!name) return;
   runIfCurrentWork(work, () => {
-    (appRoot().querySelector(`[name="${name}"]`) as HTMLInputElement | null)?.focus();
+    document.querySelector<HTMLInputElement>(`dialog [name="${name}"]`)?.focus();
   });
 }
 
@@ -240,7 +240,9 @@ export async function beginPairing(rawCode: string): Promise<void> {
     batch(() => {
       if (forget) clearPairingFragment();
       setPairFailure(target, target === "code" ? "code" : reached);
-      setPairManualOpen(true);
+      // A code failure reopens the code sheet on the field; any other failure
+      // lands on the page, whose title and lede carry the reason.
+      setPairManualOpen(target === "code");
       setPhase("connect");
       showError(messageOf(error), true);
     });
@@ -265,7 +267,6 @@ export async function beginPairing(rawCode: string): Promise<void> {
  */
 function landCancelledPairing(abort: AbortController | null, work: number): void {
   if (pairAbortHandle() !== abort) return;
-  const scanned = Boolean(pairingFragment());
   const addComputer = addingComputer() || computers().length || liveSession() !== null;
   batch(() => {
     setPairAwaitingApproval(false);
@@ -287,7 +288,7 @@ function landCancelledPairing(abort: AbortController | null, work: number): void
       return;
     }
     setPairFailure(null, null);
-    setPairManualOpen(!scanned);
+    setPairManualOpen(false);
     setPhase("connect");
     showStatus(t("err.pairing_cancelled"));
   });
@@ -344,7 +345,7 @@ export async function pastePairCode(): Promise<void> {
     });
     commitView();
     runIfCurrentWork(work, () => {
-      appRoot().querySelector<HTMLButtonElement>(".btn-connect")?.focus();
+      document.querySelector<HTMLButtonElement>("dialog .btn-connect")?.focus();
     });
   } catch {
     if (work !== currentWork()) return;
@@ -360,6 +361,12 @@ export async function scanPairCode(): Promise<void> {
   try {
     const result = await scanPairingCode(location.origin);
     if (!result || work !== currentWork()) return;
+    // "Enter the code instead" from the scanner: the scanner has closed, so
+    // the code sheet replaces it rather than stacking on it.
+    if (result === "code") {
+      setPairManualOpen(true);
+      return;
+    }
     // Adopt the fragment and its draft as one publication. A subscriber to that
     // publication — cancel, back, or a replacement manual input — can retire
     // this scan before it claims a transport or overwrites the replacement's
@@ -383,6 +390,7 @@ export async function scanPairCode(): Promise<void> {
 export function focusPairCode(): void {
   focusPairField("code", currentWork());
 }
+
 
 /** Published snapshots the connect form projects; callers subscribe first. */
 export type ConnectPageSnapshots = {

@@ -46,24 +46,12 @@ export type EmptySessionCopy = { title: string; detail: string; action?: EmptySe
 export type NotificationAction = { label: string; disabled: boolean };
 
 /**
- * Pairing is three real protocol steps, so the wait screen shows three. The
- * states are derived from the pairing state machine only: there is no synthetic
- * progress, and a step is never marked done before its step actually finished.
+ * Pairing is three real protocol steps. A failed attempt records the step it
+ * died on; the connect screen shows a code failure on the field and any other
+ * failure on the page.
  */
 export const PAIR_STEPS = ["code", "channel", "verify"] as const;
 export type PairStepKey = (typeof PAIR_STEPS)[number];
-export type PairStepState = "todo" | "active" | "done" | "failed";
-export type PairStep = { key: PairStepKey; state: PairStepState };
-
-export function pairProgress(opts: { pairing: boolean; awaitingApproval: boolean; failedStep: PairStepKey | null }): PairStep[] {
-  // A failure freezes the rail on the step that failed, so the error has a place
-  // to land instead of only appearing as a notice at the bottom of the form.
-  const at = opts.pairing
-    ? PAIR_STEPS.indexOf(opts.awaitingApproval ? "verify" : "channel")
-    : PAIR_STEPS.indexOf(opts.failedStep ?? "code");
-  const here: PairStepState = opts.pairing ? "active" : "failed";
-  return PAIR_STEPS.map((key, index) => ({ key, state: index < at ? "done" : index === at ? here : "todo" }));
-}
 
 export function pairErrorField(code: string): PairErrorField {
   if (["locator_required", "invalid_pair_code", "bad_pair_code", "unpaired"].includes(code)) return "code";

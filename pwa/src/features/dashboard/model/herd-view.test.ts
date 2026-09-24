@@ -49,6 +49,9 @@ function input(overrides: Partial<HerdModelInput> = {}): HerdModelInput {
     attention: attention(),
     liveness: "live",
     status: { tone: "live", text: "connected" },
+    reading: false,
+    snapshotLoaded: true,
+    recentDirs: [],
     connected: true,
     networkOnline: true,
     runtimeKind: "herdr",
@@ -201,13 +204,22 @@ describe("herd chrome gates", () => {
   });
 
   test("an empty herd explains itself and gates its action on busy state", () => {
-    const view = buildHerdViewModel(input({ createConversation: true }));
-    expect(view.empty?.title).toBeTruthy();
-    expect(view.empty?.action?.kind).toBe("create");
-    expect(view.empty?.action?.disabled).toBe(false);
-    expect(buildHerdViewModel(input({ createConversation: true, operationBusy: true })).empty?.action?.disabled).toBe(true);
+    const view = buildHerdViewModel(input({ createConversation: true, recentDirs: ["a", "b", "c", "d"] }));
+    expect(view.empty?.kind).toBe("none");
+    expect(view.empty?.title).toBe(t("empty.hostTitle", { host: "studio" }));
+    expect(view.empty?.actions.map((action) => action.kind)).toEqual(["create"]);
+    expect(view.empty?.actions[0].disabled).toBe(false);
+    expect(view.empty?.recentDirs).toEqual(["a", "b", "c"]);
+    expect(buildHerdViewModel(input({ createConversation: true, operationBusy: true })).empty?.actions[0].disabled).toBe(true);
     expect(buildHerdViewModel(input({ agents: [agent("p1", "alpha")] })).empty).toBeNull();
-    expect(buildHerdViewModel(input({ networkOnline: false })).empty?.action?.kind).toBe("retry");
+    // A computer that does not allow starting sessions gets the command instead of a button.
+    const closed = buildHerdViewModel(input({ createConversation: false })).empty;
+    expect(closed?.kind).toBe("noCreate");
+    expect(closed?.actions).toEqual([]);
+    expect(closed?.command).toBe("herdr");
+    // Offline or reconnecting: the header already says so; no button repeats it.
+    expect(buildHerdViewModel(input({ networkOnline: false })).empty?.kind).toBe("offline");
+    expect(buildHerdViewModel(input({ connected: false })).empty?.actions).toEqual([]);
   });
 });
 
@@ -331,5 +343,37 @@ describe("pane identity shared by the list card and the session header", () => {
     expect(blockedElsewhere(rows, "p1", false)).toBe(1);
     expect(blockedElsewhere(rows, "p4", false)).toBe(2);
     expect(blockedElsewhere(rows, "p4", true)).toBe(0);
+  });
+});
+
+describe("before the first read answers", () => {
+  test("nothing read yet shows placeholder rows, never an empty-state claim", () => {
+    const view = buildHerdViewModel(input({ snapshotLoaded: false }));
+    expect(view.loading).toBe(true);
+    expect(view.empty).toBeNull();
+    // The runtime still being read: loading even if an empty snapshot came first.
+    const reading = buildHerdViewModel(input({ liveness: "unverifiable", runtimeKind: "", reading: true }));
+    expect(reading.loading).toBe(true);
+    expect(reading.empty).toBeNull();
+  });
+
+  test("an answered empty list, or a runtime that failed, keeps its explanation", () => {
+    expect(buildHerdViewModel(input()).empty?.kind).toBe("noCreate");
+    const failed = buildHerdViewModel(input({ liveness: "unverifiable", runtimeKind: "", snapshotLoaded: false }));
+    expect(failed.loading).toBe(false);
+    expect(failed.empty?.kind).toBe("unverifiable");
+    expect(failed.empty?.actions.map((action) => action.kind)).toEqual(["retry", "details"]);
+    const offline = buildHerdViewModel(input({ networkOnline: false, snapshotLoaded: false }));
+    expect(offline.loading).toBe(false);
+  });
+
+  test("rows that arrive while the runtime is still being read are fresh, not stale", () => {
+    const view = buildHerdViewModel(input({
+      agents: [agent("p1", "alpha", "blocked")], liveness: "unverifiable", runtimeKind: "", reading: true,
+    }));
+    expect(view.groups[0].cards[0].className).not.toContain("unverifiable");
+    expect(view.attention).toHaveLength(1);
+    const stale = buildHerdViewModel(input({ agents: [agent("p1", "alpha", "blocked")], liveness: "unverifiable", runtimeKind: "" }));
+    expect(stale.groups[0].cards[0].className).toContain("unverifiable");
   });
 });

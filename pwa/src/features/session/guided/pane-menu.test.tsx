@@ -201,7 +201,7 @@ test("copy screen reports the line count and keeps the sheet open", async () => 
   const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { written.push(text); } } });
   try {
-    act(() => applyPaneRead("one\ntwo\n\n", "h-copy"));
+    act(() => applyPaneRead("\x1b[31mone\x1b[0m\ntwo\n\n", "h-copy"));
     act(openPaneMenu);
     await act(async () => { byLabel(t("menu.copyScreen")).click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
     expect(written).toEqual(["one\ntwo"]);
@@ -405,3 +405,31 @@ test("a single-cell tab shows the preview and says so", () => {
   expect(document.querySelector(".pane-divider")).toBeNull();
   expect(document.querySelector(".pane-precise")).toBeNull();
 });
+
+for (const scenario of ["empty", "full-unready", "changed", "denied"] as const) {
+  test(`copy text handles ${scenario} without a false success`, async () => {
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    const written: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+      writeText: async (text: string) => {
+        if (scenario === "denied") throw new Error("permission denied");
+        written.push(text);
+      },
+    } });
+    try {
+      act(() => applyPaneRead(scenario === "empty" ? " \n\n" : "old guided text", "copy-state"));
+      if (scenario === "full-unready") setFullTerminal(true);
+      act(openPaneMenu);
+      expect(document.querySelector(".pane-menu-status")?.textContent).toBe(t("pm.copyHint"));
+      expect(byLabel(t("menu.copyScreen")).textContent).toBe(t("pm.tileCopy"));
+      if (scenario === "changed") act(() => selectPane("p2"));
+      await act(async () => { byLabel(t("menu.copyScreen")).click(); });
+      expect(written).toEqual([]);
+      const key = scenario === "denied" ? "err.copyDenied" : scenario === "changed" ? "pm.copyChanged" : "pm.copyEmpty";
+      expect(document.querySelector(".pane-menu-status")?.textContent).toBe(t(key));
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+      else delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+}

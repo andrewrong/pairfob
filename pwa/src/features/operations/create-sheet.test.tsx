@@ -152,7 +152,7 @@ describe("create sheet", () => {
 
   test("many kinds: six in the grid, the rest behind the full list, where a pick and a pin both stick", async () => {
     const kinds = ["claude", "codex", "gemini", "amp", "goose", "kimi", "qwen", "pi"];
-    const { result } = await open({ kinds, lastKind: "claude", memory: { ...EMPTY, uses: { claude: 5, codex: 4, gemini: 2, amp: 1 } } });
+    const { result } = await open({ kinds, lastKind: "claude", memory: { ...loadCreateMemory(), uses: { claude: 5, codex: 4, gemini: 2, amp: 1 } } });
     // Two rows of four: six kinds, the terminal and the full list; icon and name only.
     expect([...sheet().querySelectorAll(".create-kind-name")].map((node) => node.textContent))
       .toEqual(["claude", "codex", "gemini", "amp", "goose", "kimi", t("create.terminal"), t("create.all", { n: "8" })]);
@@ -160,8 +160,13 @@ describe("create sheet", () => {
     act(() => button(".create-kind.is-all").click());
     expect([...sheet().querySelectorAll(".kind-pick-name")].map((node) => node.textContent))
       .toEqual(["claude", "codex", "gemini", "amp", "goose", "kimi", "pi", "qwen"]);
-    act(() => button(".kind-star", undefined).click());
-    expect(loadCreateMemory().pinned).toEqual(["claude"]);
+    // Claude and Codex arrive starred on a phone that never touched a star.
+    expect([...sheet().querySelectorAll(".kind-row:has(.kind-star.is-on) .kind-pick-name")].map((node) => node.textContent))
+      .toEqual(["claude", "codex"]);
+    const geminiStar = [...sheet().querySelectorAll(".kind-row")]
+      .find((row) => row.querySelector(".kind-pick-name")?.textContent === "gemini")!.querySelector<HTMLButtonElement>(".kind-star")!;
+    act(() => geminiStar.click());
+    expect(loadCreateMemory().pinned).toEqual(["claude", "codex", "gemini"]);
     act(() => button(".kind-pick", "pi").click());
     expect([...sheet().querySelectorAll(".create-kind-name")].slice(0, 6).map((node) => node.textContent))
       .toEqual(["claude", "codex", "gemini", "amp", "goose", "pi"]);

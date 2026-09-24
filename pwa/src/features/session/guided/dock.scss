@@ -386,6 +386,7 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
 .quick-cmd.is-editing {
   border-color: rgba(110, 168, 254, 0.45);
   touch-action: none;
+  -webkit-touch-callout: none;
   animation: pad-jiggle .5s ease-in-out infinite alternate;
 }
 .pad-cell:nth-child(2n) .quick-cmd.is-editing { animation-delay: .12s; }

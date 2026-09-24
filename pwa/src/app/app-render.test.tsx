@@ -116,18 +116,18 @@ describe("a stable mounted App composes pages declaratively", () => {
   test("navigation swaps pages without mounting another root", () => {
     mountProfiled();
     expect(mounts()).toBe(1);
-    expect(shown(".boot")).toBeTrue();
+    expect(shown(".boot-shell")).toBeTrue();
 
     act(() => { setPhase("connect"); commitApp(); });
-    expect(shown(".boot")).toBeFalse();
-    expect(shown(".prelude")).toBeTrue();
+    expect(shown(".boot-shell")).toBeFalse();
+    expect(shown(".connect-page")).toBeTrue();
 
     act(() => { setPhase("pick"); commitApp(); });
-    expect(shown(".prelude")).toBeFalse();
+    expect(shown(".connect-page")).toBeFalse();
     expect(shown(".computer-list")).toBeTrue();
 
     act(() => { setPhase("boot"); commitApp(); });
-    expect(shown(".boot")).toBeTrue();
+    expect(shown(".boot-shell")).toBeTrue();
     // Four compositions, one mount: nothing re-created the root or the tree.
     expect(mounts()).toBe(1);
     expect(lastCommittedLayoutKey().startsWith("boot:")).toBeTrue();
@@ -173,26 +173,26 @@ describe("a stable mounted App composes pages declaratively", () => {
     act(() => {
       setPhase("connect");
       commitApp();
-      expect(shown(".prelude")).toBeTrue();
+      expect(shown(".connect-page")).toBeTrue();
     });
   });
 
   test("a typed navigation action recomposes without a caller painting", async () => {
     act(() => { mountApp(); });
     expect(isAppMounted()).toBeTrue();
-    expect(mounted(".boot")).toBeTrue();
+    expect(mounted(".boot-shell")).toBeTrue();
 
     // setPhase asks the mounted app for a coalesced commit; nobody paints here.
     await act(async () => { setPhase("connect"); });
-    expect(mounted(".prelude")).toBeTrue();
+    expect(mounted(".connect-page")).toBeTrue();
 
     // A screen action alone is not enough while pairing owns the page: the phase
     // decides, and the action for it recomposes on its own.
     await act(async () => { goToScreen("home"); });
-    expect(mounted(".prelude")).toBeTrue();
+    expect(mounted(".connect-page")).toBeTrue();
     await act(async () => { setPhase("live"); });
-    expect(mounted(".prelude")).toBeFalse();
-    expect(mounted(".herd, .card-list, .empty")).toBeTrue();
+    expect(mounted(".connect-page")).toBeFalse();
+    expect(mounted(".herd, .card-list, .herd-empty, .herd-skeleton")).toBeTrue();
   });
 
   test("a React render never sees a newer screen than the composition", async () => {
@@ -249,12 +249,12 @@ describe("a stable mounted App composes pages declaratively", () => {
 describe("mount and unmount cleanup", () => {
   test("unmounting clears the shell and stops rendering", () => {
     act(() => { mountApp(); });
-    expect(appRoot().classList.contains("boot-screen")).toBeTrue();
-    expect(document.body.classList.contains("lock")).toBeTrue();
+    // The phone boot frame: the tab-bar shell, no scroll lock.
+    expect(appRoot().classList.contains("tabs")).toBeTrue();
 
     act(() => { unmountApp(); });
     expect(isAppMounted()).toBeFalse();
-    expect(appRoot().classList.contains("boot-screen")).toBeFalse();
+    expect(appRoot().classList.contains("tabs")).toBeFalse();
     expect(appRoot().getAttribute("aria-busy")).toBeNull();
     expect(document.body.classList.contains("lock")).toBeFalse();
 
@@ -263,7 +263,7 @@ describe("mount and unmount cleanup", () => {
     const release = frameStore.subscribe(() => { frames += 1; });
     act(() => { setPhase("connect"); commitApp(); });
     expect(frames).toBe(1);
-    expect(mounted(".prelude")).toBeFalse();
+    expect(mounted(".connect-page")).toBeFalse();
     release();
   });
 

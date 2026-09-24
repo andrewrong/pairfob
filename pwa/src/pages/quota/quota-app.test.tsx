@@ -16,14 +16,14 @@ import { setLang, t } from "../../lib/i18n";
 import type { AgentQuota } from "../../lib/agent-quota";
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { ProtocolError } from "../../lib/protocol/errors";
-import { quotaOverview } from "../../features/agent-quota/model";
+import { quotaOverview, quotaResetIn, quotaTightestWindow } from "../../features/agent-quota/model";
 import { refreshAgentQuota, openQuota } from "../../features/agent-quota/actions";
 import { views } from "../../features/agent-quota/store";
 import { resetTransitionState } from "../../app/transition";
 import { stopPolling } from "../../features/connection/controller";
 
 /**
- * Quota page and settings summary against the actual mounted App: summary ->
+ * Quota page and the settings quota module against the actual mounted App: module ->
  * quota details -> back navigation, session isolation of late replies, no fetch
  * during render, and a refresh that updates the mounted subscription without an
  * extra App commit/request. Teardown restores named values, never the shared
@@ -112,6 +112,12 @@ function countHost(): {
   };
 }
 
+/** The remaining share a meter reports, or null when no meter is drawn. */
+function meterValue(): number | null {
+  const meter = appRoot().querySelector(".quota-meter[aria-valuenow]");
+  return meter ? Number(meter.getAttribute("aria-valuenow")) : null;
+}
+
 function settle(): Promise<void> {
   return act(async () => { await new Promise<void>(resolve => setTimeout(resolve, 0)); });
 }
@@ -150,7 +156,7 @@ test("a refresh updates the mounted quota page through its subscription with no 
     expect(counter.commits()).toBe(c0);
     expect(counter.requests()).toBe(r0);
     expect(appRoot().querySelector(".quota-card")).not.toBeNull();
-    expect(appRoot().querySelector("progress")?.value).toBe(75);
+    expect(meterValue()).toBe(75);
     expect(appRoot().querySelector(".quota-panel")?.getAttribute("aria-busy")).toBe("false");
   } finally {
     counter.finish();
@@ -181,47 +187,41 @@ test("old daemon gets an upgrade message and refresh cannot duplicate an in-flig
   await act(async () => { await Promise.all([refreshAgentQuota(), refreshAgentQuota()]); });
   expect(calls).toBe(1);
   expect(appRoot().textContent).toContain("Pairfob");
-  expect(appRoot().querySelector("progress")).toBeNull();
+  expect(meterValue()).toBeNull();
 });
 
-test("settings summary is compact, carries the details heading and help, and navigates", async () => {
+test("the settings module shows one meter row per provider with data and opens that provider's card", async () => {
   mountLiveOn("settings");
   const q = sample();
   useSession(async () => [q]);
   await act(async () => { await refreshAgentQuota(); });
   const app = appRoot();
-  expect(app.querySelectorAll(".quota-mini")).toHaveLength(6);
+  const module = app.querySelector(".quota-module");
+  expect(module?.querySelector(".set-group-label")?.textContent).toContain("订阅余量");
+  expect(module?.querySelector(".set-help")).toBeNull();
+  const rows = [...app.querySelectorAll<HTMLButtonElement>(".quota-row")];
+  expect(rows.map((row) => row.querySelector(".set-item-label")?.textContent)).toEqual(["Codex"]);
+  expect(rows[0]!.querySelector(".set-item-sub")?.textContent).toBe(`5 小时 · ${quotaResetIn(q.windows[0]!.resets_at)}`);
+  expect(meterValue()).toBe(75);
   expect(app.querySelector(".quota-card")).toBeNull();
-  expect(app.querySelector("progress")).toBeNull();
-  expect(app.querySelector(".quota-ring-center")?.textContent).toBe("75%");
-  // Pure model contracts: overview, expired, copilot chat-null vs premium-75.
+  // Providers without a fresh read collapse into the last row instead of empty meters.
+  expect(app.querySelector(".quota-all .set-val")?.textContent).toBe("5 个无数据");
   expect(quotaOverview({ ...q, windows: [...q.windows, { ...q.windows[0]!, used_percent: 90 }] })).toBe(10);
+  expect(quotaTightestWindow({ ...q, windows: [...q.windows, { ...q.windows[0]!, name: "week", used_percent: 90 }] })?.name).toBe("week");
   expect(quotaOverview({ ...q, observed_at: 1 })).toBeNull();
   expect(quotaOverview({ ...q, provider: "copilot", windows: [{ ...q.windows[0]!, name: "chat" }] })).toBeNull();
   expect(quotaOverview({ ...q, provider: "copilot", windows: [{ ...q.windows[0]!, name: "premium interactions" }] })).toBe(75);
-  // The details control and its help are present inside the quota summary
-  // section (the settings page has four other help controls; scope to the
-  // summary so removing only the quota help fails this).
-  const summary = app.querySelector(".quota-summary");
-  expect(summary).not.toBeNull();
-  expect(summary!.querySelector(".set-heading.quota-summary-heading")).not.toBeNull();
-  expect(summary!.querySelector(".quota-details")).not.toBeNull();
-  expect(summary!.querySelector(".set-help")).not.toBeNull();
-  // Open the quota details through the real summary control.
   await act(async () => {
-    (app.querySelector(".quota-mini") as HTMLButtonElement).click();
+    rows[0]!.click();
     while (views.get(liveSession() as LiveSession)?.loading) await Promise.resolve();
   });
   expect(currentScreen()).toBe("quota");
   expect(appRoot().querySelector(".settings-page.quota-page")).not.toBeNull();
   expect(appRoot().querySelector(".topbar-title")?.textContent).toBe("订阅余量");
-  expect(appRoot().querySelector(".set-title")).toBeNull();
   const refresh = appRoot().querySelector(".topbar .quota-refresh") as HTMLButtonElement | null;
   expect(refresh?.textContent).toBe("刷新余量");
   expect(refresh?.classList.contains("topbar-create")).toBe(true);
-  expect(appRoot().textContent).not.toContain("概览环");
-  expect(appRoot().querySelector(".quota-card")).not.toBeNull();
-  // Back returns to settings.
+  expect(appRoot().querySelector("#quota-codex.quota-card")).not.toBeNull();
   const back = [...appRoot().querySelectorAll("button")].find(b => b.getAttribute("aria-label") === "返回");
   if (!(back instanceof HTMLButtonElement)) throw new Error("missing back");
   await act(async () => { back.click(); });
@@ -239,16 +239,17 @@ test("openQuota composes the arriving quota page through the app commit port", a
   expect(appRoot().querySelector(".quota-card")).not.toBeNull();
 });
 
-test("a failed refresh clears the compact rings instead of retaining a full allowance", async () => {
+test("a failed refresh drops the module's meters instead of retaining a full allowance", async () => {
   mountLiveOn("settings");
   let fail = false;
   useSession(async () => { if (fail) throw new Error("offline"); return [sample()]; });
   await act(async () => { await refreshAgentQuota(); });
-  expect(appRoot().querySelector(".quota-ring-center")?.textContent).toBe("75%");
+  expect(meterValue()).toBe(75);
   fail = true;
   await act(async () => { await refreshAgentQuota(); });
   await settle();
-  expect(appRoot().querySelectorAll(".is-unknown")).toHaveLength(6);
+  expect(appRoot().querySelector(".quota-row")).toBeNull();
+  expect(appRoot().querySelector(".quota-module")?.textContent).toContain(t("quota.failed"));
 });
 
 test("a session attached and refreshed reaches the quota page; a later detach clears it", async () => {
@@ -268,7 +269,7 @@ test("a session attached and refreshed reaches the quota page; a later detach cl
     expect(calls).toBe(1);
     expect(appRoot().textContent).not.toContain("连接电脑后可查看余量。");
     expect(appRoot().querySelector(".quota-card")).not.toBeNull();
-    expect(appRoot().querySelector("progress")?.value).toBe(75);
+    expect(meterValue()).toBe(75);
     // The attach+refresh phase: no extra App commit/request.
     expect(counter.commits()).toBe(0);
     expect(counter.requests()).toBe(0);
@@ -285,17 +286,17 @@ test("a session attached and refreshed reaches the quota page; a later detach cl
   }
 });
 
-test("renders remaining quota and expired snapshots without a progress bar", async () => {
+test("renders remaining quota and expired snapshots without a meter", async () => {
   mountLiveOn("quota");
   useSession(async () => [sample()]);
   await act(async () => { await refreshAgentQuota(); });
-  expect(appRoot().querySelector("progress")?.value).toBe(75);
+  expect(meterValue()).toBe(75);
   await act(async () => {
     useSession(async () => [{ ...sample(), observed_at: 1 }]);
     await refreshAgentQuota();
   });
   await settle();
-  expect(appRoot().querySelector("progress")).toBeNull();
+  expect(meterValue()).toBeNull();
 });
 
 test("quota window names follow the selected language", async () => {
@@ -319,7 +320,7 @@ test("quota window names follow the selected language", async () => {
   await act(async () => { setLang("zh"); });
 });
 
-test("unlimited buckets omit progress and unknown reset never renders the epoch", async () => {
+test("unlimited buckets draw an unlimited meter and unknown reset never renders the epoch", async () => {
   mountLiveOn("quota");
   useSession(async () => [{
     ...sample(),
@@ -332,7 +333,8 @@ test("unlimited buckets omit progress and unknown reset never renders the epoch"
   }]);
   await act(async () => { await refreshAgentQuota(); });
   expect(appRoot().textContent).toContain("GitHub Copilot");
-  expect(appRoot().querySelectorAll("progress")).toHaveLength(1);
+  expect(appRoot().querySelectorAll(".quota-meter[aria-valuenow]")).toHaveLength(1);
+  expect(appRoot().querySelectorAll(".quota-meter.is-unlimited")).toHaveLength(1);
   expect(appRoot().textContent).not.toContain("1970");
 });
 
@@ -342,7 +344,7 @@ test("Grok shows shared subscription allowance", async () => {
   await act(async () => { await refreshAgentQuota(); });
   expect(appRoot().textContent).toContain("Grok Build");
   expect(appRoot().textContent).toContain("Chat");
-  expect(appRoot().querySelector("progress")?.value).toBe(75);
+  expect(meterValue()).toBe(75);
 });
 
 test("quota refresh keeps focus on the refresh button across a loading repaint", async () => {
@@ -375,18 +377,18 @@ describe("Cursor CLI quota auth states", () => {
     useSession(async () => [cursor("auth_required")]);
     await act(async () => { await refreshAgentQuota(); });
     await settle();
-    const card = appRoot().querySelector(".quota-card")!;
-    // No progress bar, CLI help (not desktop phrasing).
-    expect(appRoot().querySelector("progress")).toBeNull();
+    const card = appRoot().querySelector(".quota-missing")!;
+    // No meter, CLI help (not desktop phrasing).
+    expect(meterValue()).toBeNull();
     expect(card.textContent).toContain("cursor-agent login");
     expect(card.textContent).not.toContain("desktop");
     expect(card.textContent).not.toContain("桌面应用");
-    // Help, keychain detail, then the command, then observed.
+    // Help, keychain detail, then the copyable command.
     expect(card.textContent).toContain(t("quota.cursorHelp"));
     expect(card.textContent).toContain(t("quota.cursorKeychainHelp"));
-    const command = appRoot().querySelector(".quota-command")!;
+    const command = card.querySelector(".command-line code")!;
     expect(command.textContent).toBe(CMD);
-    expect(card.textContent.indexOf(t("quota.updated", { when: "" }))).toBeGreaterThan(card.textContent.indexOf(CMD));
+    expect(card.textContent.indexOf(CMD)).toBeGreaterThan(card.textContent.indexOf(t("quota.cursorKeychainHelp")));
   });
 
   test("not_logged_in keeps the CLI login guidance and no command", async () => {
@@ -394,15 +396,15 @@ describe("Cursor CLI quota auth states", () => {
     useSession(async () => [cursor("not_logged_in")]);
     await act(async () => { await refreshAgentQuota(); });
     await settle();
-    const card = appRoot().querySelector(".quota-card")!;
-    expect(appRoot().querySelector("progress")).toBeNull();
+    const card = appRoot().querySelector(".quota-missing")!;
+    expect(meterValue()).toBeNull();
     // cursorHelp keeps cursor-agent login; no desktop phrase; no command.
     expect(card.textContent).toContain("cursor-agent login");
     expect(card.textContent).not.toContain("desktop");
     expect(card.textContent).not.toContain("桌面应用");
     expect(card.textContent).toContain(t("quota.cursorHelp"));
     expect(card.textContent).not.toContain("export AGENT_CLI_CREDENTIAL_STORE");
-    expect(appRoot().querySelector(".quota-command")).toBeNull();
+    expect(card.querySelector(".command-line")).toBeNull();
   });
 
   test("unsupported shows the dedicated Cursor guidance and no command", async () => {
@@ -410,8 +412,8 @@ describe("Cursor CLI quota auth states", () => {
     useSession(async () => [cursor("unsupported")]);
     await act(async () => { await refreshAgentQuota(); });
     await settle();
-    const card = appRoot().querySelector(".quota-card")!;
-    expect(appRoot().querySelector("progress")).toBeNull();
+    const card = appRoot().querySelector(".quota-missing")!;
+    expect(meterValue()).toBeNull();
     // Same literal oracles as the other statuses: CLI login guidance kept, no
     // desktop styling, and dedicated unsupported copy.
     expect(card.textContent).toContain("cursor-agent login");
@@ -419,7 +421,7 @@ describe("Cursor CLI quota auth states", () => {
     expect(card.textContent).not.toContain("桌面应用");
     expect(card.textContent).toContain(t("quota.cursorUnsupportedHelp"));
     expect(card.textContent).not.toContain("export AGENT_CLI_CREDENTIAL_STORE");
-    expect(appRoot().querySelector(".quota-command")).toBeNull();
+    expect(card.querySelector(".command-line")).toBeNull();
   });
 });
 

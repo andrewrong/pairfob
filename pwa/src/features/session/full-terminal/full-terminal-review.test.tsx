@@ -6,7 +6,9 @@ class ReviewTerminal {
   cols = 80;
   rows = 24;
   modes = { applicationCursorKeysMode: false };
-  buffer = { active: { cursorX: 0, cursorY: 0 } };
+  buffer = { active: { cursorX: 0, cursorY: 0, viewportY: 0,
+    getLine: (row: number) => ({ translateToString: () => row === 0 ? "live terminal text" : "" }),
+  } };
   _core = { _renderService: { dimensions: { css: { cell: { width: 8, height: 16 } } } } };
   options: { fontSize?: number; lineHeight?: number };
   private root: HTMLElement | null = null;
@@ -293,4 +295,14 @@ describe("independent complete-terminal React review", () => {
     expect(newSession.calls.filter((call) => call.startsWith("open:"))).toEqual(["open:p1"]);
     expect(oldHost?.isConnected).toBeFalse();
   });
+});
+
+test("screen text comes from the mounted terminal and rejects another pane", async () => {
+  const { fullTerminalScreenText } = await import("./full-terminal");
+  const { applyPaneRead } = await import("../session-store");
+  await act(() => boot());
+  await until(() => getFullTerminalView().stage === "live", "live terminal");
+  act(() => applyPaneRead("stale guided snapshot", "stale-copy"));
+  expect(fullTerminalScreenText("p1").trimEnd()).toBe("live terminal text");
+  expect(fullTerminalScreenText("p2")).toBe("");
 });

@@ -44,6 +44,9 @@ function model(overrides: Partial<HerdModelInput> = {}): HerdViewModel {
     attention: noAttention,
     liveness: "live",
     status: { tone: "live", text: "已连接" },
+    reading: false,
+    snapshotLoaded: true,
+    recentDirs: [],
     connected: true,
     networkOnline: true,
     runtimeKind: "herdr",
@@ -70,6 +73,7 @@ const actions: HerdActions = {
   openSettings: () => calls.push("settings"),
   openComputers: () => calls.push("computers"),
   runEmptyAction: (kind) => calls.push(`empty:${kind}`),
+  createInDir: (dir) => calls.push(`createIn:${dir}`),
   openHostMenu: () => calls.push("host"),
   openGroupModeMenu: () => calls.push("groupMode"),
   openAttention: (paneId) => calls.push(`attention:${paneId}`),
@@ -228,12 +232,25 @@ describe("herd screen presentation", () => {
   });
 
   test("the empty state runs the action kind the model chose", () => {
-    paint(model({ agents: [], createConversation: false, connected: false, networkOnline: false }));
-    expect(app().querySelector(".herd-list")).toBeNull();
-    const action = app().querySelector<HTMLButtonElement>(".empty-action")!;
-    expect(action.textContent).toBe(t("empty.actionRetry"));
-    act(() => action.click());
+    // Nothing open: one create action, recent folders, and no floating button or grouping.
+    paint(model({ agents: [], recentDirs: ["~/work/pairfob", "~/work/site"] }));
+    expect(app().querySelector(".herd-empty-title")?.textContent).toBe(t("empty.hostTitle", { host: "studio" }));
+    expect(app().querySelector(".create-fab")).toBeNull();
+    expect(app().querySelector(".herd-mode")).toBeNull();
+    act(() => app().querySelector<HTMLButtonElement>(".herd-empty-action")!.click());
+    act(() => [...app().querySelectorAll<HTMLButtonElement>(".herd-empty-dir")][1].click());
+    expect(calls).toEqual(["empty:create", "createIn:~/work/site"]);
+    calls = [];
+    // Herdr gone: a solid panel with the command to run and a retry.
+    paint(model({ agents: [], liveness: "exited", runtimeKind: "offline" }));
+    expect(app().querySelector(".herd-empty-panel.is-exited code")?.textContent).toBe("pairfob doctor");
+    act(() => app().querySelector<HTMLButtonElement>(".herd-empty-action")!.click());
     expect(calls).toEqual(["empty:retry"]);
+    // Offline: the header says so; the list only notes what happens next, no button.
+    paint(model({ agents: [], connected: false, networkOnline: false, liveness: "unverifiable" }));
+    expect(app().querySelector(".herd-empty-note")?.textContent).toBe(t("empty.offlineNote", { host: "studio" }));
+    expect(app().querySelector(".herd-empty-action")).toBeNull();
+    expect(app().querySelector(".herd-skeleton.is-still")).not.toBeNull();
   });
 
   test("the desktop rail top bar fires one narrow action per control and follows the model gates", () => {

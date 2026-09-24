@@ -20,3 +20,6 @@ export function BootScreen() {
       : t("boot.connecting", { name: current ? computerTitle(current) : t("boot.computer") })}</p>
   </div>;
 }
+
+export { BootShell } from "./boot-shell";
+export { UnreachableShell } from "./unreachable-shell";

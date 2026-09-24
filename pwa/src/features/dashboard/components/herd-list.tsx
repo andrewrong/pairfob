@@ -1,4 +1,3 @@
-import { EmptyState } from "../../../shared/ui/primitives";
 import { WorktreeProgressList } from "../../operations/worktree-progress";
 // Not this slice: the daemon update banner stays with its own owner. The phone
 // shows it in Settings; the desktop rail keeps the compact notice.
@@ -8,21 +7,9 @@ import type { HerdActions } from "../actions";
 import type { HerdViewModel } from "../model/herd-view";
 import { AgentCard } from "./agent-card";
 import { HerdGroup } from "./herd-group";
+import { HerdSkeleton } from "./herd-skeleton";
+import { HerdEmpty } from "./herd-empty";
 import { indexedStyle } from "./indexed";
-
-function emptySpec(view: HerdViewModel, actions: HerdActions) {
-  const empty = view.empty;
-  if (!empty) return null;
-  const action = empty.action;
-  return {
-    title: empty.title,
-    sub: empty.sub,
-    figure: "panes" as const,
-    action: action
-      ? { label: action.label, disabled: action.disabled, run: () => actions.runEmptyAction(action.kind) }
-      : undefined,
-  };
-}
 
 /**
  * The herd list: pending worktree jobs, then either the empty state or the
@@ -35,13 +22,12 @@ export function HerdList({ view, actions, variant = "page" }: {
   variant?: "page" | "rail";
 }) {
   const groups = view.groups;
-  const empty = emptySpec(view, actions);
   return (
     <>
       {variant === "rail" ? <DaemonUpdate compact /> : null}
       <WorktreeProgressList />
       {variant === "rail" ? <ListGroupControl /> : null}
-      {empty ? <EmptyState spec={empty} /> : (
+      {view.loading ? <HerdSkeleton /> : view.empty ? <HerdEmpty empty={view.empty} actions={actions} /> : (
         <div className={`herd-list${view.stagger ? " enter" : ""}`}>
           {groups.map((group) => view.grouped ? (
             <HerdGroup key={group.id} group={group} groupIds={groups.map((item) => item.id)} actions={actions} />

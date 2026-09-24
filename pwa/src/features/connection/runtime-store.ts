@@ -20,6 +20,12 @@ export type RuntimeRecord = {
   pushConfigError: string;
   /** Bumped so an in-flight settings read for a dead session is dropped. */
   settingsRequest: number;
+  /**
+   * The first GetConfig of a session is still in flight (bounded by a grace
+   * period). An empty `runtimeKind` then means "not read yet", not "read
+   * failed": the header says it is reading instead of reporting a fault.
+   */
+  identityPending: boolean;
 };
 
 const runtimeDomain = createDomain<RuntimeRecord>("runtime", {
@@ -32,6 +38,7 @@ const runtimeDomain = createDomain<RuntimeRecord>("runtime", {
   devicesError: "",
   pushConfigError: "",
   settingsRequest: 0,
+  identityPending: false,
 });
 export const runtimeStore = runtimeDomain.store;
 const { read, write } = runtimeDomain.controller;
@@ -141,6 +148,18 @@ export function applyRuntimeIdentity(identity: { herdHost: string; runtimeKind: 
   });
 }
 
+export function setIdentityPending(pending: boolean): void {
+  if (read().identityPending === pending) return;
+  write((record) => {
+    record.identityPending = pending;
+  });
+}
+
+/** Whether the session's first runtime read is still in flight, read at action time. */
+export function identityPending(): boolean {
+  return read().identityPending;
+}
+
 /** Drop everything the dead session reported. */
 export function resetRuntime(): void {
   write((record) => {
@@ -153,5 +172,6 @@ export function resetRuntime(): void {
     record.devicesError = "";
     record.pushConfigError = "";
     record.settingsRequest += 1;
+    record.identityPending = false;
   });
 }

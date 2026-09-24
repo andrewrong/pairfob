@@ -16,6 +16,13 @@ export const CREATE_MEMORY_KEY = "pairfob:createMemory";
 const MAX_RECENTS = 3;
 const MAX_DIRS = 5;
 
+/**
+ * Kinds starred before the reader has touched a star. Seeded once per phone:
+ * the stored flag records it, so a later unpin sticks.
+ */
+export const DEFAULT_PINNED_KINDS: readonly string[] = ["claude", "codex"];
+const SEEDED_FLAG = "pinsSeeded";
+
 export type CreateCombo = { kind: string; workspaceId: string };
 
 export type CreateMemory = {
@@ -27,6 +34,10 @@ export type CreateMemory = {
 };
 
 const EMPTY: CreateMemory = { pinned: [], uses: {}, lastUsed: {}, recents: [], dirs: [] };
+
+function unseeded(): CreateMemory {
+  return { ...EMPTY, pinned: [...DEFAULT_PINNED_KINDS] };
+}
 
 function kindOk(value: unknown): value is string {
   return typeof value === "string" && value.length <= OPERATION_INPUT_LIMITS.agentKind;
@@ -41,17 +52,21 @@ function numbers(value: unknown): Record<string, number> {
   return out;
 }
 
-/** Parse stored memory, dropping anything malformed instead of failing. */
+/**
+ * Parse stored memory, dropping anything malformed instead of failing. Memory
+ * that has never carried the default pins gets them added.
+ */
 export function parseCreateMemory(raw: string | null): CreateMemory {
   let value: unknown;
   try {
     value = JSON.parse(raw || "null");
   } catch {
-    return { ...EMPTY };
+    return unseeded();
   }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return { ...EMPTY };
+  if (!value || typeof value !== "object" || Array.isArray(value)) return unseeded();
   const record = value as Record<string, unknown>;
-  const pinned = Array.isArray(record.pinned) ? record.pinned.filter((kind): kind is string => kindOk(kind) && kind !== "") : [];
+  const stored = Array.isArray(record.pinned) ? record.pinned.filter((kind): kind is string => kindOk(kind) && kind !== "") : [];
+  const pinned = record[SEEDED_FLAG] === true ? stored : [...DEFAULT_PINNED_KINDS, ...stored];
   const recents = Array.isArray(record.recents)
     ? record.recents.flatMap((item): CreateCombo[] => {
         if (!item || typeof item !== "object") return [];
@@ -69,13 +84,13 @@ export function loadCreateMemory(): CreateMemory {
   try {
     return parseCreateMemory(localStorage.getItem(CREATE_MEMORY_KEY));
   } catch {
-    return { ...EMPTY };
+    return unseeded();
   }
 }
 
 function save(memory: CreateMemory): void {
   try {
-    localStorage.setItem(CREATE_MEMORY_KEY, JSON.stringify(memory));
+    localStorage.setItem(CREATE_MEMORY_KEY, JSON.stringify({ ...memory, [SEEDED_FLAG]: true }));
   } catch {
     /* storage blocked; the next sheet just starts from defaults */
   }

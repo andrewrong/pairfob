@@ -120,9 +120,8 @@ test("the settings language choice updates the simultaneously mounted desktop ra
   const app = appRoot();
   const before = app.querySelector(".rail")?.textContent;
   expect(typeof before).toBe("string");
-  // The language row opens a choice sheet; picking applies on the next task.
-  act(() => app.querySelector<HTMLButtonElement>(`.set-nav[aria-label="${t("settings.language")}"]`)!.click());
-  const english = [...document.querySelectorAll<HTMLButtonElement>(".sheet-body .menu-choice")]
+  // Language is chosen in place; the choice applies on the next task.
+  const english = [...app.querySelectorAll<HTMLButtonElement>(`[role="radiogroup"][aria-label="${t("settings.langAria")}"] [role="radio"]`)]
     .find((el) => el.textContent === "English");
   expect(Boolean(english)).toBeTrue();
   await act(async () => {
@@ -142,8 +141,9 @@ test("mobile settings is a tab root: a page title, no back bar, and the tab bar"
   expect([...app.querySelectorAll("button")].some((el) => el.getAttribute("aria-label") === t("chrome.back"))).toBeFalse();
   expect(app.querySelector(".tab-bar .tab-bar-item.on")?.textContent).toContain(t("tabs.settings"));
   // A sub-page brings its own back bar, which returns to the overview.
-  act(() => app.querySelector<HTMLButtonElement>(".set-hero")!.click());
-  expect(app.querySelector(".topbar-title")?.textContent).toBe(t("settings.connection"));
+  act(() => app.querySelector<HTMLButtonElement>("button.cp-main")!.click());
+  expect(app.querySelector(".topbar-title")?.textContent).toBe("Test Host");
+  expect(app.querySelector(".cp-name")?.textContent).toBe("Test Host");
   act(() => app.querySelector<HTMLButtonElement>(`button[aria-label="${t("chrome.back")}"]`)!.click());
   expect(app.querySelector(".settings-title")?.textContent).toBe("Settings");
 });
@@ -151,9 +151,9 @@ test("mobile settings is a tab root: a page title, no back bar, and the tab bar"
 test("a domain-driven re-render keeps focus on the network radio", () => {
   mountSettingsLive();
   const app = appRoot();
-  act(() => app.querySelector<HTMLButtonElement>(".set-hero")!.click());
-  const relay = app.querySelector<HTMLButtonElement>(".network-mode-row button[role=radio]:nth-child(3)");
-  if (!(relay instanceof HTMLButtonElement) || relay.textContent !== "Relay") {
+  act(() => app.querySelector<HTMLButtonElement>("button.cp-main")!.click());
+  const relay = app.querySelector<HTMLButtonElement>(".route-group button[role=radio]:nth-child(3)");
+  if (!(relay instanceof HTMLButtonElement) || relay.querySelector(".set-item-label")?.textContent !== "Relay only") {
     throw new Error("missing Relay radio");
   }
   act(() => relay.focus());
@@ -164,7 +164,7 @@ test("a domain-driven re-render keeps focus on the network radio", () => {
     commitView();
   });
   expect(document.activeElement).toBeInstanceOf(HTMLButtonElement);
-  expect((document.activeElement as HTMLButtonElement).textContent).toBe("Relay");
+  expect((document.activeElement as HTMLButtonElement).querySelector(".set-item-label")?.textContent).toBe("Relay only");
   expect((document.activeElement as HTMLButtonElement).getAttribute("role")).toBe("radio");
   act(() => clearNotice());
 });
@@ -198,6 +198,6 @@ test("settings renders neutral recovery while the stored runtime still reports l
     commitView();
   });
   expect(appRoot().textContent).toContain(t("chrome.checking"));
-  expect(appRoot().querySelector(".dot-pending")).not.toBeNull();
+  expect(appRoot().querySelector(".cp-wire.is-wait")).not.toBeNull();
   expect(appRoot().textContent).not.toContain(t("chrome.reconnecting"));
 });

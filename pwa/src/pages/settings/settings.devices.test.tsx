@@ -54,7 +54,7 @@ function mountSettingsDevices(session: Partial<LiveSession>): void {
       attachLiveSession({ isConnected: () => true, ...session } as LiveSession);
     });
     // These cases exercise the devices page behind the Settings overview.
-    setSettingsSection("devices");
+    setSettingsSection("connection");
     mountApp();
   });
 }
@@ -120,6 +120,14 @@ afterEach(async () => {
 });
 
 describe("settings paired devices (actual App)", () => {
+  test("two devices with one name are told apart by a short id", () => {
+    mountSettingsDevices({ listDevices: async () => ({ devices: [] }) });
+    act(() => applyDeviceList([self, { ...stale, label: "Phone" }]));
+    const subs = [...appRoot().querySelectorAll(".device-item .set-item-sub")].map((el) => el.textContent ?? "");
+    expect(subs[0]).toContain("dev_selfphone01");
+    expect(subs[1]).toContain("dev_stale00001");
+  });
+
   test("hides unpaired rows and lets this phone unpair others", async () => {
     const revoked: string[] = [];
     mountSettingsDevices({
@@ -131,16 +139,15 @@ describe("settings paired devices (actual App)", () => {
       }),
     });
     const app = appRoot();
-    expect(app.textContent).toContain("Phone");
-    expect(app.textContent).toContain("这台手机");
-    expect(app.querySelector(".topbar-title")?.textContent).toBe("已配对设备");
-    // This page lists devices only; unpairing this phone stays in the
-    // overview's danger section, away from the per-device forget buttons.
-    expect([...app.querySelectorAll("button")].some((el) => el.textContent?.trim() === "解除这台手机的配对")).toBeFalse();
-    expect(app.textContent).toContain("旧手机");
+    // The devices are listed on the computer page, under their own group.
+    expect(app.querySelector(".devices-group .set-group-label")?.textContent).toBe("已配对设备 · 2");
+    expect([...app.querySelectorAll(".device-item .set-item-label")].map((el) => el.textContent)).toEqual(["Phone", "旧手机"]);
+    expect(app.querySelector(".device-item .set-tag")?.textContent).toBe("这台手机");
     expect(app.textContent).toContain("离线");
     expect(app.textContent).not.toContain("已解除配对");
     expect(app.textContent).not.toContain("dev_gone");
+    // Distinct names read by name alone; ids appear only when names collide.
+    expect(app.textContent).not.toContain("dev_stale");
     const forgetButtons = () => [...app.querySelectorAll<HTMLButtonElement>(".device-forget")];
     expect(forgetButtons().map((el) => el.getAttribute("aria-label"))).toEqual(["解除旧手机的配对"]);
     await act(async () => {
@@ -154,17 +161,12 @@ describe("settings paired devices (actual App)", () => {
     });
     expect(revoked).toEqual(["dev_stale00001"]);
     expect(runtimeStore.get().deviceList.map((device) => device.device_id)).toEqual(["dev_selfphone01"]);
-    expect([...app.querySelectorAll(".device-name")].map((el) => el.textContent)).toEqual(["Phone"]);
+    expect([...app.querySelectorAll(".device-item .set-item-label")].map((el) => el.textContent)).toEqual(["Phone"]);
     const success = t("live.unpairedDevice", { name: "旧手机" });
-    // Snapshot contract...
     expect(visibleNotice()?.text).toBe(success);
-    // ...and the mounted UI contract: the success status is actually rendered.
     expect(app.textContent).toContain(success);
-    // Back on the overview, unpairing this phone is a real danger button (found,
-    // never clicked here).
-    act(() => app.querySelector<HTMLButtonElement>(`button[aria-label="${t("chrome.back")}"]`)!.click());
+    // Unpairing this phone sits on the same page, as a quiet danger row.
     const selfUnpair = [...app.querySelectorAll("button")].find((el) => el.textContent?.trim() === "解除这台手机的配对");
-    expect(selfUnpair).toBeInstanceOf(HTMLButtonElement);
-    expect(selfUnpair?.classList.contains("btn-danger")).toBeTrue();
+    expect(selfUnpair?.classList.contains("set-danger")).toBeTrue();
   });
 });

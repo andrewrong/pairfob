@@ -8,9 +8,9 @@
  */
 import { openComputers } from "../computers/actions";
 import type { AgentCard } from "../../lib/ranking";
-import type { EmptySessionAction } from "../../lib/ui-model";
+import type { HerdEmptyAction } from "./model/herd-view";
 import { openPane, reconnectLiveSessions } from "../connection/controller";
-import { openSettings } from "../settings/actions";
+import { openSettings, openSettingsSection } from "../settings/actions";
 
 export type HerdActionPorts = {
   /**
@@ -34,6 +34,8 @@ export type HerdActionPorts = {
   openCreate(workspace?: AgentCard): void;
   /** Recent agent + workspace combinations, created in one step. */
   openQuickCreate(): void;
+  /** The create sheet on a new workspace in `dir` (never creates by itself). */
+  openCreateInDir(dir: string): void;
 };
 
 export type HerdActions = {
@@ -46,7 +48,9 @@ export type HerdActions = {
   openBoard(): void;
   openSettings(): void;
   openComputers(): void;
-  runEmptyAction(kind: EmptySessionAction): void;
+  runEmptyAction(kind: HerdEmptyAction): void;
+  /** Open the create sheet on a new workspace, preselecting a recent directory. */
+  createInDir(dir: string): void;
   openHostMenu(): void;
   openGroupModeMenu(): void;
   /** `source` is the tapped ticket, which grows into the pane like a card. */
@@ -118,7 +122,10 @@ export function createHerdActions(ports: HerdActionPorts): HerdActions {
     runEmptyAction(kind) {
       if (kind === "create") ports.openCreate();
       else if (kind === "retry") reconnectLiveSessions("probe");
-      else openSettings();
+      else openSettingsSection("connection");
+    },
+    createInDir(dir) {
+      ports.openCreateInDir(dir);
     },
   };
 }

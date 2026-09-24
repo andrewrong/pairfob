@@ -104,3 +104,34 @@ for (const action of ["offline", "close"] as const) {
     expect(live.isConnected()).toBe(false);
   });
 }
+
+test("a dial surviving hidden and visible is attributed to the new foreground recovery", async () => {
+  const { Window } = await import("happy-dom");
+  const { connectionDiagnostics } = await import("../src/lib/protocol/connection-diagnostics");
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const realm = new Window();
+  let visibility = "visible";
+  Object.defineProperty(realm.document, "visibilityState", { get: () => visibility });
+  Object.defineProperty(globalThis, "document", { configurable: true, value: realm.document });
+  try {
+    const f = await interrupted();
+    const oldID = f.live.connectionRecovery!()!().recovery_id;
+    const connectID = connectionDiagnostics().filter(r => r.event === "connect_start").at(-1)!.connect_id;
+    visibility = "hidden";
+    realm.document.dispatchEvent(new realm.Event("visibilitychange"));
+    visibility = "visible";
+    realm.document.dispatchEvent(new realm.Event("visibilitychange"));
+    const newID = f.live.connectionRecovery!()!().recovery_id;
+    expect(newID).not.toBe(oldID);
+    f.stale.releaseLate();
+    await until(() => f.live.isConnected());
+    expect(SessionSocket.instances).toHaveLength(2);
+    const ready = connectionDiagnostics().filter(r => r.event === "session_ready" && r.connect_id === connectID).at(-1)!;
+    expect(ready.recovery_id).toBe(newID);
+    expect(connectionDiagnostics().filter(r => r.event === "recovery_ready").at(-1)!.recovery_id).toBe(newID);
+  } finally {
+    live?.close();
+    if (descriptor) Object.defineProperty(globalThis, "document", descriptor);
+    else Reflect.deleteProperty(globalThis, "document");
+  }
+}, 15000);

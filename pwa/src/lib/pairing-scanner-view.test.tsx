@@ -1,7 +1,7 @@
 import { happy, resetTestDOM } from "../../test-support/boot-dom";
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { act } from "react";
-import { openPairingScanner, PairingScanError, type ScannerFactory } from "./pairing-scanner-view";
+import { openPairingScanner, PairingScanError, type ScannerFactory, type ScanResult } from "./pairing-scanner-view";
 import { scanPairingCode } from "./pairing-scanner";
 import { parsePairingURL, type FragmentPairing } from "./pairing-input";
 import { setLang, t } from "./i18n";
@@ -39,7 +39,7 @@ function camera(start: Promise<void> = Promise.resolve()) {
 }
 function dialog() { return document.querySelector<HTMLDialogElement>("dialog.scanner-modal")!; }
 function open(factory: ScannerFactory) {
-  let result!: Promise<FragmentPairing | null>;
+  let result!: Promise<ScanResult>;
   act(() => { result = openPairingScanner(origin, factory); });
   return result;
 }
@@ -51,8 +51,10 @@ test("scanner preserves the frame, inline error and video identity across a reje
   const video = engine.video();
   expect(modal.open).toBeTrue();
   expect(modal.getAttribute("aria-labelledby")).toBe("scanner-title");
-  expect([...modal.children].map(node => node.tagName)).toEqual(["H2", "P", "DIV", "P", "BUTTON"]);
+  expect(modal.classList.contains("sheet")).toBeTrue();
+  expect(modal.querySelector("#scanner-title")?.textContent).toBe(t("scan.title"));
   expect(modal.querySelectorAll(".scanner-corner")).toHaveLength(4);
+  expect(modal.querySelector(".scanner-to-code")?.textContent).toBe(t("scan.toCode"));
   expect(video.hasAttribute("playsinline")).toBeTrue();
   expect(video.muted).toBeTrue();
   await act(async () => engine.decode(qr.replace(origin, "https://example.com")));
@@ -125,14 +127,25 @@ test.each([
   ["NotAllowedError", "scan.cameraDenied"], ["SecurityError", "scan.cameraDenied"],
   ["NotFoundError", "scan.noCamera"], ["OverconstrainedError", "scan.noCamera"],
   ["UnknownError", "scan.cameraFail"],
-] as const)("camera failure %s preserves its actionable error", async (name, key) => {
+] as const)("camera failure %s stays in the sheet with its reason and a way to type the code", async (name, key) => {
   const permission = deferred();
   const engine = camera(permission.promise);
-  const outcome = open(engine.factory).catch(error => error);
+  const outcome = open(engine.factory);
   await act(async () => permission.reject(Object.assign(new Error("camera"), { name })));
-  const error = await outcome;
-  expect(error).toBeInstanceOf(PairingScanError);
-  expect(error.message).toBe(t(key));
+  expect(engine.calls.destroy).toBe(1);
+  expect(dialog().open).toBeTrue();
+  expect(dialog().querySelector("video")).toBeNull();
+  expect(dialog().querySelector(".scanner-blocked-copy")?.textContent).toBe(t(key));
+  await act(async () => dialog().querySelector<HTMLButtonElement>(".scanner-to-code")!.click());
+  expect(await outcome).toBe("code");
+  expect(dialog()).toBeNull();
+});
+
+test("typing the code instead retires the camera and resolves to the code sheet", async () => {
+  const engine = camera();
+  const result = open(engine.factory);
+  await act(async () => dialog().querySelector<HTMLButtonElement>(".scanner-to-code")!.click());
+  expect(await result).toBe("code");
   expect(engine.calls.destroy).toBe(1);
   expect(dialog()).toBeNull();
 });
@@ -161,11 +174,16 @@ test("camera construction failure removes the dialog and preserves its original 
   expect(dialog()).toBeNull();
 });
 
-test("the public scan entry rejects unavailable camera access before mounting", async () => {
+test("the public scan entry explains unavailable camera access without starting one", async () => {
   const descriptor = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
   Object.defineProperty(navigator, "mediaDevices", { value: undefined, configurable: true });
   try {
-    await expect(scanPairingCode(origin)).rejects.toThrow(t("scan.noCamera"));
+    let result!: Promise<unknown>;
+    await act(async () => { result = scanPairingCode(origin); });
+    expect(dialog().querySelector("video")).toBeNull();
+    expect(dialog().querySelector(".scanner-blocked-copy")?.textContent).toBe(t("scan.noCamera"));
+    await act(async () => dialog().querySelector<HTMLButtonElement>(".sheet-close")!.click());
+    expect(await result).toBeNull();
     expect(dialog()).toBeNull();
   } finally {
     if (descriptor) Object.defineProperty(navigator, "mediaDevices", descriptor);

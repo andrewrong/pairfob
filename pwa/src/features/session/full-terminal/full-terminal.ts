@@ -1,3 +1,4 @@
+import { TerminalRecoveryDiagnostics } from "./terminal-recovery-diagnostics";
 import { encodeLiveKey } from "../keypad/live-key";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
@@ -52,7 +53,7 @@ import { afterNextPaint, observeHostResize } from "./full-terminal-lifecycle";
 import { fullTerminalPerf } from "./full-terminal-perf";
 import { FullTerminalFrameGate } from "./full-terminal-frame-gate";
 import { FullTerminalOpenTracker } from "./full-terminal-open-tracker";
-import { fullTerminalOptions, openWebglTerminal, WEBGL_CONTEXT_LOST, WEBGL_UNAVAILABLE } from "./full-terminal-renderer";
+import { fullTerminalOptions, terminalScreenText, openWebglTerminal, WEBGL_CONTEXT_LOST, WEBGL_UNAVAILABLE } from "./full-terminal-renderer";
 import {
   FullTerminalStatus,
   setFullTerminalDocumentMode,
@@ -60,6 +61,8 @@ import {
 import { track } from "../../../lib/telemetry";
 import { guidedScrollController } from "../guided/guided-scroll";
 import { publishFullTerminalView, resetFullTerminalView, type FullTerminalViewSnapshot } from "./full-terminal-view";
+
+let terminalRecovery: TerminalRecoveryDiagnostics | undefined;
 
 // #app is resolved lazily inside each DOM-owning function below: importing
 // this controller must not require a document.
@@ -392,6 +395,7 @@ async function mount(host: HTMLElement): Promise<void> {
 }
 
 function disposeRenderer(): void {
+  terminalRecovery = undefined;
   rendererVersion++;
   cancelMount?.();
   cancelMount = null;
@@ -431,6 +435,7 @@ async function openBridge(takeover: boolean): Promise<void> {
   opening = true;
   terminalStatus.start(copy(takeover ? "ft.takeover" : "ft.opening"), "opening");
   fullTerminalPerf.bridgeStarted();
+  const recovery = new TerminalRecoveryDiagnostics(session.connectionRecovery?.());
   try {
     const size = fittedSize ?? fit();
     const opened = await session.terminalOpen(paneId, size.cols, size.rows, takeover);
@@ -442,6 +447,8 @@ async function openBridge(takeover: boolean): Promise<void> {
     bridgePane = paneId;
     startCommandPump(session, opened.terminalId, version);
     fullTerminalPerf.bridgeOpened();
+    terminalRecovery = recovery;
+    recovery.opened();
     assembler.reset();
     frameGate.reset();
     terminalStatus.start(copy("ft.live"), "live");
@@ -469,6 +476,7 @@ async function suspendBridge(sendClose: boolean, reason?: LocalizedText, showFai
   const id = bridgeId;
   const renderer = rendererVersion;
   const pendingOpen = openTracker.pending();
+  terminalRecovery = undefined;
   stopCommandPump();
   const version = ++bridgeVersion;
   bridgeId = "";
@@ -710,6 +718,7 @@ export function handleFullTerminalEvent(event: SessionEvent): boolean {
           if (terminal === writer && bridgeVersion === writeVersion) {
             pendingWriteBytes = Math.max(0, pendingWriteBytes - frame.data.byteLength);
             fullTerminalPerf.writeCompleted(performance.now() - writeStartedAt, commandMarker);
+            terminalRecovery?.firstFrame();
           }
         });
       }
@@ -773,3 +782,9 @@ connectFullTerminalEngine({
 export { attachFullTerminalHost };
 export { FullTerminalScreen, releaseFullTerminalScreen } from "./full-terminal-screen";
 export { getFullTerminalView, subscribeFullTerminalView } from "./full-terminal-view";
+
+/** Read the displayed renderer, never the guided-mode snapshot cache. */
+export function fullTerminalScreenText(paneId: string): string {
+  if (!isFullTerminal() || bridgePane !== paneId || openPaneId() !== paneId || !terminal) return "";
+  return terminalScreenText(terminal);
+}

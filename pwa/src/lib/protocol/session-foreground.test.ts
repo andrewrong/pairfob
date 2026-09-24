@@ -486,3 +486,48 @@ test("a checking listener reentering recovery shares the already-owned probe", a
     expect(f.events).toEqual(["checking", "connected"]);
   } finally { f.driver.dispose(); }
 });
+
+for (const immediate of [true, false]) {
+  test(`definitive foreground failure switches once (${immediate ? "already failed" : "during probe"})`, async () => {
+    const f = driverFixture();
+    let fail = () => {};
+    let stops = 0;
+    f.session.directChannel = () => ({ watchRecoveryFailure(handler: () => void) {
+      fail = handler;
+      if (immediate) handler();
+      return () => { stops++; };
+    } }) as unknown as DataFrameChannel;
+    f.driver.probe(f.session, "probe");
+    expect(f.calls).toHaveLength(immediate ? 0 : 1);
+    fail(); fail();
+    expect(f.failures).toHaveLength(1);
+    expect(f.failures[0]!.diagnostics?.reason).toBe("foreground_transport_failed");
+    if (!immediate) f.calls[0]!.resolve({});
+    await settle();
+    expect(f.events).toEqual(["checking"]);
+    expect(stops).toBeGreaterThan(0);
+    f.driver.dispose();
+  });
+}
+
+test("a hidden or superseded foreground cannot act on terminal failure", async () => {
+  const f = driverFixture();
+  const callbacks: Array<() => void> = [];
+  f.session.directChannel = () => ({ watchRecoveryFailure(handler: () => void) {
+    callbacks.push(handler); return () => {};
+  } }) as unknown as DataFrameChannel;
+  f.driver.probe(f.session, "probe");
+  page.show(true);
+  callbacks[0]!();
+  expect(f.failures).toHaveLength(0);
+  page.show(false);
+  f.driver.probe(f.session, "probe");
+  callbacks[0]!();
+  expect(f.failures).toHaveLength(0);
+  f.calls[1]!.resolve({});
+  await settle();
+  callbacks[1]!();
+  expect(f.failures).toHaveLength(0);
+  f.calls[0]!.resolve({});
+  f.driver.dispose();
+});

@@ -32,6 +32,7 @@ import { listGroup, listGroupCollapsed, paneActivated, panePinned, paneTouched, 
 import { acknowledgePaneCompletion } from "../../features/dashboard/catalog-store";
 import { openGroupModeSheet } from "../../features/dashboard/components/group-mode-sheet";
 import { openCreateSheet, openQuickCreate } from "./create-bridge";
+import { loadCreateMemory } from "../../features/operations/create-memory";
 import { openHostMenu } from "./host-menu";
 import { runtimeStore } from "../../features/connection/runtime-store";
 import { openPaneId } from "../../features/session/session-store";
@@ -125,7 +126,10 @@ export function readHerdHost(status: HerdStatus): HerdHostView {
     // opens the panel whose first entry retries, so the line says so where the
     // eye already is. While offline or reconnecting the phone is already retrying.
     const connected = liveSession()?.isConnected() === true;
-    const retry = networkOnline() && (status.tone === "off" || (status.tone === "warn" && connected));
+    // "Cannot confirm Herdr" already carries "retrying" in its long form; the
+    // header's short form names the action instead of repeating it.
+    if (networkOnline() && status.tone === "warn" && connected) return { name, line: t("host.unverifiedLine"), tone: status.tone };
+    const retry = networkOnline() && status.tone === "off";
     return { name, line: retry ? `${status.text} · ${t("host.retryShort")}` : status.text, tone: status.tone };
   }
   const connection = connectionStore.get();
@@ -147,7 +151,7 @@ export function readHerdInput(painted: HerdPaint): HerdModelInput {
   const connected = liveSession()?.isConnected() === true;
   const online = networkOnline();
   const reachability = { connected, networkOnline: online, runtimeKind: runtime.runtimeKind };
-  const status = herdStatusModel({ checking: liveSession()?.isChecking?.() === true, ...reachability, herdHost: runtime.herdHost });
+  const status = herdStatusModel({ checking: liveSession()?.isChecking?.() === true, ...reachability, herdHost: runtime.herdHost, reading: runtime.identityPending });
   return {
     agents: dashboard.agents,
     listGroup: listGroup(),
@@ -159,6 +163,10 @@ export function readHerdInput(painted: HerdPaint): HerdModelInput {
     attention: painted,
     liveness: herdLivenessModel(reachability),
     status,
+    reading: runtime.identityPending,
+    snapshotLoaded: dashboard.snapshotLoaded,
+    // Only an empty list shows them; reading the phone's memory then is cheap.
+    recentDirs: dashboard.agents.length ? [] : loadCreateMemory().dirs,
     host: readHerdHost(status),
     createTab: capabilityEnabled("create_tab"),
     now: Date.now(),
@@ -234,5 +242,8 @@ export function herdActionPorts(): HerdActionPorts {
       void openCreateSheet({ workspaceId: workspace?.workspaceId });
     },
     openQuickCreate,
+    openCreateInDir: (dir) => {
+      void openCreateSheet({ newWorkspace: true, dir });
+    },
   };
 }

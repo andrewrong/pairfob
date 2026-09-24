@@ -127,6 +127,7 @@ export function readBoardInput(): BoardModelInput {
       networkOnline: online,
       runtimeKind: runtime.runtimeKind,
       herdHost: runtime.herdHost,
+      reading: runtime.identityPending,
       liveness: herdLivenessModel({ connected, networkOnline: online, runtimeKind: runtime.runtimeKind }),
     }),
     canCreateTab: capabilityEnabled("create_tab"),

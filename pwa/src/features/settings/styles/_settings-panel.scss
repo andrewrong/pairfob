@@ -1,0 +1,121 @@
+/* --- Computer panel ----------------------------------------------------------------------
+   The computer's name over a live link from this phone. The wire is the status:
+   solid green for P2P, dashed accent through the relay, broken amber while
+   offline, a quiet line while the first read is pending. The panel sits at the
+   same height on the overview and the computer page. */
+
+.computer-panel { margin-top: 14px; }
+
+.cp-main {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 16px var(--set-pad) 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+button.cp-main { cursor: pointer; }
+button.cp-main:active { background: var(--surface-2); }
+
+.cp-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cp-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-title);
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+.cp-link {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: start;
+  padding: 14px 0 16px;
+}
+
+.cp-node {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+}
+
+.cp-node.is-end { align-items: flex-end; }
+
+.cp-node-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.cp-wire {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 40px;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.cp-wire::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 19px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ok);
+}
+
+.cp-wire.is-relay::before { background: repeating-linear-gradient(90deg, var(--accent) 0 7px, transparent 7px 12px); }
+.cp-wire.is-off::before { background: linear-gradient(90deg, var(--warn) 0 36%, transparent 36% 64%, var(--warn) 64%); opacity: 0.7; }
+.cp-wire.is-wait::before { background: var(--line-strong); }
+
+.cp-chip {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ok);
+  font-size: var(--text-caption);
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+}
+
+button.cp-main:active .cp-chip { background: var(--surface-2); }
+.cp-wire.is-relay .cp-chip { color: var(--accent); }
+.cp-wire.is-off .cp-chip { color: var(--warn); }
+.cp-wire.is-wait .cp-chip { color: var(--muted); }
+
+.cp-note {
+  margin: -4px 0 14px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.cp-note.is-warn { color: var(--warn); }

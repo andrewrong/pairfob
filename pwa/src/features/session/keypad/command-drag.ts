@@ -14,6 +14,10 @@ function contains(el: Element, x: number, y: number): boolean {
  * a dot flips it); release over any pad cell reports that cell's index, and a
  * drag never also counts as the tap that opens the editor. `drop` must read
  * the pad's current state: it can run after this cell has unmounted.
+ *
+ * WebKit does not reliably keep a press out of its own gestures on
+ * `touch-action` alone, so the press also cancels its native touchmoves; a
+ * pan that won would end the drag with pointercancel.
  */
 export function bindCommandDrag(el: HTMLElement, drop: (to: number) => void): () => void {
   const doc = el.ownerDocument;
@@ -27,6 +31,7 @@ export function bindCommandDrag(el: HTMLElement, drop: (to: number) => void): ()
   let dot: Element | null = null;
   let flipTimer: number | null = null;
   let suppressClick = false;
+  let bound = true;
 
   const mark = (next: Element | null) => {
     if (next === target) return;
@@ -59,8 +64,10 @@ export function bindCommandDrag(el: HTMLElement, drop: (to: number) => void): ()
     doc.body.append(ghost);
     el.classList.add("is-drag-source");
   };
+  // `translate`, not `transform`: the ghost's `scale` would scale the offset
+  // too and leave it tens of pixels from a finger low on the screen.
   const place = (x: number, y: number) => {
-    if (ghost) ghost.style.transform = `translate(${x - offset.x}px, ${y - offset.y}px)`;
+    if (ghost) ghost.style.translate = `${x - offset.x}px ${y - offset.y}px`;
   };
   const finish = (dropped: boolean) => {
     doc.removeEventListener("pointermove", move, true);
@@ -77,6 +84,7 @@ export function bindCommandDrag(el: HTMLElement, drop: (to: number) => void): ()
     el.classList.remove("is-drag-source");
     pointer = null;
     pages = null;
+    if (!bound) el.removeEventListener("touchmove", hold);
     if (dragged) suppressClick = true;
     if (dragged && dropped && Number.isFinite(index)) drop(index);
   };
@@ -101,6 +109,9 @@ export function bindCommandDrag(el: HTMLElement, drop: (to: number) => void): ()
     doc.addEventListener("pointerup", up, true);
     doc.addEventListener("pointercancel", cancel, true);
   };
+  const hold = (event: TouchEvent) => {
+    if (pointer !== null && event.cancelable) event.preventDefault();
+  };
   const click = (event: MouseEvent) => {
     if (!suppressClick) return;
     suppressClick = false;
@@ -108,12 +119,17 @@ export function bindCommandDrag(el: HTMLElement, drop: (to: number) => void): ()
     event.stopImmediatePropagation();
   };
   el.addEventListener("pointerdown", down);
+  el.addEventListener("touchmove", hold, { passive: false });
   el.addEventListener("click", click, true);
   return () => {
     // A lifted command outlives its cell: turning the page unmounts the source,
     // and the drop still belongs to the finger that is carrying it.
+    // Its touches keep targeting the unmounted source, so the touchmove guard
+    // stays until that finger lets go.
+    bound = false;
     if (pointer !== null && !ghost) finish(false);
     el.removeEventListener("pointerdown", down);
+    if (pointer === null) el.removeEventListener("touchmove", hold);
     el.removeEventListener("click", click, true);
   };
 }

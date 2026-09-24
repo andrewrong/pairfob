@@ -9,6 +9,7 @@
  */
 import { reloadCompletionSeen } from "../dashboard/catalog-store";
 import { applyRuntimeIdentity } from "./runtime-store";
+import { beginIdentityRead } from "./runtime";
 import { adoptDaemonPreferences } from "../settings/preferences-store";
 import {
   attachLiveSession,
@@ -27,6 +28,8 @@ import {
   noteRelayRtt,
   setSessionTransport,
   setPhase,
+  setConnectFailure,
+  setRetryingUnreachable,
 } from "./connection-store";
 import { currentScreen, setScreen } from "../../app/navigation-store";
 import { batch } from "../../shared/model/domain-store";
@@ -189,6 +192,9 @@ export async function landAfterDisconnect(
     setScreen("home");
     setPhase(phaseAfterComputers(count));
     if (!count) setCredential(null);
+    // The single-computer failure page explains network failures in place.
+    setConnectFailure(code || "disconnected");
+    setRetryingUnreachable(false);
   });
   if (!opts.silent) {
     const burned = credentialIsBurned(code) && (code === "revoked" || code === "unpaired");
@@ -278,6 +284,11 @@ export async function establish(
   if (activated.reused) void session.switchTransport(connectionStore.get().networkMode).catch(() => undefined);
   reloadCompletionSeen();
   batch(() => {
+    // The list's first paint must read "reading", not "cannot confirm Herdr":
+    // the runtime identity is fetched right after this.
+    beginIdentityRead();
+    setConnectFailure("");
+    setRetryingUnreachable(false);
     setPhase("live");
     setScreen("home");
   });

@@ -194,14 +194,16 @@ export function HerdScreen({
               {t("list.needsYou", { count: String(view.attention.length) })}
             </Button>
           ) : null}
-          <GroupModeButton mode={view.listGroup} onOpen={actions.openGroupModeMenu} />
+          {view.groups.length ? <GroupModeButton mode={view.listGroup} onOpen={actions.openGroupModeMenu} /> : null}
         </div>
         <AttentionStrip items={view.attention} onOpen={actions.openAttention} hidden={folded} />
       </header>
-      <HerdBanners tone={view.status.tone} />
+      {/* An empty list's panel already explains Herdr being gone or silent. */}
+      {view.empty?.kind === "exited" || view.empty?.kind === "unverifiable" ? null : <HerdBanners tone={view.status.tone} />}
       <AppNotice />
       <HerdList view={view} actions={screenActions} variant="page" />
-      {view.create ? <CreateFab create={view.create} onCreate={actions.openCreate} onQuick={actions.openQuickCreate} /> : null}
+      {/* Empty or still reading: the list area owns the one create action (or none). */}
+      {view.create && view.groups.length ? <CreateFab create={view.create} onCreate={actions.openCreate} onQuick={actions.openQuickCreate} /> : null}
     </div>
   );
 }

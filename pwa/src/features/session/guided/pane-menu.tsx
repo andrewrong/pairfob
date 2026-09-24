@@ -11,14 +11,14 @@ import { liveSession } from "../../computers/catalog-store";
 import { selectedAgent } from "../../dashboard/catalog-store";
 import { useDashboard } from "../../dashboard/hooks";
 import { usePreferences } from "../../settings/hooks";
-import { isAgentChat, isFullTerminal, openPaneId, sessionStore } from "../session-store";
+import { isAgentChat, isFullTerminal, openPaneId, livePaneText } from "../session-store";
 import { paneTermMode } from "../../settings/preferences-store";
 import { agentStatusLabel, agentTitle } from "../../../lib/dashboard";
 import { parseAnsi } from "../../../lib/ansi";
 import { t } from "../../../lib/i18n";
 import type { DashboardAgentCard as AgentCard } from "../../../lib/dashboard";
 import { closePaneConfirmed, layoutSelectedPane, paneIsRunning } from "../../../features/operations/controller";
-import { retryFullTerminal } from "../full-terminal/full-terminal";
+import { fullTerminalScreenText, retryFullTerminal } from "../full-terminal/full-terminal";
 import { showActionSheet, type ActionSheetController } from "../../../shared/ui/overlay/action-sheet";
 import { MenuGroup, MenuRow, MenuTile, MenuTiles } from "../../../shared/ui/overlay/menu-controls";
 import { useSheetNav, type SheetNav } from "../../../shared/ui/overlay/sheet-stack";
@@ -30,9 +30,12 @@ export function fillSelectedPane(): void { void layoutSelectedPane("zoom"); }
 type MenuContext = { modal: ActionSheetController; agent: AgentCard | undefined; full: boolean; chat: boolean };
 
 /** Copy the screen as plain text; the count is what the reader sees confirmed. */
-async function copyScreenLines(): Promise<number | null> {
-  const lines = parseAnsi(sessionStore.get().paneText).map((line) => line.text);
+async function copyScreenLines(paneId: string): Promise<number | null> {
+  const full = isFullTerminal();
+  const text = full ? fullTerminalScreenText(paneId) : livePaneText();
+  const lines = full ? text.split("\n") : parseAnsi(text).map((line) => line.text);
   while (lines.length && !lines.at(-1)!.trim()) lines.pop();
+  if (!lines.length) return 0;
   try {
     await navigator.clipboard.writeText(lines.join("\n"));
     return lines.length;
@@ -111,19 +114,27 @@ function PaneMenu({ modal, agent, full, chat }: MenuContext) {
   const nav = useSheetNav()!;
   const caps = useCapabilities().operationCapabilities;
   const [status, setStatus] = useState("");
+  const [copying, setCopying] = useState(false);
+  const [copyOwner] = useState(() => ({ paneId: openPaneId(), session: liveSession() }));
   const layout = useTabLayout(agent);
   const worktrees = caps.list_worktrees || caps.create_worktree || caps.open_worktree;
   const session = liveSession();
   const copy = async () => {
-    const lines = await copyScreenLines();
-    setStatus(lines === null ? t("err.copyDenied") : t("pm.copiedLines", { n: String(lines) }));
+    if (openPaneId() !== copyOwner.paneId || liveSession() !== copyOwner.session || isAgentChat()) {
+      setStatus(t("pm.copyChanged"));
+      return;
+    }
+    setCopying(true);
+    const lines = await copyScreenLines(copyOwner.paneId);
+    setCopying(false);
+    setStatus(lines === null ? t("err.copyDenied") : lines === 0 ? t("pm.copyEmpty") : t("pm.copiedLines", { n: String(lines) }));
   };
   const layoutValue = !layout ? "" : layout.zoomed ? t("pm.layoutZoomed") : t("pm.layoutCells", { n: String(layout.panes.length) });
   return <PanePage className="pane-menu-root">
     {agent && <IdentityHead modal={modal} agent={agent} onCopied={setStatus} />}
     <PaneModeSetting modal={modal} mode={paneTermMode(openPaneId())} />
     <MenuTiles>
-      {!chat && <MenuTile icon={<Copy size={22} />} label={t("pm.tileCopy")} aria={t("menu.copyScreen")} onClick={() => void copy()} />}
+      {!chat && <MenuTile icon={<Copy size={22} />} label={t("pm.tileCopy")} aria={t("menu.copyScreen")} disabled={copying} onClick={() => void copy()} />}
       {caps.create_tab && agent && <MenuTile icon={<Plus size={22} />} label={t("pm.tileNewTab")} aria={t("menu.newTab")}
         onClick={() => pushPage(nav, "tab", t("pm.newTabTitle"), () => <NewTabPage modal={modal} agent={agent} />)} />}
       {caps.split_pane && agent && <MenuTile icon={<Columns2 size={22} />} label={t("pm.tileSplit")} aria={t("menu.split")}
@@ -131,7 +142,7 @@ function PaneMenu({ modal, agent, full, chat }: MenuContext) {
       {agent && <MenuTile icon={<Pencil size={22} />} label={t("pm.tileRename")} aria={t("menu.renamePane")}
         onClick={() => pushPage(nav, "rename", t("pm.renameTitle"), () => <RenamePage modal={modal} agent={agent} />)} />}
     </MenuTiles>
-    <p className="pane-menu-status" role="status">{status}</p>
+    <p className="pane-menu-status" role="status">{status || (!chat ? t("pm.copyHint") : "")}</p>
     {!chat && <h3 className="pane-group-title">{t("pm.groupDisplay")}</h3>}
     <PaneDisplaySettings modal={modal} full={full} chat={chat} />
     <h3 className="pane-group-title">{t("pm.groupSession")}</h3>

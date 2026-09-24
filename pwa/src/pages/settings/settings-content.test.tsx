@@ -41,6 +41,6 @@ test("content with no back bar renders no extra page wrapper", () => {
   expect(host.querySelector(".page")).toBeNull();
   expect(host.querySelector(".topbar")).toBeNull();
   expect(host.querySelector(".settings-title")?.textContent).toBe("设置");
-  expect(host.querySelector(".set-hero")).toBeTruthy();
-  expect(host.querySelector(".set-heading")).toBeTruthy();
+  expect(host.querySelector(".computer-panel .cp-main")).toBeTruthy();
+  expect(host.querySelector(".set-group-label")).toBeTruthy();
 });

@@ -114,7 +114,7 @@ describe("staged composition publication", () => {
     expect(seen).toEqual([]);
     act(() => { commitApp(); });
     expect(seen.every((entry) => entry.phase === entry.frame)).toBeTrue();
-    expect(shown(".prelude")).toBeTrue();
+    expect(shown(".connect-page")).toBeTrue();
     release();
   });
 
@@ -289,15 +289,16 @@ Invalid probe JSON: ${String(error)}`);
     // Extra in-process subscriber: the shell is also already on the root when
     // frame consumers are first notified on the first mount, before React renders.
     let shellAtPublish: boolean | undefined;
+    // On the phone the boot composition is the list frame, whose shell class is `tabs`.
     const release = frameStore.subscribe(() => {
       if (shellAtPublish === undefined) {
-        shellAtPublish = appRoot().classList.contains("boot-screen");
+        shellAtPublish = appRoot().classList.contains("tabs");
       }
     });
     act(() => { mountApp(); });
     release();
     expect(shellAtPublish).toBeTrue();
-    expect(appRoot().classList.contains("boot-screen")).toBeTrue();
+    expect(appRoot().classList.contains("tabs")).toBeTrue();
     expect(report.shellAtNotification).toBeTrue();
   }, 35_000);
 
@@ -366,13 +367,13 @@ describe("stable App navigation", () => {
     setPhase("connect");
     publishAllDomains();
     act(() => { mountApp(); });
-    expect(shown(".prelude")).toBeTrue();
+    expect(shown(".connect-page")).toBeTrue();
     act(() => {
       setPhase("pick");
       commitApp();
       expect(getAppFrame().layout?.mode).toBe("pick");
       expect(shown(".computer-list")).toBeTrue();
-      expect(shown(".prelude")).toBeFalse();
+      expect(shown(".connect-page")).toBeFalse();
     });
   });
 });

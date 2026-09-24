@@ -16,9 +16,10 @@ import (
 )
 
 type rpcRequest struct {
-	id     string
-	op     string
-	params json.RawMessage
+	id         string
+	op         string
+	params     json.RawMessage
+	receivedAt time.Time
 }
 
 const sessionRPCQueueSize = 32
@@ -70,11 +71,12 @@ func (e *Engine) handleSessionBound(f envelope.Frame) {
 	}
 	created := &sess{
 		routeID: rid, state: "resumehello", link: e.Conn, transport: "relay",
-		rpcQueue: make(chan rpcRequest, sessionRPCQueueSize), rpcStop: make(chan struct{}),
+		rpcQueue: make(chan rpcRequest, sessionRPCQueueSize), pingQueue: make(chan rpcRequest, sessionPingQueueSize), rpcStop: make(chan struct{}),
 	}
 	e.sessions[rid] = created
 	e.mu.Unlock()
 	go e.runSessionRPC(created)
+	go e.runSessionPing(created)
 	if old != nil {
 		stopSessionRPC(old)
 		// SESSION_BOUND retires the old session epoch: drain ITS media. Keyed by
@@ -128,14 +130,18 @@ func (e *Engine) handleSessFWD(f envelope.Frame, s *sess) {
 		}
 		return
 	}
-	request := rpcRequest{id: req.ID, op: req.Op, params: append(json.RawMessage(nil), req.Params...)}
+	request := rpcRequest{id: req.ID, op: req.Op, params: append(json.RawMessage(nil), req.Params...), receivedAt: time.Now()}
 	if s.rpcQueue == nil {
 		// Explicitly embedded test sessions may bypass the normal handshake.
 		e.dispatch(s, request.id, request.op, request.params)
 		return
 	}
+	queue := s.rpcQueue
+	if req.Op == "Ping" && s.pingQueue != nil {
+		queue = s.pingQueue
+	}
 	select {
-	case s.rpcQueue <- request:
+	case queue <- request:
 	default:
 		e.replyErr(s, req.ID, "backpressure", "session request queue is full")
 	}

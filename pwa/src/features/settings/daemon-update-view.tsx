@@ -15,9 +15,8 @@ import { legacyBuild } from "../../lib/daemon-version";
 import { askConfirm } from "../../shared/ui/overlay/basic-dialogs";
 import { t } from "../../lib/i18n";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
-import { goToScreen } from "../../app/navigation-store";
-import { commitView } from "../../app/host";
-import { Button, Spinner } from "../../shared/ui/primitives";
+import { Button, SetNavItem, Spinner } from "../../shared/ui/primitives";
+import { openSettingsSection } from "./actions";
 
 function laterDismissed(key: string): boolean {
   try {
@@ -54,10 +53,10 @@ function UpdateCommand() {
   const [copy, setCopy] = useState<"ready" | "copied" | "failed">("ready");
   const label = t(copy === "ready" ? "update.copyCommand" : copy === "copied" ? "update.copied" : "update.copyManual");
   return (
-    <>
+    <div className="command-line">
       <code>pairfob update</code>
       <Button
-        className="btn btn-small"
+        className="set-action command-copy"
         onClick={() => {
           void navigator.clipboard
             .writeText("pairfob update")
@@ -69,13 +68,14 @@ function UpdateCommand() {
             });
         }}
       >{label}</Button>
-    </>
+    </div>
   );
 }
 
-export function ManualUpdateHelp() {
+/** `inline` sits inside the computer page's card; the picker footer keeps its own card. */
+export function ManualUpdateHelp({ inline = false }: { inline?: boolean }) {
   return (
-    <details className="set-card">
+    <details className={inline ? "set-item-block daemon-update-help" : "set-card daemon-update-help"}>
       <summary>{t("update.helpTitle")}</summary>
       <p className="set-note">{t("update.helpBody")}</p>
       <UpdateCommand />
@@ -105,14 +105,7 @@ function CompactBody({ view, laterKey, onHide }: { view: DaemonVersion; laterKey
         <p className="set-note">{old ? t("update.legacyNote") : `${view.build} → ${view.latest}`}</p>
         <Button
           className="btn btn-small"
-          onClick={() => {
-            goToScreen("settings");
-            commitView();
-            document.querySelector<HTMLElement>("[data-react-daemon-detailed='true'], [data-detailed='true']")
-              ?.scrollIntoView({ block: "nearest" });
-            void checkDaemonRelease();
-            void refreshDaemonUpdate();
-          }}
+          onClick={showDaemonUpdate}
         >{t("update.view")}</Button>
         <Button
           className="btn btn-small btn-ghost"
@@ -136,69 +129,98 @@ function DetailedBody({ view }: { view: DaemonVersion }) {
   const status = view.status;
   const feedback = feedbackCopy(view);
   const showFeedback = view.checkedManually || needsDaemonUpdate(view);
+  const phase = status && status.phase !== "idle" ? status.phase : null;
+  const detail = showFeedback || phase || view.rejected || view.uncertain || needsDaemonUpdate(view);
   return (
-    <section className="daemon-update daemon-update-footer">
-      <div className="daemon-update-content">
-        <div className="daemon-update-version-row">
-          <div className="daemon-update-version">
-            <span>{t("update.computerVersion")}</span>
-            <code>{legacyBuild(view.build) ? t("update.versionUnknown") : view.build}</code>
-          </div>
-          <Button
-            className="btn daemon-update-check"
-            disabled={checking}
-            aria-busy={checking}
-            onClick={() => {
-              view.checkedManually = true;
-              void (async () => {
-                await checkDaemonRelease(true);
-                await refreshDaemonUpdate();
-              })();
-            }}
-          >
-            {checking ? <Spinner /> : null}{t(checking ? "update.checking" : "update.check")}
-          </Button>
-        </div>
-        {showFeedback ? (
-          <p className="daemon-update-feedback" role="status" aria-live="polite" {...(feedback.tone ? { "data-tone": feedback.tone } : {})}>
-            {feedback.text}
-          </p>
-        ) : null}
-        {status && status.phase !== "idle" ? (
-          <p
-            className="daemon-update-feedback"
-            role="status"
-            {...(status.phase === "failed" || status.phase === "rolled_back" ? { "data-tone": "error" } : {})}
-          >
-            {phaseCopy(status.phase, view.build, status.target)}
-          </p>
-        ) : null}
-        {view.rejected ? <p className="set-note">{t("update.rejected")}</p> : null}
-        {view.uncertain ? <p className="set-note">{t("update.uncertain")}</p> : null}
-        {needsDaemonUpdate(view) ? (
-          <>
-            {status?.available && !old ? (
-              <Button
-                className="btn btn-small btn-primary"
-                disabled={!!view.requesting || !!view.uncertain || updateInProgress(status) || !liveSession()?.isConnected()}
-                onClick={() => {
-                  const session = liveSession();
-                  void askConfirm({ title: t("confirm.updateTitle"), message: t("confirm.updateEffect"),
-                    confirmLabel: t("update.now"), tone: "primary" }).then((yes) => {
-                    if (yes && session === liveSession()) void startDaemonUpdate();
-                  });
-                }}
-              >{t("update.now")}</Button>
-            ) : null}
-            {status && status.phase !== "idle" ? (
-              <Button className="btn btn-small btn-ghost" onClick={() => void refreshDaemonUpdate()}>{t("update.refresh")}</Button>
-            ) : null}
-            <UpdateCommand />
-          </>
-        ) : null}
+    <div className="daemon-update">
+      <div className="set-item daemon-update-version-row">
+        <span className="set-item-text daemon-update-version">
+          <span className="set-item-label">{t("update.computerVersion")}</span>
+          <code className="set-item-sub">{legacyBuild(view.build) ? t("update.versionUnknown") : view.build}</code>
+        </span>
+        <Button
+          className="set-action daemon-update-check"
+          disabled={checking}
+          aria-busy={checking}
+          onClick={() => {
+            view.checkedManually = true;
+            void (async () => {
+              await checkDaemonRelease(true);
+              await refreshDaemonUpdate();
+            })();
+          }}
+        >
+          {checking ? <Spinner /> : null}{t(checking ? "update.checking" : "update.check")}
+        </Button>
       </div>
-    </section>
+      {detail ? (
+        <div className="set-item-block daemon-update-detail">
+          {showFeedback ? (
+            <p className="daemon-update-feedback" role="status" aria-live="polite" {...(feedback.tone ? { "data-tone": feedback.tone } : {})}>
+              {feedback.text}
+            </p>
+          ) : null}
+          {phase ? (
+            <p className="daemon-update-feedback" role="status"
+              {...(phase === "failed" || phase === "rolled_back" ? { "data-tone": "error" } : {})}>
+              {phaseCopy(phase, view.build, status!.target)}
+            </p>
+          ) : null}
+          {view.rejected ? <p className="daemon-update-feedback">{t("update.rejected")}</p> : null}
+          {view.uncertain ? <p className="daemon-update-feedback">{t("update.uncertain")}</p> : null}
+          {needsDaemonUpdate(view) ? (
+            <>
+              {status?.available && !old ? (
+                <Button
+                  className="btn btn-primary"
+                  disabled={!!view.requesting || !!view.uncertain || updateInProgress(status) || !liveSession()?.isConnected()}
+                  onClick={() => {
+                    const session = liveSession();
+                    void askConfirm({ title: t("confirm.updateTitle"), message: t("confirm.updateEffect"),
+                      confirmLabel: t("update.now"), tone: "primary" }).then((yes) => {
+                      if (yes && session === liveSession()) void startDaemonUpdate();
+                    });
+                  }}
+                >{t("update.now")}</Button>
+              ) : null}
+              {phase ? (
+                <Button className="set-action" onClick={() => void refreshDaemonUpdate()}>{t("update.refresh")}</Button>
+              ) : null}
+              <UpdateCommand />
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
+}
+
+/**
+ * Open the computer page on its update block: the overview's update row and
+ * the desk rail's banner both land here, then re-read the release and status.
+ */
+export function showDaemonUpdate(): void {
+  openSettingsSection("connection");
+  requestAnimationFrame(() => {
+    const group = document.getElementById("settings-daemon");
+    if (!group) return;
+    group.scrollIntoView({ block: "center" });
+    group.classList.add("is-focused");
+    globalThis.setTimeout(() => group.classList.remove("is-focused"), 1_600);
+  });
+  void checkDaemonRelease();
+  void refreshDaemonUpdate();
+}
+
+/** The overview's one-line update row inside the computer panel; nothing while the computer is current. */
+export function DaemonUpdateRow() {
+  useSyncExternalStore(subscribeDaemonUpdates, daemonUpdateRevision);
+  const view = daemonVersion();
+  if (!view || !needsDaemonUpdate(view)) return null;
+  const old = legacyBuild(view.build) || view.incompatible;
+  const busy = updateInProgress(view.status);
+  return <SetNavItem className="daemon-update-row" label={busy ? t("set.updating") : old ? t("update.legacyTitle") : t("set.updateAvailable")}
+    value={busy || old ? undefined : view.latest} valueTone="accent" onClick={showDaemonUpdate} />;
 }
 
 export function DaemonUpdate({ compact = false }: { compact?: boolean }) {
@@ -209,7 +231,7 @@ export function DaemonUpdate({ compact = false }: { compact?: boolean }) {
   const laterKey = view ? laterKeyFor(view) : "";
   let inner: ReactNode = null;
   if (!view) {
-    inner = detailed ? <ManualUpdateHelp /> : null;
+    inner = detailed ? <ManualUpdateHelp inline /> : null;
   } else if (!detailed && !needsDaemonUpdate(view)) {
     inner = null;
   } else if (!detailed && (hiddenKey === laterKey || laterDismissed(laterKey))) {

@@ -26,6 +26,8 @@ export type CreateSheetInput = {
   canCreateTab: boolean;
   canCreateWorkspace: boolean;
   canCreateWorktree: boolean;
+  /** With a new workspace: a directory to start on (e.g. a recent one picked from the empty list). */
+  initialDir?: string;
 };
 
 export type CreateRequest =
@@ -41,7 +43,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
     : input.initial);
   const [kind, setKind] = useState(() => input.kinds.includes(input.lastKind) ? input.lastKind : input.kinds[0] ?? "");
   const [memory, setMemory] = useState(input.memory);
-  const [dir, setDir] = useState("");
+  const [dir, setDir] = useState(input.initialDir ?? "");
   const [otherPath, setOtherPath] = useState<string | null>(null);
   const [start, setStart] = useState<"dir" | "worktree">("dir");
   const [branch, setBranch] = useState("");

@@ -4,7 +4,7 @@ import type { LiveSession } from "../../lib/protocol/session-types";
 import { capabilitiesStore, capabilityEnabled, clearCapabilities, setOperationBusy } from "../operations/capabilities-store";
 import { applyRuntimeIdentity, resetRuntime, runtimeStore } from "./runtime-store";
 import { resetGenerationsForTests } from "./generations";
-import { refreshHerdConfig, type RuntimeObservationPorts } from "./runtime";
+import { beginIdentityRead, endIdentityRead, IDENTITY_READ_GRACE_MS, refreshHerdConfig, type RuntimeObservationPorts } from "./runtime";
 
 function legalConfig(): Record<string, unknown> {
   const capabilities: Record<string, boolean> = {};
@@ -43,6 +43,7 @@ function portsFor(live: () => LiveSession | null): RuntimeObservationPorts {
 }
 
 afterEach(() => {
+  endIdentityRead();
   clearCapabilities();
   applyRuntimeIdentity({ herdHost: "", runtimeKind: "" });
   setOperationBusy(false);
@@ -120,5 +121,55 @@ describe("runtime observation ownership", () => {
     await firstDone;
     expect(capabilityEnabled("create_tab")).toBe(true);
     expect(runtimeStore.get().runtimeKind).toBe("herdr");
+  });
+});
+
+describe("the first runtime read", () => {
+  test("an unread identity is pending until GetConfig answers", async () => {
+    let answer!: (config: Record<string, unknown>) => void;
+    const live = { isConnected: () => true, getConfig: () => new Promise((resolve) => { answer = resolve; }) } as unknown as LiveSession;
+    const read = refreshHerdConfig(portsFor(() => live));
+    expect(runtimeStore.get().identityPending).toBe(true);
+    answer(legalConfig());
+    await read;
+    expect(runtimeStore.get().identityPending).toBe(false);
+    expect(runtimeStore.get().runtimeKind).toBe("herdr");
+  });
+
+  test("a failed read is an answer too: pending ends and the identity stays empty", async () => {
+    const live = { isConnected: () => true, getConfig: async () => { throw new Error("boom"); } } as unknown as LiveSession;
+    await refreshHerdConfig(portsFor(() => live));
+    expect(runtimeStore.get().identityPending).toBe(false);
+    expect(runtimeStore.get().runtimeKind).toBe("");
+  });
+
+  test("a known identity is not re-marked pending by a foreground re-read", async () => {
+    applyRuntimeIdentity({ herdHost: "herdbox", runtimeKind: "herdr" });
+    let pendingSeen = false;
+    const stop = runtimeStore.subscribe(() => { pendingSeen ||= runtimeStore.get().identityPending; });
+    const live = { isConnected: () => true, getConfig: async () => legalConfig() } as unknown as LiveSession;
+    await refreshHerdConfig(portsFor(() => live));
+    stop();
+    expect(pendingSeen).toBe(false);
+  });
+
+  test("an unanswered read stops counting as pending after the grace period", () => {
+    const realSetTimeout = globalThis.setTimeout;
+    let fire: (() => void) | null = null;
+    let delay = 0;
+    globalThis.setTimeout = ((callback: () => void, ms: number) => {
+      fire = callback;
+      delay = ms;
+      return 1;
+    }) as unknown as typeof setTimeout;
+    try {
+      beginIdentityRead();
+      expect(runtimeStore.get().identityPending).toBe(true);
+      expect(delay).toBe(IDENTITY_READ_GRACE_MS);
+      fire!();
+      expect(runtimeStore.get().identityPending).toBe(false);
+    } finally {
+      globalThis.setTimeout = realSetTimeout;
+    }
   });
 });

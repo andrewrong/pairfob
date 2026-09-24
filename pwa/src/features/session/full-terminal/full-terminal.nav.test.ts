@@ -691,3 +691,45 @@ describe("complete-terminal remembers its mode per pane", () => {
     expect(status?.querySelector<HTMLButtonElement>(".full-terminal-state-retry")?.hidden).toBeFalse();
   });
 });
+
+test("reopened bridge counts its applied first frame and ignores a late old write", async () => {
+  const { connectionDiagnostics } = await import("../../../lib/protocol/connection-diagnostics");
+  const originalWrite = TestTerminal.prototype.write;
+  const writes: Array<() => void> = [];
+  TestTerminal.prototype.write = (_bytes, done) => { if (done) writes.push(done); };
+  let recoveryId = 201;
+  let opens = 0;
+  const terminalId = "term_11111111111111111111111111111111";
+  const session = live();
+  session.connectionRecovery = () => {
+    const captured = recoveryId;
+    return () => ({ recovery_id: captured, recovery_elapsed_ms: 100 });
+  };
+  session.terminalOpen = async (paneId, cols, rows) => {
+    opens++;
+    return { operationId: "op_AAECAwQFBgcICQoL", terminalId, paneId, cols, rows, encoding: "ansi" };
+  };
+  const frame = (sequence: string, full: boolean) => ({
+    type: "terminal_frame" as const, terminalId,
+    terminalFrame: { terminalId, sequence, full, width: 80, height: 24, index: 0, count: 1, data: new Uint8Array([65]) },
+  });
+  try {
+    bootFullTerminal(session);
+    await waitUntil(() => opens === 1, "first bridge");
+    act(() => handleFullTerminalEvent(frame("1", true)));
+    expect(writes).toHaveLength(1);
+    visibility = "hidden";
+    act(() => handleFullTerminalVisibility(true));
+    recoveryId = 202;
+    visibility = "visible";
+    act(() => handleFullTerminalVisibility(false));
+    await waitUntil(() => opens === 2, "second bridge");
+    writes[0]!();
+    expect(connectionDiagnostics().filter(r => r.recovery_id === 201 && r.event === "terminal_first_frame")).toHaveLength(0);
+    act(() => handleFullTerminalEvent(frame("1", true)));
+    writes[1]!();
+    act(() => handleFullTerminalEvent(frame("2", false)));
+    writes[2]!();
+    expect(connectionDiagnostics().filter(r => r.recovery_id === 202 && r.event === "terminal_first_frame")).toHaveLength(1);
+  } finally { TestTerminal.prototype.write = originalWrite; }
+});

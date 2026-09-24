@@ -1,0 +1,145 @@
+/* --- Connection path (slow / cannot reach) ----------------------------------------
+   The route this phone → pairfob.com → computer, drawn in the list frame. Solid
+   links are through, the moving one is waited on, the dashed red one is broken.
+   ------------------------------------------------------------------------------ */
+
+.conn-path-card {
+  display: grid;
+  gap: 12px;
+  margin: 6px 0 14px;
+  padding: 16px 14px 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.conn-path {
+  display: grid;
+  grid-template-columns: auto minmax(16px, 1fr) auto minmax(16px, 1fr) auto;
+  align-items: start;
+}
+
+.conn-node { display: grid; justify-items: center; gap: 3px; min-width: 70px; text-align: center; }
+.conn-node b { color: var(--ink); font-size: var(--text-caption); font-weight: 650; white-space: nowrap; }
+.conn-node small { color: var(--muted); font-size: 0.68rem; white-space: nowrap; }
+.conn-node.is-wait small { color: var(--warn); }
+.conn-node.is-fail small { color: var(--error); }
+.conn-node.is-idle { opacity: 0.5; }
+
+.conn-node-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.conn-node.is-fail .conn-node-icon,
+.conn-node.is-idle .conn-node-icon { color: var(--muted); }
+
+.conn-node.is-ok .conn-node-icon::after,
+.conn-node.is-fail .conn-node-icon::after {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  color: var(--bg);
+  font: 700 9px/11px var(--font);
+  text-align: center;
+}
+
+.conn-node.is-ok .conn-node-icon::after { content: "✓"; background: var(--ok); }
+.conn-node.is-fail .conn-node-icon::after { content: "✕"; background: var(--error); }
+.conn-node.is-wait .conn-node-icon { animation: conn-ring 1.6s ease-out infinite; }
+
+@keyframes conn-ring {
+  from { box-shadow: 0 0 0 0 rgba(255, 178, 36, 0.45); }
+  to { box-shadow: 0 0 0 10px rgba(255, 178, 36, 0); }
+}
+
+.conn-link { position: relative; height: 2px; margin-top: 20px; }
+.conn-link.is-ok { background: rgba(70, 214, 140, 0.55); }
+.conn-link.is-idle { background: var(--line-strong); }
+
+.conn-link.is-wait {
+  background: repeating-linear-gradient(90deg, var(--warn) 0 5px, transparent 5px 10px);
+  background-size: 20px 2px;
+  animation: conn-flow 0.7s linear infinite;
+}
+
+@keyframes conn-flow {
+  to { background-position: 20px 0; }
+}
+
+.conn-link.is-fail { background: repeating-linear-gradient(90deg, var(--error) 0 4px, transparent 4px 8px); }
+
+.conn-link.is-fail::after {
+  content: "✕";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--error);
+  font: 700 11px/16px var(--font);
+  text-align: center;
+}
+
+.conn-path-note { margin: 0; color: var(--muted); font-size: var(--text-secondary); line-height: 1.55; }
+.conn-path-actions { display: flex; align-items: center; gap: 6px; color: var(--line-strong); }
+.conn-path-actions .text-link { min-height: 36px; padding: 0 2px; }
+
+.conn-steps { display: grid; gap: 6px; }
+.conn-step-list { margin: 0; padding: 0; list-style: none; }
+.conn-step { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 12px 14px; }
+.conn-step + .conn-step { border-top: 1px solid var(--line); }
+
+.conn-step-n {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: 600 var(--text-caption) var(--font);
+}
+
+.conn-step-body { display: grid; gap: 4px; min-width: 0; }
+.conn-step-body b { color: var(--ink); font-size: var(--text-body); font-weight: 620; }
+.conn-step-body small { color: var(--muted); font-size: var(--text-caption); line-height: 1.5; }
+.conn-step-body .herd-empty-command { margin-top: 4px; }
+
+/* Retry at thumb height, above the tab bar. */
+.unreachable-shell { padding-bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px) + 120px); }
+
+.conn-retry-dock {
+  position: fixed;
+  right: 0;
+  bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 18px 16px 10px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 22%);
+}
+
+.conn-retry { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 48px; }
+.conn-retry-spin { width: 16px; height: 16px; }
+.conn-retry-note { color: var(--muted); font-size: var(--text-caption); }
+.conn-retry-add { min-height: 32px; padding: 0 2px; font-size: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  .conn-node.is-wait .conn-node-icon,
+  .conn-link.is-wait { animation: none; }
+}

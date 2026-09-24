@@ -4,8 +4,8 @@
  * Each test file shares one Bun worker with its neighbours, and `mock.module`
  * does not reliably restore a mocked ESM module for other suites, so this probe
  * runs in its own process. It installs a real Happy DOM realm, replaces only the
- * `pages/boot` BootScreen with a leaf that measures in its own layout effect whether
- * the shell (`boot-screen` on `#app`) was already applied, then mounts the real
+ * `pages/boot` boot pages with a leaf that measures in its own layout effect whether
+ * the boot shell (`boot-screen` or, on the phone, `tabs` on `#app`) was already applied, then mounts the real
  * `<App/>` for the boot composition and asserts the leaf observed the shell.
  *
  * A mutation that clears the shell before the first React commit (or otherwise
@@ -27,13 +27,20 @@ const { fileURLToPath } = await import("node:url");
 const pwaRoot = fileURLToPath(new URL("..", import.meta.url));
 
 let observed: boolean | undefined;
+// The boot composition is the desktop splash (`boot-screen`) or, on the phone,
+// the list frame (`tabs`); either leaf measures the shell class it lives in.
+const bootShellApplied = () => {
+  const root = document.getElementById("app");
+  return Boolean(root?.classList.contains("boot-screen") || root?.classList.contains("tabs"));
+};
+function MeasuringBoot() {
+  useLayoutEffect(() => {
+    observed = bootShellApplied();
+  }, []);
+  return createElement("div", { className: "boot-shell-probe" });
+}
 mock.module(`${pwaRoot}/src/pages/boot/index.tsx`, () => ({
-  BootScreen: function MeasuringBoot() {
-    useLayoutEffect(() => {
-      observed = document.getElementById("app")?.classList.contains("boot-screen");
-    }, []);
-    return createElement("div", { className: "boot-shell-probe" });
-  },
+  BootScreen: MeasuringBoot, BootShell: MeasuringBoot, UnreachableShell: MeasuringBoot,
 }));
 
 const { mountApp, unmountApp, isAppMounted } = await import("../src/app/mount");
@@ -48,7 +55,7 @@ let shellAtNotification: boolean | undefined;
 const { subscribeAppFrame } = await import("../src/app/frame");
 const release = subscribeAppFrame(() => {
   if (shellAtNotification === undefined) {
-    shellAtNotification = document.getElementById("app")?.classList.contains("boot-screen");
+    shellAtNotification = bootShellApplied();
   }
 });
 

@@ -16,10 +16,11 @@ beforeEach(async () => {
 });
 
 describe("create memory", () => {
-  test("malformed storage falls back to an empty memory instead of failing", () => {
-    expect(parseCreateMemory(null)).toEqual({ pinned: [], uses: {}, lastUsed: {}, recents: [], dirs: [] });
-    expect(parseCreateMemory("{not json")).toEqual({ pinned: [], uses: {}, lastUsed: {}, recents: [], dirs: [] });
+  test("malformed storage falls back to an empty memory with the default pins instead of failing", () => {
+    expect(parseCreateMemory(null)).toEqual({ pinned: ["claude", "codex"], uses: {}, lastUsed: {}, recents: [], dirs: [] });
+    expect(parseCreateMemory("{not json")).toEqual({ pinned: ["claude", "codex"], uses: {}, lastUsed: {}, recents: [], dirs: [] });
     const parsed = parseCreateMemory(JSON.stringify({
+      pinsSeeded: true,
       pinned: ["claude", 3, "", "claude"],
       uses: { codex: 2, bad: -1, worse: "x" },
       recents: [{ kind: "codex", workspaceId: "w1" }, { kind: 1 }, { kind: "", workspaceId: "w2" }],
@@ -51,9 +52,21 @@ describe("create memory", () => {
   });
 
   test("pins toggle and persist", () => {
-    expect(togglePinnedKind("gemini").pinned).toEqual(["gemini"]);
+    expect(togglePinnedKind("gemini").pinned).toEqual(["claude", "codex", "gemini"]);
+    expect(loadCreateMemory().pinned).toEqual(["claude", "codex", "gemini"]);
+    expect(togglePinnedKind("gemini").pinned).toEqual(["claude", "codex"]);
+  });
+
+  test("claude and codex start pinned once, and an unpin of either sticks", () => {
+    expect(loadCreateMemory().pinned).toEqual(["claude", "codex"]);
+    // Memory saved before the defaults existed gains them alongside its own pins.
+    localStorage.setItem(CREATE_MEMORY_KEY, JSON.stringify({ pinned: ["gemini", "codex"], uses: { amp: 2 } }));
+    expect(loadCreateMemory().pinned).toEqual(["claude", "codex", "gemini"]);
+    expect(togglePinnedKind("claude").pinned).toEqual(["codex", "gemini"]);
+    expect(togglePinnedKind("codex").pinned).toEqual(["gemini"]);
     expect(loadCreateMemory().pinned).toEqual(["gemini"]);
-    expect(togglePinnedKind("gemini").pinned).toEqual([]);
+    rememberCreate({ kind: "amp" });
+    expect(loadCreateMemory()).toMatchObject({ pinned: ["gemini"], uses: { amp: 3 } });
   });
 
   test("the grid shows pinned kinds first, then by use, and only advertised kinds", () => {

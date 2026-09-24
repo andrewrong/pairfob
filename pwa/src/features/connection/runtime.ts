@@ -7,7 +7,7 @@
  */
 import { applyCapabilities, clearCapabilities } from "../operations/capabilities-store";
 import { setCredential } from "../computers/catalog-store";
-import { applyRuntimeIdentity, runtimeStore, setPushEnabled } from "./runtime-store";
+import { applyRuntimeIdentity, runtimeStore, setIdentityPending, setPushEnabled } from "./runtime-store";
 import { noticesStore, clearNotice } from "../../app/notices-store";
 import { batch } from "../../shared/model/domain-store";
 import { FRIENDLY_ERROR } from "../../lib/notices";
@@ -26,6 +26,32 @@ export type RuntimeObservationPorts = {
   currentCredential(): PairResult | null;
 };
 
+/**
+ * How long an unanswered first GetConfig reads as "still reading" before the
+ * header falls back to "cannot confirm Herdr". A healthy computer answers in
+ * well under a second; this covers a slow relay hop or a just-woken daemon.
+ */
+export const IDENTITY_READ_GRACE_MS = 8_000;
+
+let identityTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * A session's runtime identity is about to be read. Until it answers (or the
+ * grace period runs out) an empty runtime kind means "not read yet". Called as
+ * the session goes live, before the first paint of the list.
+ */
+export function beginIdentityRead(): void {
+  if (identityTimer) clearTimeout(identityTimer);
+  identityTimer = setTimeout(endIdentityRead, IDENTITY_READ_GRACE_MS);
+  setIdentityPending(true);
+}
+
+export function endIdentityRead(): void {
+  if (identityTimer) clearTimeout(identityTimer);
+  identityTimer = null;
+  setIdentityPending(false);
+}
+
 /** The accepted observation still owns the request, session and credential. */
 function acceptedStillCurrent(request: number, session: LiveSession, ports: RuntimeObservationPorts): boolean {
   return herdConfigIsCurrent(request) && ports.currentLive() === session;
@@ -36,6 +62,9 @@ export async function refreshHerdConfig(ports: RuntimeObservationPorts): Promise
   const request = nextHerdConfigRequest();
   clearCapabilities();
   if (!session) return false;
+  // Only an identity never read is "pending"; a known one stays on screen
+  // while a foreground recovery re-reads it.
+  if (!runtimeStore.get().runtimeKind) beginIdentityRead();
   if (!acceptedStillCurrent(request, session, ports)) return false;
   try {
     const config = await session.getConfig();
@@ -60,6 +89,7 @@ export async function refreshHerdConfig(ports: RuntimeObservationPorts): Promise
       applyRuntimeIdentity({ herdHost: hostname, runtimeKind });
       setPushEnabled(config.push_enabled === true);
       applyCapabilities(operations.capabilities, operations.agentKinds);
+      endIdentityRead();
     });
     if (!acceptedStillCurrent(request, session, ports)) return false;
     if (credential && hostname && credential.hostname !== hostname) {
@@ -77,6 +107,8 @@ export async function refreshHerdConfig(ports: RuntimeObservationPorts): Promise
       batch(() => {
         clearCapabilities();
         applyRuntimeIdentity({ herdHost: "", runtimeKind: "" });
+        // A failed read is an answer: the header may now say it cannot confirm.
+        endIdentityRead();
       });
       return true;
     }

@@ -154,6 +154,7 @@ export class DirectSessionDriver {
     if (this.hidden || pageHidden() || this.probeAttempt?.transport === transport) return;
     const version = this.activityVersion;
     let expired = false;
+    let unwatchFailure = () => {};
     const current = () => !expired && this.activityVersion === version && !this.hidden && !pageHidden() && this.host.getTransport() === transport;
     const warmup = globalThis.setTimeout(() => {
       if (current()) this.host.prepareRelay();
@@ -169,6 +170,7 @@ export class DirectSessionDriver {
     }, FOREGROUND_RECOVERY_MS);
     const cancel = () => {
       expired = true;
+      unwatchFailure();
       clearTimeout(warmup);
       clearTimeout(deadline);
       if (this.probeAttempt === attempt) this.probeAttempt = null;
@@ -177,6 +179,17 @@ export class DirectSessionDriver {
     this.probeAttempt = attempt;
     // Publish ownership before notifying UI listeners, which may request another probe.
     this.host.emit({ type: "checking" });
+    if (!current()) { cancel(); return; }
+    transport.diagnose("probe_start", { reason });
+    unwatchFailure = transport.directChannel()?.watchRecoveryFailure?.(() => {
+      if (!current()) return;
+      transport.diagnose("ice_terminal", { reason: "foreground_transport_failed" });
+      transport.diagnose("probe_failed", { reason: "foreground_transport_failed", code: "disconnected" });
+      cancel();
+      this.restartAbort?.abort();
+      transport.suspend(new ProtocolError("disconnected", "P2P 已失效，正在切换到中继", { reason: "foreground_transport_failed" }));
+    }) ?? (() => {});
+    if (!current()) { cancel(); return; }
     void this.runProbe(transport, reason, current).finally(cancel);
   }
 
@@ -184,7 +197,6 @@ export class DirectSessionDriver {
     if (!current()) return;
     try {
       const timeout = DIRECT_HEALTH_PING_MS;
-      transport.diagnose("probe_start", { reason });
       try {
         await transport.rpc("Ping", { t_ms: Date.now() }, timeout);
       } catch (error) {

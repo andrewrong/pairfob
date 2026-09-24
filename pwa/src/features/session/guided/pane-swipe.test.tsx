@@ -340,14 +340,16 @@ test("board return keeps its camera and reduced motion skips the borrowed list a
   expect(scheduled.size).toBe(0);
 });
 
-test("terminal side-pan, desktop, and a second finger cannot initiate or retain a swipe", () => {
+test("terminal side-pan, a dragged pad command, desktop, and a second finger cannot initiate or retain a swipe", () => {
   // The real App host no longer adopts an injected screen after mount; use a
   // legitimate separate component boundary: tear down the App, then render the
   // synthetic pane-root through the leaf harness root. initSwipeBack still
   // listens on the app root and lazily finds this .pane-root.
   act(() => { unmountTestApp(); });
-  renderReact(<div className="pane-root"><div className="full-terminal-pan" /></div>);
+  renderReact(<div className="pane-root"><div className="full-terminal-pan" /><button data-pad-drag="" /></div>);
   touch("touchstart", 10, 20, appRoot().querySelector<HTMLElement>(".full-terminal-pan")!);
+  expect(pane().classList.contains("edge-armed")).toBe(false);
+  touch("touchstart", 10, 20, appRoot().querySelector<HTMLElement>("[data-pad-drag]")!);
   expect(pane().classList.contains("edge-armed")).toBe(false);
   happy.happyDOM.setWindowSize({ width: 1440, height: 900 });
   touch("touchstart");

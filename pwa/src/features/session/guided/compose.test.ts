@@ -136,13 +136,14 @@ describe("compose live vs batch", () => {
     expect(composeView).toContain('aria-live="polite"');
     const dock = await Bun.file(new URL("./session-dock.tsx", import.meta.url)).text();
     expect(dock).not.toContain("composeLiveControl");
-    // The default input lives on the Settings overview row and its choice sheet.
+    // The overview delegates persisted defaults to the inline controls.
     const settings = await Bun.file(new URL("../../../pages/settings/settings-overview.tsx", import.meta.url)).text();
-    expect(settings).toContain('t("settings.input")');
-    expect(settings).toContain("openComposeSheet(input.defaultComposeLive)");
-    const controls = await Bun.file(new URL("../../../pages/settings/settings-controls.tsx", import.meta.url)).text();
-    expect(controls).toContain("export function openComposeSheet");
-    expect(controls).toContain("setDefaultComposeLive(live)");
+    expect(settings).toContain("<SessionDefaults");
+    expect(settings).toContain("live={input.defaultComposeLive}");
+    const controls = await Bun.file(new URL("../../../pages/settings/settings-defaults.tsx", import.meta.url)).text();
+    expect(controls).toContain('t("settings.input")');
+    expect(controls).toContain("selected={live === value}");
+    expect(controls).toContain("setDefaultComposeLive(value)");
     const menu = await Bun.file(new URL("./pane-menu.tsx", import.meta.url)).text();
     expect(menu).toContain("export function fillSelectedPane");
     expect(menu).toContain("export function openPaneMenu");

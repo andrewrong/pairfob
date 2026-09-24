@@ -30,6 +30,11 @@ export type DashboardRecord = {
   completionSeen: SeenCompletions;
   lastHerdSig: string;
   refreshBusy: boolean;
+  /**
+   * A snapshot has been read for this session. Until then an empty `agents`
+   * means "not read yet" (the list shows placeholder rows), not "no sessions".
+   */
+  snapshotLoaded: boolean;
 };
 
 function loadCompletionSeen(): SeenCompletions {
@@ -46,6 +51,7 @@ const dashboardDomain = createDomain<DashboardRecord>("dashboard", {
   completionSeen: {},
   lastHerdSig: "",
   refreshBusy: false,
+  snapshotLoaded: false,
 });
 export const dashboardStore = dashboardDomain.store;
 const { read, write, writeIf } = dashboardDomain.controller;
@@ -114,6 +120,7 @@ export function replaceAgentsFromSnapshot(snapshot: SnapshotWire): DashboardAgen
       record.runtimeAgentStatuses = projected.runtimeStatuses;
       record.completionSeen = projected.seen;
       record.lastHerdSig = herdSignature(projected.agents);
+      record.snapshotLoaded = true;
     });
     projectSnapshot(snapshot, projected.agents);
     const paneIds = projected.agents.map((agent) => agent.paneId);
@@ -199,6 +206,7 @@ export function resetDashboard(): void {
     record.completionSeen = {};
     record.lastHerdSig = "";
     record.refreshBusy = false;
+    record.snapshotLoaded = false;
   });
 }
 
@@ -217,6 +225,7 @@ export function captureDashboardProjection(): () => void {
     completionSeen: detach(read().completionSeen),
     lastHerdSig: read().lastHerdSig,
     refreshBusy: read().refreshBusy,
+    snapshotLoaded: read().snapshotLoaded,
   };
   let used = false;
   return () => {
@@ -232,6 +241,7 @@ export function captureDashboardProjection(): () => void {
       record.completionSeen = detach(captured.completionSeen);
       record.lastHerdSig = captured.lastHerdSig;
       record.refreshBusy = captured.refreshBusy;
+      record.snapshotLoaded = captured.snapshotLoaded;
     });
   };
 }

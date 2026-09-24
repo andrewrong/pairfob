@@ -149,7 +149,7 @@ describe("runtime domain", () => {
     expect(runtimeStore.get()).toEqual({
       herdHost: "", runtimeKind: "", deviceList: [], pushEnabled: null, pushSubscribed: null,
       settingsLoading: false, devicesError: "", pushConfigError: "",
-      settingsRequest: runtimeStore.get().settingsRequest,
+      settingsRequest: runtimeStore.get().settingsRequest, identityPending: false,
     });
   });
 });

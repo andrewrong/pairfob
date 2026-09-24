@@ -3,6 +3,7 @@ import { goToScreen } from "../../app/navigation-store";
 import { ProtocolError } from "../../lib/protocol/errors";
 import { commitView } from "../../app/host";
 import { quotaSnapshot, setQuotaSnapshot } from "./store";
+import type { QuotaProvider } from "./model";
 
 /**
  * Quota controller — the feature's one connected adapter.
@@ -43,9 +44,21 @@ export async function refreshAgentQuota(): Promise<void> {
   }
 }
 
-/** Navigation, so it repaints through the application port: the quota page has to be composed first. */
-export function openQuota(): void {
+/**
+ * Navigation, so it repaints through the application port: the quota page has
+ * to be composed first. Opening from one provider's row lands on its card.
+ */
+export function openQuota(provider?: QuotaProvider): void {
   goToScreen("quota");
   commitView();
   void refreshAgentQuota();
+  if (provider) focusQuotaCard(provider);
+}
+
+function focusQuotaCard(provider: QuotaProvider): void {
+  const card = document.getElementById(`quota-${provider}`);
+  if (!card) return;
+  card.scrollIntoView({ block: "start" });
+  card.classList.add("is-focused");
+  globalThis.setTimeout(() => card.classList.remove("is-focused"), 1_600);
 }

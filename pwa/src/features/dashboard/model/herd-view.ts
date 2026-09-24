@@ -22,7 +22,7 @@ import {
   type TouchedAt,
 } from "../../../lib/ranking";
 import type { RuntimeLiveness } from "../../../lib/runtime-liveness";
-import { emptySessionCopy, type EmptySessionAction } from "../../../lib/ui-model";
+import { runtimeLiveness } from "../../../lib/runtime-liveness";
 
 /** Status tone vocabulary of the app chrome; core publishes the same union. */
 export type HerdTone = "live" | "warn" | "off" | "demo" | "pending";
@@ -46,6 +46,12 @@ export type HerdModelInput = {
   attention: HerdPaint;
   liveness: RuntimeLiveness;
   status: HerdStatus;
+  /** The session's first runtime read is still in flight. */
+  reading: boolean;
+  /** A snapshot has been read for this session (see the dashboard record). */
+  snapshotLoaded: boolean;
+  /** Directories this phone created workspaces in, newest first. */
+  recentDirs: readonly string[];
   connected: boolean;
   networkOnline: boolean;
   runtimeKind: string;
@@ -115,10 +121,25 @@ export type HerdAttentionItem = {
   kind: "blocked" | "done";
 };
 
+/**
+ * Why the list has no rows, which decides how the list area explains it:
+ * - `none` / `noCreate`: connected, Herdr answered, nothing is open.
+ * - `exited` / `unverifiable`: connected, but Herdr is gone or did not answer.
+ * - `offline` / `reconnecting`: the header already says so; the list only
+ *   notes what will happen and keeps still placeholder rows.
+ */
+export type HerdEmptyKind = "none" | "noCreate" | "exited" | "unverifiable" | "offline" | "reconnecting";
+export type HerdEmptyAction = "create" | "retry" | "details";
+
 export type HerdEmptyView = {
+  kind: HerdEmptyKind;
   title: string;
   sub: string;
-  action: { label: string; kind: EmptySessionAction; disabled: boolean } | null;
+  /** A command to run on the computer, shown copyable; empty when none helps. */
+  command: string;
+  actions: Array<{ label: string; kind: HerdEmptyAction; primary: boolean; disabled: boolean }>;
+  /** Directories this phone created workspaces in, newest first (at most 3). */
+  recentDirs: string[];
 };
 
 export type HerdViewModel = {
@@ -134,6 +155,8 @@ export type HerdViewModel = {
   /** Replay the card entrance because the list shape changed. */
   stagger: boolean;
   empty: HerdEmptyView | null;
+  /** Nothing read yet: the list shows placeholder rows, never an empty-state claim. */
+  loading: boolean;
   status: HerdStatus;
   host: HerdHostView;
   doneCount: number;
@@ -173,26 +196,39 @@ export function herdDoneCount(agents: readonly AgentCard[]): number {
   return agents.filter((agent) => agent.status === "done").length;
 }
 
+const RECENT_DIRS_SHOWN = 3;
+
 export function herdEmptyView(input: {
   runtimeKind: string;
   connected: boolean;
   createConversation: boolean;
   networkOnline: boolean;
   operationBusy: boolean;
+  hostName: string;
+  recentDirs: readonly string[];
 }): HerdEmptyView {
-  const copy = emptySessionCopy(input.runtimeKind, input.connected, input.createConversation, input.networkOnline);
-  const action = copy.action ? emptyActionSpec(copy.action, input.operationBusy, input.connected) : null;
-  return { title: copy.title, sub: copy.detail, action };
-}
-
-export function emptyActionSpec(
-  kind: EmptySessionAction,
-  operationBusy: boolean,
-  connected: boolean,
-): { label: string; kind: EmptySessionAction; disabled: boolean } {
-  if (kind === "create") return { label: t("empty.actionCreate"), kind, disabled: operationBusy || !connected };
-  if (kind === "retry") return { label: t("empty.actionRetry"), kind, disabled: false };
-  return { label: t("empty.actionSettings"), kind, disabled: false };
+  const base = { title: "", sub: "", command: "", actions: [], recentDirs: [] };
+  if (!input.networkOnline) return { ...base, kind: "offline", sub: t("empty.offlineNote", { host: input.hostName }) };
+  if (!input.connected) return { ...base, kind: "reconnecting", sub: t("empty.reconnectNote") };
+  const verdict = runtimeLiveness(input);
+  if (verdict === "exited") {
+    return { ...base, kind: "exited", title: t("empty.exitedTitle"), sub: t("empty.exitedSub"), command: "pairfob doctor",
+      actions: [{ label: t("empty.actionRetry"), kind: "retry", primary: false, disabled: false }] };
+  }
+  if (verdict === "unverifiable") {
+    return { ...base, kind: "unverifiable", title: t("empty.unverifiedTitle"), sub: t("empty.unverifiedSub"),
+      actions: [
+        { label: t("empty.actionRetry"), kind: "retry", primary: false, disabled: false },
+        { label: t("empty.details"), kind: "details", primary: false, disabled: false },
+      ] };
+  }
+  const title = t("empty.hostTitle", { host: input.hostName });
+  if (!input.createConversation) return { ...base, kind: "noCreate", title, sub: t("empty.openSub"), command: "herdr" };
+  return {
+    ...base, kind: "none", title, sub: t("empty.createSub"),
+    actions: [{ label: t("empty.actionCreate"), kind: "create", primary: true, disabled: input.operationBusy }],
+    recentDirs: input.recentDirs.slice(0, RECENT_DIRS_SHOWN),
+  };
 }
 
 /** Compact "changed n ago" copy; empty when the phone never saw a change. */
@@ -321,7 +357,16 @@ export function groupHasMenu(listGroup: ListGroup, group: AgentGroup): boolean {
  */
 export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
   const groups = groupAgents([...input.agents], input.listGroup, input.paneActivated, input.panePinned);
-  const stale = input.liveness === "unverifiable";
+  const reachable = input.connected && input.networkOnline;
+  // Rows that arrive before the first runtime read are fresh, not stale: the
+  // verdict is only "unverifiable" because the answer has not come back yet.
+  const reading = reachable && input.reading && !input.runtimeKind;
+  const stale = input.liveness === "unverifiable" && !reading;
+  // Until the first snapshot (or while the runtime is still being read) an
+  // empty list is unknown, not empty. A runtime that answered "exited" or
+  // failed keeps its explanatory empty state.
+  const loading = reachable && !input.agents.length
+    && (reading || (!input.snapshotLoaded && input.liveness === "live"));
   const grouped = input.listGroup !== "flat";
   const richAgents = new Map(input.agents.map((agent) => [agent.paneId, agent]));
   let position = 0;
@@ -363,7 +408,8 @@ export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
     groupIds: views.map((group) => group.id),
     grouped,
     stagger: input.attention.stagger,
-    empty: input.agents.length ? null : herdEmptyView(input),
+    empty: input.agents.length || loading ? null : herdEmptyView({ ...input, hostName: input.host.name }),
+    loading,
     status: input.status,
     host: input.host,
     attention,

@@ -3,9 +3,10 @@ import { clearAllDiffNotes } from "../src/lib/diff-notes";
 import { t } from "../src/lib/i18n";
 import { NO_OPERATION_CAPABILITIES } from "../src/lib/operations";
 import { applyOriginConfig, clearNotificationTarget, clearPairingFragment, noteRelayRtt, setNetworkMode,
-  setNetworkOnline, setPhase, setSessionTransport } from "../src/features/connection/connection-store";
+  setNetworkOnline, setPhase, setSessionTransport, setConnectFailure, setRetryingUnreachable } from "../src/features/connection/connection-store";
+import { setConnectionRecordSource } from "../src/features/connection/connection-path";
 import { applyRuntimeIdentity, resetRuntime, applyDeviceList, setPushEnabled, setPushSubscribed,
-  setDevicesError, setPushConfigError, beginSettingsRead } from "../src/features/connection/runtime-store";
+  setDevicesError, setPushConfigError, beginSettingsRead, setIdentityPending } from "../src/features/connection/runtime-store";
 import { setScreen, setComputersFrom } from "../src/app/navigation-store";
 import { attachLiveSession, setAddingComputer, setComputers, setCredential, setLastUsedDaemon } from "../src/features/computers/catalog-store";
 import { setPairAwaitingApproval, setPairCodeDraft, setPairFailure, setPairManualOpen, resetPairingInput } from "../src/features/pairing/form-store";
@@ -54,6 +55,10 @@ import { resetAttachmentFixture, seedAttachmentTray } from "./attachments";
 export const scenes: FixtureScene[] = [
   { name: "boot", description: "Initial credential loading" },
   { name: "resuming", description: "Saved computer reconnecting" },
+  { name: "resuming-slow", description: "Reconnect past 8 s: pairfob.com reached, waiting on the computer" },
+  { name: "resuming-slow-relay", description: "Reconnect past 8 s: still waiting on pairfob.com" },
+  { name: "home-unreachable", description: "The only computer is offline: connection path and computer-side steps" },
+  { name: "home-unreachable-relay", description: "The only computer cannot be reached because pairfob.com is unreachable" },
   { name: "connect", description: "First-run QR-first pairing" },
   { name: "connect-manual", description: "Manual code details expanded" },
   { name: "connect-error", description: "Invalid manual code feedback" },
@@ -72,6 +77,7 @@ export const scenes: FixtureScene[] = [
   { name: "home-grouped", description: "Grouped workspace list" },
   { name: "home-offline", description: "Unverifiable session status" },
   { name: "home-busy", description: "Busy computer: six workspaces, many agents and terminals, grouped" },
+  { name: "home-reading", description: "Just connected: runtime and first snapshot not read yet" },
   { name: "desktop-empty", description: "Responsive rail with no selected pane; supply desktop viewport" },
   { name: "desktop-guided", description: "Responsive rail and guided pane; supply desktop viewport" },
   { name: "desktop-chat", description: "Responsive rail and agent chat; supply desktop viewport" },
@@ -184,6 +190,9 @@ export function resetFixtureBaseline(session: FixtureSession): void {
   setNetworkOnline(true);
   setSessionTransport("p2p");
   noteRelayRtt(18);
+  setConnectionRecordSource(null);
+  setConnectFailure("");
+  setRetryingUnreachable(false);
   setPhase("live");
   setScreen("home");
   setComputersFrom("home");
@@ -248,6 +257,27 @@ export function resetFixtureBaseline(session: FixtureSession): void {
 export async function applyScene(name: string, session: FixtureSession): Promise<void> {
   if (!scenes.some((scene) => scene.name === name)) throw new Error(`Unknown QA scene: ${name}`);
   if (name === "boot" || name === "resuming") { setPhase(name); return; }
+  if (name.startsWith("resuming-slow")) {
+    // The fixture clock is frozen, so the recorded attempt simply started 9 s earlier.
+    const started = FIXED_NOW - 9_000;
+    setConnectionRecordSource(() => name === "resuming-slow-relay"
+      ? [{ event: "connect_start", at: started }]
+      : [{ event: "connect_start", at: started }, { event: "ws_open", at: started + 400 }, { event: "route_bound", at: started + 500 }]);
+    setPhase("resuming");
+    return;
+  }
+  if (name.startsWith("home-unreachable")) {
+    const relay = name === "home-unreachable-relay";
+    setConnectionRecordSource(() => [{ event: "connect_start", at: FIXED_NOW - 12_000 },
+      ...(relay ? [] : [{ event: "ws_open", at: FIXED_NOW - 11_600 }]), { event: "connect_failed", at: FIXED_NOW - 4_000 }]);
+    setConnectFailure(relay ? "timeout" : "daemon_offline");
+    setComputers(data.computers().slice(0, 1));
+    attachLiveSession(null);
+    setCredential(null);
+    setLastUsedDaemon(null);
+    setPhase("pick");
+    return;
+  }
   if (name.startsWith("connect") || name.startsWith("pairing")) {
     setPhase(name === "pairing" || name === "pairing-approval" ? "pairing" : "connect");
     setAddingComputer(name === "connect-add");
@@ -272,6 +302,12 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     return;
   }
   if (name === "home-empty" || name === "board-empty") replaceAgentsFromSnapshot({ panes: [] });
+  if (name === "home-reading") {
+    // The moment after going live: nothing read yet, the first GetConfig in flight.
+    resetDashboard();
+    applyRuntimeIdentity({ herdHost: "", runtimeKind: "" });
+    setIdentityPending(true);
+  }
   if (BUSY_SCENES.has(name)) {
     replaceAgentsFromSnapshot(busySnapshot());
     applyCapabilities(allCapabilities() as typeof NO_OPERATION_CAPABILITIES, BUSY_AGENT_KINDS);

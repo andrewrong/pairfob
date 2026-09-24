@@ -6,6 +6,9 @@ import { dashboardStore, selectedAgent } from "../features/dashboard/catalog-sto
 import { currentScreen, navigationStore } from "./navigation-store";
 import { preferencesStore, termFontPx } from "../features/settings/preferences-store";
 import { isAgentChat, isFullTerminal, openPaneId, sessionStore } from "../features/session/session-store";
+import { computers, computersStore } from "../features/computers/catalog-store";
+import { connectFailure } from "../features/connection/connection-store";
+import { unreachableHop } from "../features/connection/connection-path";
 
 /**
  * The layout input, read from the domains that own it.
@@ -24,6 +27,7 @@ export function currentLayoutInput(): LayoutInput {
     hasSelectedPane: Boolean(paneId) && selectedAgent() !== undefined,
     termFontPx: termFontPx(),
     operationBusy: operationBusy(),
+    unreachable: computers().length === 1 && unreachableHop(connectFailure()) !== null,
   };
 }
 
@@ -44,6 +48,8 @@ export function publishedLayoutInput(): LayoutInput {
     hasSelectedPane: Boolean(paneId) && dashboardStore.get().agents.some((agent) => agent.paneId === paneId),
     termFontPx: preferencesStore.get().termFontPx,
     operationBusy: capabilitiesStore.get().operationBusy,
+    unreachable: computersStore.get().computers.length === 1
+      && unreachableHop(connectionStore.get().connectFailure) !== null,
   };
 }
 

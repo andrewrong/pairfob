@@ -33,7 +33,9 @@ const { domainStores } = await import("../../app/domain-publication");
 // touch `#app` at module evaluation. Import it only after this file's own DOM
 // is installed above, never via a static import that would evaluate before the
 // DOM boundary or depend on another test file installing the realm first.
-const { closeComputerSession, establish } = await import("./controller");
+const { closeComputerSession, establish, landAfterDisconnect } = await import("./controller");
+const { setComputers } = await import("../computers/catalog-store");
+const { runtimeStore } = await import("./runtime-store");
 
 type FakeSession = LiveSession & { closed: number; configs: number; emit: (event: SessionEvent) => void };
 
@@ -230,5 +232,28 @@ describe("connection lifecycle", () => {
     expect(credential()?.daemonId).toBe(daemonIds[0]);
     expect(liveSession()).toBe(created.get(daemonIds[0]));
     expect(created.has("poison")).toBe(false);
+  });
+
+  test("a network failure is remembered for the failure page, and the next live session clears it", async () => {
+    // One paired computer that could not be reached.
+    setComputers([pair(daemonIds[0])]);
+    setCredential(pair(daemonIds[0]));
+    await landAfterDisconnect({ daemonId: daemonIds[0], code: "daemon_offline", silent: true });
+    expect(phase()).toBe("pick");
+    expect(connectionStore.get().connectFailure).toBe("daemon_offline");
+    expect(connectionStore.get().retryingUnreachable).toBe(false);
+
+    // Coming back: going live opens the first-read window and clears the failure.
+    let pendingAtLive = false;
+    const stop = connectionStore.subscribe(() => {
+      if (phase() === "live") pendingAtLive ||= runtimeStore.get().identityPending;
+    });
+    await establish(pair(daemonIds[0]), async () => fakeSession());
+    stop();
+    expect(phase()).toBe("live");
+    expect(pendingAtLive).toBe(true);
+    expect(connectionStore.get().connectFailure).toBe("");
+    expect(connectionStore.get().retryingUnreachable).toBe(false);
+    setComputers([]);
   });
 });

@@ -69,3 +69,11 @@ export function openWebglTerminal(
     throw new Error(WEBGL_UNAVAILABLE);
   }
 }
+
+/** Plain text of the visible viewport, including the alternate screen used by TUIs. */
+export function terminalScreenText(terminal: Pick<Terminal, "rows" | "buffer">): string {
+  const buffer = terminal.buffer.active;
+  return Array.from({ length: terminal.rows }, (_, row) =>
+    buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? "",
+  ).join("\n");
+}

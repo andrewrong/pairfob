@@ -91,8 +91,11 @@ function run(request: CreateRequest, anchors: Anchors): void {
   }
 }
 
-/** Open the create sheet; `workspaceId` preselects it, `newWorkspace` starts on a new one. */
-export async function openCreateSheet(options: { workspaceId?: string; newWorkspace?: boolean } = {}): Promise<void> {
+/**
+ * Open the create sheet; `workspaceId` preselects it, `newWorkspace` starts on a
+ * new one, and `dir` also preselects that directory for it.
+ */
+export async function openCreateSheet(options: { workspaceId?: string; newWorkspace?: boolean; dir?: string } = {}): Promise<void> {
   if (liveSession()?.isConnected() !== true) return;
   const canCreateTab = capabilityEnabled("create_tab");
   const canCreateWorkspace = capabilityEnabled("create_conversation");
@@ -102,7 +105,8 @@ export async function openCreateSheet(options: { workspaceId?: string; newWorksp
   const request = await askCreate({
     host: hostName(),
     workspaces,
-    initial: options.newWorkspace || !workspaces.length ? NEW_WORKSPACE : workspaces[0].id,
+    initial: options.newWorkspace || options.dir || !workspaces.length ? NEW_WORKSPACE : workspaces[0].id,
+    ...(options.dir ? { initialDir: options.dir } : {}),
     kinds,
     memory: loadCreateMemory(),
     lastKind: loadLastAgentKind(kinds),

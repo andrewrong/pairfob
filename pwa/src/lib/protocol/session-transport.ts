@@ -1,3 +1,4 @@
+import type { RecoveryClock } from "./recovery-diagnostics";
 import { recordConnectionDiagnostic, type ConnectionDetails } from "./connection-diagnostics.ts";
 import { Direction, AEAD_SEAL_OVERHEAD } from "./aead.ts";
 import { b64url } from "./bytes.ts";
@@ -75,6 +76,7 @@ export class SessionTransport {
   private heartbeatCounter = 0n;
   private expectedPong: Uint8Array | null = null;
   private expectedPongAt = 0;
+  recoveryDiagnostic: RecoveryClock | undefined;
   private stopped = false;
   private hidden = pageHidden();
   private resumeUntil = 0;
@@ -450,7 +452,7 @@ export class SessionTransport {
 
   diagnose(event: string, details: ConnectionDetails & { code?: string } = {}): void {
     recordConnectionDiagnostic({
-      event, route_id: Array.from(this.routeId, (byte) => byte.toString(16).padStart(2, "0")).join(""),
+      ...this.recoveryDiagnostic?.(), event, route_id: Array.from(this.routeId, (byte) => byte.toString(16).padStart(2, "0")).join(""),
       transport: this.kind, hidden: this.hidden, pending_rpcs: this.pending.size,
       pong_wait_ms: this.expectedPong ? Math.max(0, performance.now() - this.expectedPongAt) : 0,
       ...this.channel.diagnosticState?.(), ...details,

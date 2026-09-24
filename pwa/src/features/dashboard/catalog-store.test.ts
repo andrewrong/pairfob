@@ -144,7 +144,7 @@ describe("dashboard domain", () => {
 
     resetDashboard();
     expect(dashboardStore.get()).toEqual({
-      agents: [], runtimeAgentStatuses: {}, completionSeen: {}, lastHerdSig: "", refreshBusy: false,
+      agents: [], runtimeAgentStatuses: {}, completionSeen: {}, lastHerdSig: "", refreshBusy: false, snapshotLoaded: false,
     });
     // The board catalog is another domain's data: resetting the herd list keeps it.
     expect(boardStore.get().workspaceList.map((space) => space.id)).toEqual(["w1"]);

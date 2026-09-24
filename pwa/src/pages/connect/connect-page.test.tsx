@@ -21,10 +21,11 @@ import { resetTransitionState } from "../../app/transition";
 import { stopPolling } from "../../features/connection/controller";
 
 /**
- * Connect surface against the actual mounted App. Migrated from the former
- * ui/connect facade fixture: scan-first surface, add-computer chrome, manual
- * disclosure, waiting copy, trust copy, wide-screen hint and the compact
- * language select — setup through the named pairing/connection domains.
+ * Connect surface against the actual mounted App: one skeleton (top bar,
+ * terminal miniature, title + lede, bottom actions) whose stages swap copy in
+ * place, the typed-code sheet (a dialog portaled to the body), add-computer
+ * chrome and the compact language select — setup through the named
+ * pairing/connection domains.
  */
 
 async function mountConnect(): Promise<void> {
@@ -108,75 +109,91 @@ afterEach(async () => {
   });
 });
 
-test("typed draft updates keep the pair-code node without a root remount", async () => {
+/** The code sheet is a dialog portaled to the body, outside #app. */
+function sheet(): HTMLDialogElement | null {
+  return document.querySelector<HTMLDialogElement>("dialog.pair-code-sheet");
+}
+
+function field(): HTMLInputElement | null {
+  return document.querySelector<HTMLInputElement>("dialog.pair-code-sheet #pair-code");
+}
+
+test("typed draft updates keep the pair-code node without a remount", async () => {
   await mountConnect();
-  const app = appRoot();
   act(() => setPairManualOpen(true));
-  const input = app.querySelector<HTMLInputElement>("#pair-code")!;
+  const input = field()!;
   expect(input).toBeTruthy();
   input.focus();
   input.setSelectionRange(0, 0);
   act(() => setPairCodeDraft("ABCD-EFGH-123456"));
-  expect(app.querySelector("#pair-code")).toBe(input);
+  expect(field()).toBe(input);
   expect(input.value).toBe("ABCD-EFGH-123456");
-  expect(app.querySelector(".field-count")?.textContent).toBe("14/14");
+  expect(sheet()?.querySelector(".field-count")?.textContent).toBe("14/14");
 });
 
-test("the hand entry keeps one code field with the scan-first placeholder", async () => {
+test("the code field keeps one input with the full-code placeholder", async () => {
   await mountConnect();
-  const app = appRoot();
   act(() => setPairManualOpen(true));
-  const input = app.querySelector<HTMLInputElement>("#pair-code")!;
+  const input = field()!;
   expect(input.placeholder).toBe(t("connect.pairHint"));
   // Negative contract: the hand-entry field never offers the old
-  // protocol-1-only eight-character hint (the complete-code locator is the
-  // scan/QR path). A mistaken translation back to that 8-char-only hint would
-  // pass the positive equality above, so this guard is kept.
+  // protocol-1-only eight-character hint.
   expect(input.placeholder).not.toBe("例如 7K3M-9H2P");
-  expect(app.querySelectorAll("input[name=code]")).toHaveLength(1);
+  expect(input.getAttribute("enterkeyhint")).toBe("go");
+  expect(document.querySelectorAll("input[name=code]")).toHaveLength(1);
 });
 
-test("adding another computer keeps the scan-first pairing surface", async () => {
+test("one skeleton: miniature, title, lede and one primary action", async () => {
+  await mountConnect();
+  const app = appRoot();
+  expect(app.querySelector(".page.connect-page.is-idle")).toBeTruthy();
+  expect(app.querySelector(".term-mini[aria-hidden=true]")).toBeTruthy();
+  expect(app.querySelector(".connect-title")?.textContent).toBe(t("connect.title"));
+  expect(app.querySelector(".connect-lede")?.textContent).toContain(t("connect.ledeIdle"));
+  expect(app.querySelectorAll(".btn-primary")).toHaveLength(1);
+  expect(app.querySelector(".connect-scan")?.textContent).toBe(t("connect.scan"));
+  expect(app.querySelector(".connect-manual")?.textContent).toBe(t("connect.manual"));
+  expect(app.querySelector("details")).toBeNull();
+  expect(sheet()).toBeNull();
+});
+
+test("the manual action opens the code sheet; dismissing keeps the draft and its error", async () => {
+  await mountConnect();
+  const app = appRoot();
+  await act(async () => app.querySelector<HTMLButtonElement>(".connect-manual")!.click());
+  // Read the PUBLISHED snapshot: a write that skipped publication would leave
+  // the sheet closed until an unrelated commit.
+  expect(pairingStore.get().pairManualOpen).toBeTrue();
+  expect(sheet()?.open).toBeTrue();
+  expect(sheet()?.querySelector(".modal-title")?.textContent).toBe(t("connect.manual"));
+  act(() => { setPairCodeDraft("ABCD"); setPairFailure("code", "code"); showError("代码不完整", true); });
+  await act(async () => sheet()!.querySelector<HTMLButtonElement>(".sheet-close")!.click());
+  expect(pairManualOpen()).toBeFalse();
+  expect(sheet()).toBeNull();
+  // A code error stays on the field: the page lede does not repeat it.
+  expect(app.querySelector(".connect-lede")?.textContent).toContain(t("connect.ledeIdle"));
+  await act(async () => app.querySelector<HTMLButtonElement>(".connect-manual")!.click());
+  expect(field()?.value).toBe("ABCD");
+  expect(field()?.getAttribute("aria-invalid")).toBe("true");
+  expect(sheet()?.querySelector("#pair-feedback")?.textContent).toBe("代码不完整");
+});
+
+test("adding another computer keeps the same surface under a back bar", async () => {
   act(() => setAddingComputer(true));
   await mountConnect();
   const app = appRoot();
   expect(app.querySelector(".topbar-title")?.textContent).toBe(t("settings.addComputer"));
-  expect(app.querySelector(".lede")?.textContent).toBe(t("connect.ledeAdd"));
-  expect(app.querySelector(".page.settings-page")).toBeTruthy();
-  expect(app.querySelector(".btn-scan")).toBeTruthy();
+  expect(app.querySelector(".page.connect-page")).toBeTruthy();
+  expect(app.querySelector(".connect-scan")).toBeTruthy();
   expect(app.querySelector(".back")).toBeTruthy();
-  // A staged phase change renders via the queued commit; flush it inside act.
+  expect(app.querySelector(".connect-lang")).toBeNull();
   await act(async () => { setPhase("pairing"); commitView(); });
-  expect(app.querySelector(".page.settings-page")).toBeTruthy();
+  expect(app.querySelector(".page.connect-page.is-connecting")).toBeTruthy();
   expect(app.querySelector(".back")).toBeTruthy();
+  expect(app.querySelector(".topbar-title")?.textContent).toBe(t("settings.addComputer"));
 });
 
-test("QR is primary and manual entry is an accessible disclosure", async () => {
-  await mountConnect();
-  const app = appRoot();
-  const details = app.querySelector<HTMLDetailsElement>("details.manual-pair")!;
-  expect(details.open).toBeFalse();
-  expect(details.querySelector("summary")?.textContent).toContain(t("connect.manualSummary"));
-  expect(app.querySelector("button.btn-scan")?.textContent).toBe(t("connect.scan"));
-  expect(app.querySelector(".connect-form")?.firstElementChild?.className).toBe("btn-scan");
-  expect(app.querySelector("label[for=pair-code]")?.textContent).toContain(t("connect.pairCode"));
-  expect(app.textContent).not.toContain("▣");
-  expect(app.querySelector(".pair-divider")).toBeNull();
-  act(() => { details.open = true; details.dispatchEvent(new happy.Event("toggle")); });
-  // The toggle publishes the pairing domain's manual-open state. Read the
-  // PUBLISHED snapshot (not only the canonical getter): a stale write that set
-  // the canonical value without publishing would leave this false until commit.
-  expect(pairingStore.get().pairManualOpen).toBeTrue();
-  expect(pairManualOpen()).toBeTrue();
-  // ...and the subsequent commit preserves the SAME details node, now open.
-  await act(async () => { commitView(); });
-  expect(app.querySelector("details") === details).toBeTrue();
-  expect(details.open).toBeTrue();
-});
-
-test("waiting copy asks for Enter on the computer and does not mention SAS", () => {
-  // Phase/awaiting state is a composition change; publish it headless before
-  // mounting so the mounted connect surface renders the pairing wait.
+test("approval asks for Enter on the computer and does not mention SAS", () => {
   act(() => {
     batch(() => {
       setPhase("pairing");
@@ -184,10 +201,12 @@ test("waiting copy asks for Enter on the computer and does not mention SAS", () 
     });
     mountApp();
   });
-  const text = appRoot().textContent;
-  expect(text).toContain(t("connect.waitEnterCopy"));
-  expect(text).toContain(t("connect.waitEnter"));
-  expect(text).not.toMatch(/SAS|安全词|两个短词|两个词/);
+  const app = appRoot();
+  expect(app.querySelector(".connect-title")?.textContent).toBe(t("connect.approveTitle"));
+  expect(app.querySelector(".connect-lede kbd")?.textContent).toContain("Enter");
+  // The miniature shows the chip the CLI prints at this step.
+  expect(app.querySelector(".term-mini-enter")?.textContent?.trim()).toBe("Press Enter to pair");
+  expect(app.textContent).not.toMatch(/SAS|安全词|两个短词|两个词/);
 });
 
 test("pairing trust copy explains the server without relay jargon", async () => {
@@ -197,136 +216,52 @@ test("pairing trust copy explains the server without relay jargon", async () => 
   expect(text).not.toContain("relay 服务器");
 });
 
-test("wide screens warn that pairing opens on the other device", async () => {
+test("wide screens say the page belongs on the phone, only for first-run idle", async () => {
   happy.happyDOM.setWindowSize({ width: 1440, height: 900 });
   await mountConnect();
-  expect(appRoot().querySelector(".desk-hint")?.textContent).toBe(t("connect.deskHint"));
+  const lede = () => appRoot().querySelector(".connect-lede")?.textContent ?? "";
+  expect(lede()).toContain(t("connect.ledeDesk"));
   await act(async () => { setAddingComputer(true); commitView(); });
-  expect(appRoot().querySelector(".desk-hint")).toBeNull();
-  // Adding is cleared before pairing: the pairing/busy branch must hide the
-  // hint independently of the add-computer branch.
+  expect(lede()).toContain(t("connect.ledeIdle"));
   await act(async () => { setAddingComputer(false); setPhase("pairing"); commitView(); });
-  expect(appRoot().querySelector(".desk-hint")).toBeNull();
-  // A scanned (QR) connect intent on a wide screen also opens on the phone,
-  // not the desk surface.
+  expect(lede()).toBe(t("connect.connectingLede"));
+  // A scanned (QR) connect intent opens on the phone, not the desk surface.
   await act(async () => {
     setPhase("connect");
-    setAddingComputer(false);
     applyPairingFragment({ v: 2, pairRef: "qa", code: "7K3M9H2P", loc: "123456" });
     commitView();
   });
-  expect(appRoot().querySelector(".desk-hint")).toBeNull();
+  expect(lede()).toContain(t("connect.ledeIdle"));
 });
-test("the pairing surface includes a compact language select", async () => {
+
+test("the first-run top bar carries a compact language select", async () => {
   await mountConnect();
   const app = appRoot();
-  expect(app.querySelectorAll(".connect-lang select")).toHaveLength(1);
+  expect(app.querySelectorAll(".connect-top .connect-lang select")).toHaveLength(1);
   expect(app.querySelector(".lang-select")?.getAttribute("aria-label")).toBe(t("settings.langAria"));
   expect(app.querySelector("[role=radiogroup]")).toBeNull();
 });
 
-describe("add-computer pairing chrome (actual App)", () => {
-  async function mountAdd(busy = false): Promise<void> {
-    act(() => {
-      batch(() => {
-        setPhase(busy ? "pairing" : "connect");
-        setAddingComputer(true);
-        setPairManualOpen(false);
-        setPairAwaitingApproval(false);
-        setPairFailure(null, null);
-      });
-      mountApp();
-    });
-    await act(async () => {
-      await new Promise<void>(resolve => setTimeout(resolve, 0));
-    });
-  }
-
-  test("adding another computer uses the settings-page topbar, first-run keeps the prelude", async () => {
-    await mountAdd();
-    const app = appRoot();
-    expect(app.querySelector(".prelude")).toBeNull();
-    expect(app.querySelector(".page.settings-page")).toBeTruthy();
-    expect(app.querySelector(".topbar-title")?.textContent).toBe("添加另一台电脑");
-    expect(app.querySelector(".prelude-title")).toBeNull();
-    expect(app.querySelector(".back")?.getAttribute("aria-label")).toBe("返回");
-    expect(app.querySelector(".btn-scan")?.textContent).toBe("扫码连接");
-  });
-
-  test("waiting for the computer still keeps the back bar", async () => {
-    await mountAdd(true);
-    expect(appRoot().querySelector(".page.settings-page")).toBeTruthy();
-    expect(appRoot().querySelector(".topbar-title")?.textContent).toBe("添加另一台电脑");
-    expect(appRoot().querySelector(".pair-wait-title")?.textContent).toBe("正在验证配对码");
-  });
-
-  test("the rail marks the step pairing is on, awaiting, and the step it died on", async () => {
-    await mountAdd(true);
-    const states = () => [...appRoot().querySelectorAll(".pair-step")].map((step) => step.className);
-    expect(states()).toEqual(["pair-step is-done", "pair-step is-active", "pair-step is-todo"]);
-    await act(async () => { setPairAwaitingApproval(true); });
-    expect(states()).toEqual(["pair-step is-done", "pair-step is-done", "pair-step is-active"]);
-    // A failure freezes the rail on the step that failed; the phase is back to
-    // connect (the landing) with the verify step frozen, and the same sentence
-    // does not also appear as a standalone notice.
-    await act(async () => {
-      setPairAwaitingApproval(false);
-      setPairFailure(null, "verify");
-      setPhase("connect");
-      showError("电脑上没有确认。", true);
-      commitView();
-    });
-    expect(states()).toEqual(["pair-step is-done", "pair-step is-done", "pair-step is-failed"]);
-    expect(appRoot().querySelector(".pair-step-note")?.textContent).toBe("电脑上没有确认。");
-    expect(appRoot().querySelector(".notice-error")).toBeNull();
-  });
-
-  test("a channel failure while the channel step is active freezes its note on the rail", async () => {
-    await mountAdd(true);
-    // The channel step is active before approval; failing there freezes the
-    // channel cell, not a standalone notice.
-    await act(async () => {
-      setPairFailure(null, "channel");
-      setPhase("connect");
-      showError("连接暂时失败", true);
-      commitView();
-    });
-    expect([...appRoot().querySelectorAll(".pair-step")].map(s => s.className)).toEqual([
-      "pair-step is-done", "pair-step is-failed", "pair-step is-todo",
-    ]);
-    expect(appRoot().querySelector(".pair-step-note")?.textContent).toBe("连接暂时失败");
-    expect(appRoot().querySelector(".notice")).toBeNull();
-  });
-
-  test("adding another computer puts language in the topbar, not the prelude footer", async () => {
-    await mountAdd();
-    const lang = appRoot().querySelector(".connect-lang");
-    expect(Boolean(lang)).toBe(true);
-    expect(appRoot().querySelector(".topbar")?.contains(lang!)).toBeTrue();
-    // The trust note renders, but in add-chrome nothing follows it (the compact
-    // language select lives in the topbar, no full radio segment).
-    const trust = appRoot().querySelector(".trust");
-    expect(trust?.nextElementSibling).toBeNull();
-    expect(appRoot().querySelector(".seg")).toBeNull();
-  });
+test("the install link opens the install help with the command", async () => {
+  await mountConnect();
+  await act(async () => appRoot().querySelector<HTMLButtonElement>(".connect-install")!.click());
+  const help = document.querySelector<HTMLDialogElement>("dialog.help");
+  expect(help?.querySelector(".modal-title")?.textContent).toBe(t("connect.installTitle"));
+  expect(help?.querySelector("code")?.textContent).toBe("curl -fsSL https://pairfob.com/install.sh | sh");
+  await act(async () => help!.querySelector<HTMLButtonElement>(".help-close")!.click());
 });
 
 describe("first-run connect chrome (actual App)", () => {
-  test("first-run pairing keeps the prelude, then add-computer switches to the settings topbar", async () => {
-    // First-run: no add-computer flow, empty catalog, on the same narrow root.
+  test("first-run shows the wordmark, then add-computer switches to the back bar", async () => {
     await mountConnect();
     const app = appRoot();
-    expect(app.querySelector(".prelude")).toBeTruthy();
-    expect(app.querySelector(".page.settings-page")).toBeNull();
+    expect(app.querySelector(".connect-top .wordmark")?.textContent).toBe("pairfob");
     expect(app.querySelector(".topbar-title")).toBeNull();
-    expect(app.querySelector(".prelude-title")?.textContent).toBe("连上你的电脑");
-    // Engaging add-computer on that SAME mounted root swaps the prelude for
-    // the settings topbar and keeps exactly one language select.
     act(() => setAddingComputer(true));
     await act(async () => { commitView(); });
-    expect(app.querySelector(".topbar-title")?.textContent).toBe("添加另一台电脑");
-    expect(app.querySelector(".prelude-title")).toBeNull();
-    expect(app.querySelectorAll(".lang-select")).toHaveLength(1);
+    expect(app.querySelector(".topbar-title")?.textContent).toBe(t("settings.addComputer"));
+    expect(app.querySelector(".connect-top")).toBeNull();
+    expect(app.querySelectorAll(".lang-select")).toHaveLength(0);
   });
 
   test("the first-run language select switches the page copy to English", async () => {
@@ -335,58 +270,70 @@ describe("first-run connect chrome (actual App)", () => {
     const select = app.querySelector<HTMLSelectElement>('select[aria-label="语言"]');
     expect(select).toBeTruthy();
     expect([...select!.options].map(option => option.textContent)).toEqual(["自动", "中文", "English"]);
-    // The language select lives in the prelude footer, after the trust note.
-    expect(app.querySelector(".trust")?.nextElementSibling).toBe(app.querySelector(".connect-lang"));
     act(() => {
       select!.value = "en";
       select!.dispatchEvent(new happy.Event("change", { bubbles: true }));
     });
-    expect(app.querySelector(".prelude-title")?.textContent).toBe("Connect your computer");
-    expect(app.querySelector(".btn-scan")?.textContent).toBe("Scan to connect");
+    expect(app.querySelector(".connect-title")?.textContent).toBe("Connect your computer");
+    expect(app.querySelector(".connect-scan")?.textContent).toBe("Scan to connect");
     expect(app.querySelector<HTMLSelectElement>('select[aria-label="Language"]')?.value).toBe("en");
   });
 });
 
-describe("pairing form error/notice/focus behavior (actual App)", () => {
-  test("unrelated re-render preserves the code input value, focus and selection", async () => {
+describe("stages and notices (actual App)", () => {
+  test("connecting and approval swap copy in place and expose only Cancel", async () => {
     await mountConnect();
-    act(() => setPairManualOpen(true));
-    act(() => setPairCodeDraft("ABCD-EFGH-123456"));
-    await act(async () => { commitView(); });
-    const input = appRoot().querySelector<HTMLInputElement>("#pair-code")!;
-    act(() => input.focus());
-    act(() => input.setSelectionRange(2, 6));
-    // An unrelated commit keeps the same node, focus, selection and value.
-    await act(async () => { commitView(); });
-    expect(appRoot().querySelector("#pair-code")).toBe(input);
-    expect(input.ownerDocument.activeElement).toBe(input);
-    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 6]);
-    expect(input.value).toBe("ABCD-EFGH-123456");
-    expect(appRoot().querySelector(".field-count")?.textContent).toBe("14/14");
+    const app = appRoot();
+    await act(async () => { setPhase("pairing"); commitView(); });
+    expect(app.querySelector(".connect-page")?.getAttribute("aria-busy")).toBe("true");
+    expect(app.querySelector(".connect-title")?.textContent).toBe(t("connect.connectingTitle"));
+    expect(app.querySelector(".connect-title .spinner")).toBeTruthy();
+    expect(app.querySelector(".connect-scan")).toBeNull();
+    expect(app.querySelector(".connect-manual")).toBeNull();
+    expect(app.querySelector(".connect-cancel")?.textContent).toBe("取消");
+    expect(app.querySelector(".term-mini-window.is-quiet")).toBeTruthy();
+    await act(async () => { setPairAwaitingApproval(true); commitView(); });
+    expect(app.querySelector(".connect-title")?.textContent).toBe(t("connect.approveTitle"));
+    expect(app.querySelector(".connect-cancel")).toBeTruthy();
   });
 
-  test("a code error labels the input and appears only once", async () => {
-    // The manual field is closed; only the code error makes the input visible.
+  test.each(["channel", "verify"] as const)("a %s failure lands on the page title and lede, not a notice", async (step) => {
     await mountConnect();
-    act(() => { setPairFailure("code", "code"); showError("代码已过期", true); });
-    await act(async () => { commitView(); });
-    expect(appRoot().querySelector("#pair-code")?.getAttribute("aria-describedby")).toBe("pair-feedback");
-    expect(appRoot().querySelector("#pair-code")?.getAttribute("aria-invalid")).toBe("true");
-    expect(appRoot().querySelectorAll('[role="alert"]').length).toBe(1);
-    expect(appRoot().querySelector(".field [role='alert']")?.textContent).toBe("代码已过期");
+    const app = appRoot();
+    await act(async () => {
+      setPairFailure(null, step);
+      setPhase("connect");
+      showError("电脑上没有确认。", true);
+      commitView();
+    });
+    expect(app.querySelector(".page.connect-page.is-failed")).toBeTruthy();
+    expect(app.querySelector(".connect-title")?.textContent).toBe(t("connect.failedTitle"));
+    expect(app.querySelector(".connect-lede.is-error")?.textContent).toBe("电脑上没有确认。");
+    expect(app.querySelector(".notice")).toBeNull();
+    expect(app.querySelector(".connect-scan")).toBeTruthy();
+    expect(sheet()).toBeNull();
   });
 
-  test("notice replacement and dismissal reconcile through the mounted notice", async () => {
+  test("a code error opens the sheet, labels the input and appears only once", async () => {
+    await mountConnect();
+    act(() => { setPairManualOpen(true); setPairFailure("code", "code"); showError("代码已过期", true); });
+    await act(async () => { commitView(); });
+    expect(field()?.getAttribute("aria-describedby")).toBe("pair-feedback");
+    expect(field()?.getAttribute("aria-invalid")).toBe("true");
+    expect(document.querySelectorAll('[role="alert"]').length).toBe(1);
+    expect(sheet()?.querySelector(".pair-help.is-error")?.textContent).toContain("代码已过期");
+    expect(appRoot().textContent).not.toContain("代码已过期");
+  });
+
+  test("a page notice replaces the lede and clears back to it", async () => {
     await mountConnect();
     act(() => showError("第一个错误", true));
     await act(async () => { commitView(); });
     await act(async () => { clearNotice(); showError("新的错误", true); });
-    expect(appRoot().querySelector(".notice")?.textContent).toBe("新的错误");
+    expect(appRoot().querySelector(".connect-lede.is-error")?.textContent).toBe("新的错误");
     await act(async () => { clearNotice(); });
-    expect(appRoot().querySelector(".notice")).toBeNull();
-    // After dismissal the connect prelude still renders.
-    await act(async () => { commitView(); });
-    expect(appRoot().querySelector(".prelude-title")).toBeTruthy();
+    expect(appRoot().querySelector(".connect-lede")?.textContent).toContain(t("connect.ledeIdle"));
+    expect(appRoot().querySelector(".connect-install")).toBeTruthy();
   });
 
   test("a status notice expires without disturbing the focused code field", async () => {
@@ -394,61 +341,43 @@ describe("pairing form error/notice/focus behavior (actual App)", () => {
     act(() => setPairManualOpen(true));
     act(() => showStatus("已准备好"));
     await act(async () => { commitView(); });
-    const field = appRoot().querySelector<HTMLInputElement>("#pair-code")!;
-    act(() => field.focus());
-    // The status auto-dismisses after 2800ms; the field keeps focus/node.
+    const input = field()!;
+    expect(sheet()?.querySelector("#pair-feedback")?.textContent).toBe("已准备好");
+    act(() => input.focus());
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 2850)); });
-    expect(appRoot().querySelector(".notice")).toBeNull();
-    expect(appRoot().querySelector("#pair-code")).toBe(field);
-    expect(field.ownerDocument.activeElement).toBe(field);
-    // The prelude still renders after the notice clears.
-    await act(async () => { commitView(); });
-    expect(appRoot().querySelector(".prelude")).toBeTruthy();
+    expect(sheet()?.querySelector("#pair-feedback")?.textContent).toBe(t("connect.pairHelp"));
+    expect(field()).toBe(input);
+    expect(input.ownerDocument.activeElement).toBe(input);
   });
 
-  test("pairing and approval expose cancellation and hide submit controls", async () => {
-    await mountConnect();
-    await act(async () => { setPhase("pairing"); commitView(); });
-    expect(appRoot().querySelector("form")?.getAttribute("aria-busy")).toBe("true");
-    expect(appRoot().querySelector(".btn-connect")).toBeNull();
-    expect(appRoot().querySelector(".btn-scan")).toBeNull();
-    expect(appRoot().querySelector(".btn-ghost")?.textContent).toBe("取消");
-    await act(async () => { setPairAwaitingApproval(true); commitView(); });
-    expect(appRoot().querySelectorAll('[aria-current="step"]').length).toBe(1);
-    expect(appRoot().querySelector(".pair-wait-title")?.textContent).toContain("电脑");
-  });
-
-  test("a channel failure on the first-run pairing entry freezes its note on the rail", async () => {
-    // First-run (no add-computer, no scanned fragment): a channel failure lands
-    // back to connect with the channel step frozen; its note goes on the
-    // progress rail, not a standalone notice.
-    await mountConnect();
-    await act(async () => {
-      setPairFailure(null, "channel");
-      setPhase("connect");
-      showError("连接暂时失败", true);
-      commitView();
-    });
-    expect([...appRoot().querySelectorAll(".pair-step")].map(s => s.className)).toEqual([
-      "pair-step is-done", "pair-step is-failed", "pair-step is-todo",
-    ]);
-    expect(appRoot().querySelector(".pair-step-note")?.textContent).toBe("连接暂时失败");
-    expect(appRoot().querySelector(".notice")).toBeNull();
-  });
-
-  test("a blank form submission stays local and reveals an accessible error", async () => {
+  test("a blank submission stays local and reveals an accessible error", async () => {
     await mountConnect();
     act(() => setPairManualOpen(true));
     await act(async () => { commitView(); });
-    // Dispatch the real form submit event (the form's React onSubmit handler
-    // runs onPairSubmit through the controlled form); no direct controller call.
-    const form = appRoot().querySelector("form")!;
+    // Dispatch the real form submit event so the controlled form's onSubmit runs.
+    const form = sheet()!.querySelector("form")!;
     const event = new happy.Event("submit", { bubbles: true, cancelable: true });
     await act(async () => { form.dispatchEvent(event as unknown as Event); });
     expect(event.defaultPrevented).toBe(true);
     expect(phase()).toBe("connect");
     expect(pairErrorTarget()).toBe("code");
-    expect(appRoot().querySelector("#pair-code")?.getAttribute("aria-invalid")).toBe("true");
-    expect(appRoot().querySelectorAll('[role="alert"]').length).toBe(1);
+    expect(field()?.getAttribute("aria-invalid")).toBe("true");
+    expect(document.querySelectorAll('[role="alert"]').length).toBe(1);
+  });
+
+  test("typing at the end groups the code 4-4-6 as the computer prints it", async () => {
+    await mountConnect();
+    act(() => setPairManualOpen(true));
+    const input = field()!;
+    act(() => {
+      // Controlled input under happy-dom: set through the prototype so React's
+      // value tracker sees the change, then follow the input with a keyup.
+      input.focus();
+      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value")!.set!.call(input, "7k3m9h2pwj3k9m");
+      input.setSelectionRange(14, 14);
+      input.dispatchEvent(new happy.Event("input", { bubbles: true }) as unknown as Event);
+      input.dispatchEvent(new happy.KeyboardEvent("keyup", { bubbles: true }) as unknown as Event);
+    });
+    expect(pairingStore.get().pairCodeDraft).toBe("7K3M-9H2P-WJ3K9M");
   });
 });

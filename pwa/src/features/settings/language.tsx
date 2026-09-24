@@ -16,7 +16,7 @@ const LANG_OPTIONS = [
 ] as const;
 
 /** Re-render copy on the i18n revision (advances on every applied language action). */
-function useLang(): void {
+export function useLang(): void {
   useSyncExternalStore(subscribeLang, langRevision);
 }
 
@@ -26,9 +26,9 @@ export function applyLanguage(next: LangPref): void {
   clearNotice();
 }
 
-export function LanguageControl() {
+export function LanguageControl({ className }: { className?: string }) {
   useLang();
-  return <SegmentedControl aria-label={t("settings.langAria")}>
+  return <SegmentedControl className={className} aria-label={t("settings.langAria")}>
     {LANG_OPTIONS.map(option => <SegmentedOption key={option.id} selected={langPref() === option.id} onClick={() => applyLanguage(option.id)}>
       {t(option.key)}
     </SegmentedOption>)}

@@ -1,6 +1,6 @@
 import { networkOnline } from "./connection-store";
 import { liveSession } from "../computers/catalog-store";
-import { runtimeIdentity } from "./runtime-store";
+import { identityPending, runtimeIdentity } from "./runtime-store";
 import type { RuntimeLiveness } from "../../lib/runtime-liveness";
 import { canInterruptAgentWith, herdLivenessOf, herdStatusOf, type HerdStatus, type HerdStatusInput } from "./herd-status";
 
@@ -30,6 +30,7 @@ export function currentHerdStatusInput(): HerdStatusInput {
     networkOnline: networkOnline(),
     runtimeKind: identity.runtimeKind,
     herdHost: identity.herdHost,
+    reading: identityPending(),
   };
 }
 

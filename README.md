@@ -2,63 +2,103 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![pairfob.com](https://img.shields.io/badge/site-pairfob.com-111111)](https://pairfob.com)
+[![Docs](https://img.shields.io/badge/docs-pairfob.com%2Fdoc-111111)](https://pairfob.com/doc/)
 
 **English** | [简体中文](README_zh.md)
 
-The phone surface for [Herdr](https://herdr.dev). Codex, Claude, and Grok keep
-running on your computer; the phone opens those same live sessions. Pair once.
-The computer dials out — no inbound ports, no Tailscale.
+**Your [Herdr](https://herdr.dev) agents, on your phone.** Codex, Claude, Grok
+and the rest keep running on your computer; after pairing once, a phone, tablet
+or another computer opens **the same live sessions**, not copies. The computer
+dials out, so there are no inbound ports and no VPN, and the session is
+end-to-end encrypted.
 
-![The same live agent list on a computer running Herdr and on a phone running Pairfob](site/readme-hero.png)
+<p align="center">
+  <img src="site/img/home/en/home-grouped.webp" width="200" alt="Session list grouped by workspace, with a Needs you strip" />
+  <img src="site/img/home/en/guided-draft.webp" width="200" alt="Inside a session: the live terminal view with a compose box" />
+  <img src="site/img/home/en/workspace-diff.webp" width="200" alt="Reviewing a file diff from the phone" />
+  <img src="site/img/home/en/chat-complete.webp" width="200" alt="Chat mode showing the agent's finished reply" />
+</p>
 
-## What you get
+## Quick start
 
-- **The same sessions, not copies.** The phone reads the rendered pane and
-  sends keys back to the PTY; a session stays one session on both sides.
-- **End-to-end encrypted.** SPAKE2+ pairing with an authenticated code and
-  Argon2id-hardened session keys. Keys live only on the computer and the
-  paired device; the relay forwards ciphertext it cannot read.
+macOS or Linux, with Herdr installed (the installer offers to install it if
+missing).
+
+```sh
+curl -fsSL https://pairfob.com/install.sh | sh   # verify, enroll, start the background service
+pairfob pair                                      # shows a QR code
+```
+
+On the phone, open [pairfob.com/pair](https://pairfob.com/pair) and scan, then
+press Enter once on the computer to admit it. Add it to your Home Screen and you
+are done. Full walkthrough: [Get started](https://pairfob.com/doc/start).
+
+Already living in Herdr? `herdr plugin install arronKler/pairfob` adds
+**Pairfob: Pair a device** to Herdr's action menu and installs the same verified
+binary on first use. See [`plugin/herdr/`](plugin/herdr/README.md).
+
+## What you can do from the phone
+
+- **Respond when an agent needs you.** A **Needs you** strip and optional push
+  notifications surface waiting agents; one tap opens the exact prompt.
+- **Work in the live session.** **Auto** picks per session between **Control**
+  (terminal view + system keyboard, dictation and a keypad), **Terminal** (the
+  real PTY, for vim and full-screen TUIs) and **Chat** (message the agent and
+  read its replies).
+- **Review changes.** Browse files, read git status and diffs, comment on diff
+  lines and send the comments to the agent.
+- **Hand files to the agent.** Upload photos, PDFs and other files over P2P and
+  insert their workspace paths into the draft.
+- **Shape the workspace.** Start conversations, tabs, splits and worktrees, and
+  see a tab's real pane layout on the **Board**. Controls only appear when the
+  computer supports them.
+- **Several computers, several devices.** One phone can switch between
+  computers; each computer can have several paired devices.
+- **Keep an eye on quota.** Subscription allowance for Codex, Claude Code,
+  Copilot, Cursor, Grok and more, collected on the computer.
+
+The phone UI speaks English and 中文. Details: [Using the app](https://pairfob.com/doc/app).
+
+## Security
+
+- **Pairing** uses SPAKE2+ with a code both sides confirm; session keys are
+  hardened with Argon2id.
+- **Keys** live only on the computer and the paired device. The relay at
+  `pairfob.com` forwards ciphertext frames it cannot read.
 - **Direct when possible.** An established session upgrades to a WebRTC
-  DataChannel in the background and keeps the relay as fallback.
-- **Outbound only.** The computer dials out; no inbound ports, no VPN.
-- **Three pane modes.** Control (the phone-friendly default), Terminal (the
-  real PTY), and Chat with the agent.
-- **Workspace inspection.** Browse files and read git status, diff, and
-  branches from the phone, read-only.
-- **Pass files to your Agent.** Upload photos, PDFs and other files from the
-  phone over P2P, then insert their workspace paths into the draft. Supports
-  smart photo compression and manual resume after interruptions.
-  See [attachments](site/doc/app.md#upload-attachments).
-- **Optional notifications.** Push when an agent needs you or finishes a task.
-- **中文 / English.** The phone UI follows the browser language or a pinned
-  choice.
+  DataChannel and keeps the relay as fallback.
+- **Nothing exposed.** The computer only dials out; Herdr is never reachable
+  from the internet.
 
-## Install
+See [What the relay cannot see](https://pairfob.com/doc/security) and report
+vulnerabilities privately via [SECURITY.md](SECURITY.md).
 
-macOS or Linux. Herdr 0.7 or newer. Closing a workspace from the phone requires
-Herdr 0.9.0 or newer: Pairfob refuses to close linked workspace groups implicitly.
+## Requirements
 
-```sh
-curl -fsSL https://pairfob.com/install.sh | sh
-pairfob pair
-```
+| | |
+| --- | --- |
+| Computer | macOS or Linux (Windows is not supported) |
+| Herdr | 0.7 or newer; the installer can install pinned 0.8.2 |
+| Herdr plugin | Herdr 0.8.2 or newer |
+| Close a workspace from the phone | Herdr 0.9.0 or newer |
+| Phone / tablet | A current mobile browser; installable as a PWA |
 
-Or install Pairfob as a Herdr community plugin (Herdr 0.8.2 or newer):
+## Computer commands
 
 ```sh
-herdr plugin install arronKler/pairfob
-herdr plugin action invoke pair --plugin pairfob
+pairfob                     # status; starts the daemon if it is not running
+pairfob pair                # pair a phone, tablet, or another computer
+pairfob list                # paired devices
+pairfob forget 1            # unpair by index or name
+pairfob doctor              # diagnose this computer (never changes anything)
+pairfob setup               # check, optionally install, and start Herdr
+pairfob update              # latest release, then restart the service
+pairfob quota-setup-claude  # enable Claude subscription quota collection
+pairfob service status      # login service: start / stop / restart / install / uninstall
 ```
 
-The first **Pair a device** action installs the same verified standalone binary
-and user service, then opens pairing in an interactive Herdr overlay. Removing the
-plugin removes only the Herdr entrypoints; Pairfob and its paired-device state
-remain independently installed. See [`plugin/herdr/`](plugin/herdr/README.md).
-
-On the phone, open [pairfob.com/pair](https://pairfob.com/pair) and scan. Press
-Enter once on the computer to admit the device.
-
-Docs: [pairfob.com/doc](https://pairfob.com/doc/).
+A second computer runs the same installer; pair it from the phone with
+**Settings → Add another computer**. Everything else: [Computer commands](https://pairfob.com/doc/cli).
 
 ## How it works
 
@@ -69,149 +109,42 @@ pairfob --outbound WSS---------->  same room  --opaque FWD-->  phone
 pairfob --loopback-------------->  Herdr
 ```
 
-`pairfob.com` is the project's official instance. It forwards ciphertext frames
-and cannot read the session. Keys live on the computer and the paired device.
-The established session attempts a WebRTC direct upgrade in the background and
-keeps relay as fallback. See [`proto/direct-transport.md`](proto/direct-transport.md).
+The phone reads the rendered pane and sends keys back to the PTY; it is not a
+terminal emulator of its own. `pairfob.com` is the project's official instance.
+Protocol specs live in [`proto/`](proto/), including
+[direct transport](proto/direct-transport.md).
 
-## Commands
-
-```
-pairfob pair
-pairfob list
-pairfob forget 1
-pairfob update
-pairfob doctor
-pairfob service status
-pairfob version
-```
-
-With no subcommand, `pairfob` prints a short status when the daemon is running
-and starts it otherwise. `pair`, `list`, and `forget` talk to that daemon over
-`$PAIRFOB_STATE_DIR/pairfob.sock` (0600); `forget` also accepts a device name.
-`pairfob service` manages the login service (`status`, `start`, `stop`,
-`restart`, `install`, `uninstall`), and `pairfob help` lists the rest.
-A second computer runs the same installer; pair it from the phone with
-**Settings → Add another computer**.
+| Path | What it is |
+| --- | --- |
+| `cmd/pairfob` | the computer daemon and CLI |
+| `internal/` | pairing, sessions, RPC, Herdr adapter, protocol primitives |
+| `pwa/` | the phone app (React + TypeScript, built with bun) |
+| `workers/pairfob-origin` | the relay: Cloudflare Worker + Durable Object |
+| `site/` | homepage and [documentation](https://pairfob.com/doc/) sources |
+| `proto/` | frozen envelope, RPC schema and test vectors |
+| `plugin/herdr` | Herdr plugin entrypoints |
 
 ## Develop
 
-Install PWA dependencies with `(cd pwa && bun install --frozen-lockfile)`.
-Choose checks by change scope and stage; see [verification rules](AGENTS.md#verify):
-
-- During local iteration, run affected module tests and relevant type/format
-  checks. Include affected consumers when shared code changes.
-- For UI behavior/layout changes, check the changed interactions and viewports
-  in a browser. Documentation/copy-only changes need relevant diff, link or
-  rendering checks, not unrelated code suites.
-- Before delivering backend, protocol, cross-module contract or release-tooling
-  changes, run `./scripts/verify.sh` once on the final candidate. This includes
-  gofmt, vet, Go tests (including race), vulnerability checks, PWA / Worker /
-  site tests, typechecks and production builds. Regenerate changed protocol
-  vectors with `go run ./cmd/genvectors` first.
-- Reuse passed checks while their inputs, dependencies, configuration and
-  relevant environment remain unchanged. Rerun checks affected by later edits;
-  a new commit or status request alone does not require another full run.
-
-For a PWA UI-only production release, use the current local branch and checkout
-and compare against a known verified release commit. Commit and push on that
-branch; do not create a release branch or worktree unless explicitly requested:
-
-```
+```sh
 (cd pwa && bun install --frozen-lockfile)
-PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>
-```
-
-Set the origin's `BUILD` stamp before this command. The scope check includes
-committed, staged, unstaged and untracked changes; it permits only PWA changes
-and a BUILD-only origin config edit. Protocol files in `pwa/src/lib/protocol/`
-require the full gate, as do backend, site, release-tooling or other changes.
-Any protocol/cross-language behavior change needs the full gate regardless of
-its location. Do not choose an unverified `HEAD` just to satisfy the scope check.
-
-This path retains all PWA tests, QA, typechecks, fresh builds and Worker
-integration checks, while reusing the unchanged backend's prior verification.
-It prints timings for each web stage. `dist/dl/` must contain the existing
-shippable binaries; this command validates and packs them without rebuilding.
-After success, deploy the packed tree directly with `wrangler deploy --keep-vars`
-from `workers/pairfob-origin`; do not repeat the pack/docs build if inputs have
-not changed. Verify the live BUILD and asset hashes before declaring it live.
-The default full gate remains unchanged in coverage.
-
-Local pairing against the same Worker as production:
-
-```
-./scripts/dev-up.sh     # origin + pairfob + PWA on loopback
+./scripts/dev-up.sh     # local origin + pairfob + PWA on loopback
+./scripts/verify.sh     # full gate: Go, PWA, Worker, site tests and builds
 ./scripts/dev-down.sh
 ```
 
-1. On the computer, run the `pairfob pair` command printed by `dev-up.sh`
-   (same `PAIRFOB_STATE_DIR`). It shows a QR first and keeps a pairing code as
-   fallback.
-2. Open `http://127.0.0.1:18786/pair`. Scan to start, or expand **Enter pairing
-   code**.
-3. When the computer says the phone proved the code, press Enter. The phone
-   connects on its own.
-4. Open a **Needs you** card. That is the live Herdr session on the computer.
-
-`dev-up.sh` attaches to local Herdr by default. Set
-`PAIRFOB_DEV_FAKE_RUNTIME=1` for built-in demo data. Set
-`PAIRFOB_HERDR_AUTOSTART=0` to skip starting Herdr. Never enable
-`PAIRFOB_DEV_AUTO_ADMIT` outside an isolated test.
-
-For phone testing without installing a local CA, create a DNS-only A record
-that points a hostname you control to this computer's LAN IPv4, then use the
-optional DNS-01 mode:
-
-```sh
-PAIRFOB_ACME_DOMAIN=pairfob-dev.example.com \
-PAIRFOB_ACME_DNS=cloudflare \
-PAIRFOB_ACME_EMAIL=you@example.com \
-CF_DNS_API_TOKEN='<zone-scoped token>' \
-./scripts/dev-up.sh
-```
-
-The hostname makes `dev-up.sh` listen on the LAN automatically. The first run
-downloads a pinned, checksum-verified `lego` under `.dev/tools`; certificates
-and ACME account data stay under `.dev/acme` and are reused until renewal is needed. Supported DNS
-providers are `cloudflare`, `route53`, `alidns`, `tencentcloud`, `huaweicloud`,
-and `digitalocean`. The A record must not use an HTTP proxy/CDN because the
-private address must remain visible to devices on the same LAN.
-
-Cross-compile downloadable binaries with `./scripts/release.sh`. Pack the origin
-(including `/dl/` when `PAIRFOB_PACK_DL=1`) with `scripts/pack-origin-assets.sh`.
-
-## Protocol
-
-Envelope bytes stay `pairfob.v1` (`proto/envelope.md`, `proto/rpc.schema.json`,
-`proto/pairfob-vectors.json`). Mux control is `pairfob.v2`
-(`proto/envelope-v2.md`). Do not change HKDF info, AAD, Argon2id, DeviceHello,
-or inner RPC fields. `pair_loc` never enters SPAKE / Argon2. There is no
-`/v1/ws` origin.
-
-`GetConfig.capabilities` is a closed eleven-key object. Mutations carry a fresh
-`operation_id` and are never retried automatically. `unknown_outcome` refreshes;
-it does not replay. Paths and cwd fail closed outside live snapshot roots or
-`PAIRFOB_ALLOWED_ROOTS`.
-
-Each pane can switch among **控制** (Control, the default phone UI), **终端**
-(Terminal, the real PTY), and **对话** (Chat). The product loop is not a
-terminal emulator: read the rendered pane, send keys back to the PTY.
+Set `PAIRFOB_DEV_FAKE_RUNTIME=1` for demo data without Herdr. Real-phone
+testing, verification scope, protocol invariants and releases:
+[`docs/develop.md`](docs/develop.md).
 
 ## Contributing
 
 Issues and pull requests are welcome at
-[github.com/arronKler/pairfob](https://github.com/arronKler/pairfob). Follow the
-[verification rules](AGENTS.md#verify) for the change and report the checks run;
-submitting a commit or PR alone does not require unrelated full-suite tests.
-The envelope, vectors, and
-RPC fields under `proto/` are frozen by design — a change there needs its own
-discussion, not an incidental tweak; see [Protocol](#protocol).
+[github.com/arronKler/pairfob](https://github.com/arronKler/pairfob). Run the
+checks that match your change (see [`docs/develop.md`](docs/develop.md#verification))
+and list them in the PR. The envelope, vectors and RPC fields under `proto/`
+are frozen by design; please open an issue before proposing a change there.
 
 ## License
 
 [Apache License 2.0](LICENSE). See [NOTICE](NOTICE).
-
-## Security
-
-Report vulnerabilities privately: [SECURITY.md](SECURITY.md).

@@ -14,10 +14,12 @@ export function herdLivenessModel(input: RuntimeLivenessInput): RuntimeLiveness 
   return runtimeLiveness(input);
 }
 
-export function herdStatusModel(input: RuntimeLivenessInput & { herdHost: string; checking?: boolean; liveness?: RuntimeLiveness }): HerdStatus {
+export function herdStatusModel(input: RuntimeLivenessInput & { herdHost: string; checking?: boolean; reading?: boolean; liveness?: RuntimeLiveness }): HerdStatus {
   const liveness = input.liveness ?? runtimeLiveness(input);
   if (!input.networkOnline) return { tone: "warn", text: t("chrome.networkOffline") };
   if (input.checking) return { tone: "pending", text: t("chrome.checking") };
+  // The first runtime read is still in flight: reading, not a fault.
+  if (input.reading && input.connected && !input.runtimeKind) return { tone: "pending", text: t("chrome.reading") };
   if (liveness === "unverifiable") {
     return { tone: "warn", text: input.connected ? t("chrome.unverifiable") : t("chrome.reconnecting") };
   }

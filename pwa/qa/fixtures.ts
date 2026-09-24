@@ -157,7 +157,13 @@ export async function createFixtureAPI(language: "zh" | "en", initialScene: stri
     releaseBoardScroll();
     disposeFullTerminal();
     resetTelemetry();
-    for (const dialog of document.querySelectorAll("dialog")) { if (dialog.open) dialog.close(); dialog.remove(); }
+    // Promise dialogs own detached roots and are removed here; a dialog whose
+    // open state lives in a domain (data-state-portal) is only closed — the
+    // domain reset below unmounts it through React.
+    for (const dialog of document.querySelectorAll("dialog")) {
+      if (dialog.open) dialog.close();
+      if (!dialog.hasAttribute("data-state-portal")) dialog.remove();
+    }
     // A deliberate complete-fixture remount boundary: retire whichever fixture
     // owned the PREVIOUS scene before installing this one. The standalone shell
     // fixture owns its own root and must release #app before the stable App

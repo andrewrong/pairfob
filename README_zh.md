@@ -2,60 +2,94 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![pairfob.com](https://img.shields.io/badge/site-pairfob.com-111111)](https://pairfob.com)
+[![Docs](https://img.shields.io/badge/docs-pairfob.com%2Fdoc-111111)](https://pairfob.com/doc/zh/)
 
 [English](README.md) | **简体中文**
 
-Pairfob 是 [Herdr](https://herdr.dev) 的手机端。Codex、Claude、Grok 继续在你
-的电脑上跑，手机打开的是同一批活着的会话。配对一次即可。电脑主动向外拨号
-——不需要入站端口，不需要 Tailscale。
+**把 [Herdr](https://herdr.dev) 里的 Agent 带到手机上。** Codex、Claude、Grok
+等 Agent 继续在你的电脑上跑；配对一次后，手机、平板或另一台电脑打开的是
+**同一批活着的会话**，不是副本。电脑只往外连，不开入站端口、不需要 VPN，
+会话端到端加密。
 
-![电脑上的 Herdr 与手机上的 Pairfob 显示同一份实时 agent 列表](site/readme-hero.png)
+<p align="center">
+  <img src="site/img/home/zh/home-grouped.webp" width="200" alt="按工作区分组的会话列表，顶部是等你处理的会话" />
+  <img src="site/img/home/zh/guided-draft.webp" width="200" alt="会话内：实时终端画面和输入框" />
+  <img src="site/img/home/zh/workspace-diff.webp" width="200" alt="在手机上查看文件 diff" />
+  <img src="site/img/home/zh/chat-complete.webp" width="200" alt="对话模式里 Agent 完成后的回复" />
+</p>
 
-## 功能一览
+## 快速开始
 
-- **同一个会话，不是副本。** 手机读取渲染好的终端画面，把按键发回 PTY；
-  两边始终是同一个会话。
-- **端到端加密。** SPAKE2+ 配对，配对码经双方验证，会话密钥用 Argon2id
-  加固。密钥只存在于电脑和已配对设备上；中继转发的密文它自己读不懂。
-- **能直连就直连。** 会话建立后会在后台尝试升级为 WebRTC DataChannel
-  直连，中继保留为兜底。
-- **只出不上。** 电脑只向外拨号；不开入站端口，不需要 VPN。
-- **三种面板模式。** 控制（默认的手机友好界面）、终端（真实 PTY）、对话
-  （和 Agent 发消息）。
-- **工作区检查。** 在手机上浏览文件、查看 git status、diff 和分支，
-  全部只读。
-- **把文件交给 Agent。** 从手机通过 P2P 上传照片、PDF 等文件，再将工作区
-  路径插入草稿；支持照片智能压缩和中断后手动续传。见
-  [附件上传](site/doc/zh/app.md#上传附件)。
-- **可选通知。** Agent 等你确认或完成任务时推送提醒。
-- **中文 / English。** 手机端跟随浏览器语言，也可在设置里固定语言。
-
-## 安装
-
-macOS 或 Linux。Herdr 0.7 及以上。
+macOS 或 Linux，电脑上装有 Herdr（没装时安装脚本会询问是否帮你装）。
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh
-pairfob pair
+curl -fsSL https://pairfob.com/install.sh | sh   # 校验、登记、启动后台服务
+pairfob pair                                      # 显示二维码
 ```
 
-也可以把 Pairfob 装成 Herdr 社区插件（Herdr 0.8.2 及以上）：
+在手机上打开 [pairfob.com/pair](https://pairfob.com/pair) 扫码，然后在电脑上按
+一次回车放行这台设备。加到主屏幕就可以用了。完整步骤见
+[开始使用](https://pairfob.com/doc/zh/start)。
+
+平时就在 Herdr 里？`herdr plugin install arronKler/pairfob` 会把
+**Pairfob: Pair a device** 加进 Herdr 的动作菜单，首次使用时安装同一个经过
+校验的二进制。见 [`plugin/herdr/`](plugin/herdr/README.md)。
+
+## 在手机上能做什么
+
+- **Agent 等你时及时处理。** 列表顶部的 **等你** 和可选的推送通知会把
+  等待中的 Agent 提出来，点一下直接进到那个提示。
+- **在活着的会话里干活。** **自动** 会按会话在三种模式间选择：**控制**
+  （终端画面 + 系统键盘，支持听写，带快捷键区）、**终端**（真实 PTY，适合
+  vim 和全屏 TUI）、**对话**（给 Agent 发消息、看回复）。
+- **审查改动。** 浏览文件，查看 git 状态和 diff，在 diff 行上写评论并发给
+  Agent。
+- **把文件交给 Agent。** 通过 P2P 上传照片、PDF 等文件，把工作区路径插入草稿。
+- **管理工作区。** 新建对话、标签页、分屏和 worktree，在 **画板** 上看标签页
+  的真实分栏。电脑不支持的操作不会出现。
+- **多台电脑、多台设备。** 一台手机可以在几台电脑之间切换，一台电脑也可以
+  配对多台设备。
+- **看订阅余量。** 由电脑收集 Codex、Claude Code、Copilot、Cursor、Grok 等账号的
+  额度。
+
+手机端支持中文和 English。详见 [手机上怎么用](https://pairfob.com/doc/zh/app)。
+
+## 安全
+
+- **配对** 用 SPAKE2+，配对码由双方确认；会话密钥用 Argon2id 加固。
+- **密钥** 只在电脑和已配对设备上。`pairfob.com` 上的中继只转发它读不懂的密文帧。
+- **能直连就直连。** 会话建立后升级为 WebRTC DataChannel，中继保留为兜底。
+- **不暴露任何东西。** 电脑只往外连，Herdr 永远不会暴露到公网。
+
+见 [中继看不到什么](https://pairfob.com/doc/zh/security)。安全漏洞请按
+[SECURITY.md](SECURITY.md) 私下报告。
+
+## 环境要求
+
+| | |
+| --- | --- |
+| 电脑 | macOS 或 Linux（不支持 Windows） |
+| Herdr | 0.7 及以上；安装脚本可以装固定版本 0.8.2 |
+| Herdr 插件 | Herdr 0.8.2 及以上 |
+| 在手机上关闭工作区 | Herdr 0.9.0 及以上 |
+| 手机 / 平板 | 较新的移动浏览器，可安装为 PWA |
+
+## 电脑上的命令
 
 ```sh
-herdr plugin install arronKler/pairfob
-herdr plugin action invoke pair --plugin pairfob
+pairfob                     # 查看状态；没在运行时启动它
+pairfob pair                # 配对手机、平板或另一台电脑
+pairfob list                # 已配对设备
+pairfob forget 1            # 按序号或名字解除配对
+pairfob doctor              # 检查这台电脑（只诊断，不改任何东西）
+pairfob setup               # 检查 Herdr，按需安装并启动
+pairfob update              # 更新到最新版本并重启服务
+pairfob quota-setup-claude  # 开启 Claude 订阅余量采集
+pairfob service status      # 登录服务：start / stop / restart / install / uninstall
 ```
 
-首次执行 **Pair a device** 动作时，会安装同一个经过校验的独立二进制和用户
-服务，然后在 Herdr 的交互浮层里打开配对流程。卸载插件只移除 Herdr 里的
-入口；Pairfob 本身和已配对设备的状态仍然独立存在。见
-[`plugin/herdr/`](plugin/herdr/README.md)。
-
-在手机上打开 [pairfob.com/pair](https://pairfob.com/pair) 扫码。在电脑上按
-一次回车，放行这台设备。
-
-文档：[pairfob.com/doc](https://pairfob.com/doc/)（含
-[中文版](https://pairfob.com/doc/zh/)）。
+第二台电脑运行同一个安装脚本，然后在手机上用 **设置 → 添加另一台电脑**
+配对。其他命令见 [电脑上的命令](https://pairfob.com/doc/zh/cli)。
 
 ## 工作原理
 
@@ -66,129 +100,39 @@ pairfob --outbound WSS---------->  same room  --opaque FWD-->  phone
 pairfob --loopback-------------->  Herdr
 ```
 
-`pairfob.com` 是本项目的官方实例。它只转发密文帧，读不到会话内容。密钥在
-电脑和已配对设备上。会话建立后会在后台尝试 WebRTC 直连升级，中继保留为
-兜底。见 [`proto/direct-transport.md`](proto/direct-transport.md)。
+手机读取渲染好的终端画面，把按键发回 PTY；它本身不是终端模拟器。
+`pairfob.com` 是本项目的官方实例。协议规格在 [`proto/`](proto/)，包括
+[直连传输](proto/direct-transport.md)。
 
-## 命令
-
-```
-pairfob pair
-pairfob list
-pairfob forget 1
-pairfob update
-pairfob doctor
-pairfob service status
-pairfob version
-```
-
-不带子命令时，`pairfob` 在 daemon 已运行时打印简短状态，否则启动它。
-`pair`、`list`、`forget` 通过 `$PAIRFOB_STATE_DIR/pairfob.sock`（0600）
-和 daemon 通信；`forget` 也接受设备名。`pairfob service` 管理登录服务
-（`status`、`start`、`stop`、`restart`、`install`、`uninstall`），
-`pairfob help` 列出其余命令。第二台电脑运行同一个安装脚本，然后在手机上用
-**设置 → 添加另一台电脑** 配对。
+| 目录 | 内容 |
+| --- | --- |
+| `cmd/pairfob` | 电脑端 daemon 和命令行 |
+| `internal/` | 配对、会话、RPC、Herdr 适配、协议原语 |
+| `pwa/` | 手机端应用（React + TypeScript，用 bun 构建） |
+| `workers/pairfob-origin` | 中继：Cloudflare Worker + Durable Object |
+| `site/` | 主页和[文档](https://pairfob.com/doc/zh/)源码 |
+| `proto/` | 冻结的信封格式、RPC schema 和测试向量 |
+| `plugin/herdr` | Herdr 插件入口 |
 
 ## 开发
 
-用 `(cd pwa && bun install --frozen-lockfile)` 安装 PWA 依赖。
-按改动范围和任务阶段选择检查，完整规则见 [验证约定](AGENTS.md#verify)：
-
-- 日常迭代运行受影响模块的测试，以及相关类型、格式检查；共享代码改动还需覆盖受影响的调用方。
-- UI 行为或布局变化，补充对应交互和视口的浏览器检查。仅文档或文案变化，检查相关差异、链接或渲染，不运行无关代码测试。
-- 后端、协议、跨模块契约或发布工具改动，在最终候选版本交付前运行一次 `./scripts/verify.sh`。
-  全量检查包含 gofmt、vet、Go 测试（含 race）、漏洞检查、PWA / Worker / 站点测试、类型检查和生产构建。
-  如果协议向量需要变化，先用 `go run ./cmd/genvectors` 重新生成。
-- 检查的源码输入、依赖、配置和相关环境未变时复用通过结果；后续改动只重跑受影响的检查。
-  新的提交编号或一次进度询问，不是重复全量检查的理由。
-
-仅 PWA UI 的生产发布，直接在当前本地分支和工作目录中与已验证的发布提交比较。
-在当前分支提交并推送；除非用户明确要求，不新建发布分支或 worktree：
-
-```
+```sh
 (cd pwa && bun install --frozen-lockfile)
-PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>
-```
-
-先设置 origin 的 `BUILD`。范围检查包含已提交、暂存、未暂存和未跟踪文件，
-只允许 PWA 改动及 origin 配置中仅 `BUILD` 的变化。
-`pwa/src/lib/protocol/`、后端、站点、发布脚本或其他范围的变化，需要全量检查；
-任何位置的协议或跨语言行为变化也需要全量检查。没有可信基线时走全量，
-不能用未经验证的 `HEAD` 绕过范围检查。
-
-这条路径保留全部 PWA 测试、QA、类型检查、重新构建和 Worker 集成检查，
-复用未变化后端的既有验证，并输出各阶段耗时。
-`dist/dl/` 必须已有可发布的二进制；脚本校验并打包它们，不重新编译。
-检查通过且输入未变后，在 `workers/pairfob-origin` 中直接用
-`wrangler deploy --keep-vars` 发布，不重复打包或构建文档。
-发布后核对线上 BUILD 和资源哈希。默认全量检查的覆盖范围不变。
-
-本地配对走的是与生产同一份 Worker 代码：
-
-```
-./scripts/dev-up.sh     # origin + pairfob + PWA on loopback
+./scripts/dev-up.sh     # 在本机回环地址启动 origin + pairfob + PWA
+./scripts/verify.sh     # 完整检查：Go、PWA、Worker、站点测试和构建
 ./scripts/dev-down.sh
 ```
 
-1. 在电脑上运行 `dev-up.sh` 打印出来的 `pairfob pair` 命令（同一个
-   `PAIRFOB_STATE_DIR`）。先显示二维码，配对码作为兜底。
-2. 打开 `http://127.0.0.1:18786/pair`。扫码开始，或展开 **输入配对码**。
-3. 电脑提示手机已证明配对码后，按回车。手机会自己连上。
-4. 打开一张 **等你** 卡片。那就是电脑上的实时 Herdr 会话。
-
-`dev-up.sh` 默认接本机 Herdr。设 `PAIRFOB_DEV_FAKE_RUNTIME=1` 用内置演示
-数据；设 `PAIRFOB_HERDR_AUTOSTART=0` 跳过启动 Herdr。除了隔离的测试环境，
-永远不要开 `PAIRFOB_DEV_AUTO_ADMIT`。
-
-真机测试不想装本地 CA 的话，可以建一条仅 DNS 的 A 记录，把你控制的域名
-指向这台电脑的局域网 IPv4，然后用可选的 DNS-01 模式：
-
-```sh
-PAIRFOB_ACME_DOMAIN=pairfob-dev.example.com \
-PAIRFOB_ACME_DNS=cloudflare \
-PAIRFOB_ACME_EMAIL=you@example.com \
-CF_DNS_API_TOKEN='<zone-scoped token>' \
-./scripts/dev-up.sh
-```
-
-配了域名后 `dev-up.sh` 会自动监听局域网。首次运行会下载固定版本、校验过
-和的 `lego` 到 `.dev/tools`；证书和 ACME 账户数据保存在 `.dev/acme`，
-续期前会一直复用。支持的 DNS 提供商有 `cloudflare`、`route53`、`alidns`、
-`tencentcloud`、`huaweicloud`、`digitalocean`。A 记录不能走 HTTP 代理 /
-CDN，否则同一局域网里的设备看不到内网地址。
-
-用 `./scripts/release.sh` 交叉编译可下载的二进制。用
-`scripts/pack-origin-assets.sh` 打包 origin（`PAIRFOB_PACK_DL=1` 时包含
-`/dl/`）。
-
-## 协议
-
-信封字节保持 `pairfob.v1`（`proto/envelope.md`、`proto/rpc.schema.json`、
-`proto/pairfob-vectors.json`）。多路复用控制面是 `pairfob.v2`
-（`proto/envelope-v2.md`）。不要改动 HKDF info、AAD、Argon2id、DeviceHello
-和内层 RPC 字段。`pair_loc` 永远不进入 SPAKE / Argon2。不存在 `/v1/ws`
-origin。
-
-`GetConfig.capabilities` 是一个封闭的十一键对象。变更类操作必须带新的
-`operation_id`，且永不自动重试。`unknown_outcome` 只刷新状态，不重放。
-路径和 cwd 落在活跃快照根或 `PAIRFOB_ALLOWED_ROOTS` 之外时一律失败关闭。
-
-每个面板可以在 **控制**（默认的手机界面）、**终端**（真实 PTY）和
-**对话** 之间切换。产品循环不是终端模拟器：读取渲染好的画面，把按键发回
-PTY。
+设置 `PAIRFOB_DEV_FAKE_RUNTIME=1` 可以不接 Herdr、用演示数据。真机调试、
+验证范围、协议约束和发布流程见 [`docs/develop.md`](docs/develop.md)（英文）。
 
 ## 参与贡献
 
 欢迎在 [github.com/arronKler/pairfob](https://github.com/arronKler/pairfob)
-提 issue 和 PR。按 [验证约定](AGENTS.md#verify) 完成与改动范围相符的检查，并说明验证结果；
-创建提交或 PR 本身不要求运行无关的全量测试。`proto/` 下的
-信封、向量和 RPC 字段按设计冻结——改动那里需要单独讨论，不能顺手改；见
-[协议](#协议)。
+提 issue 和 PR。按改动范围运行对应检查（见
+[`docs/develop.md`](docs/develop.md#verification)），并在 PR 里写明跑了哪些。
+`proto/` 下的信封格式、测试向量和 RPC 字段是有意冻结的，想改动请先开 issue 讨论。
 
 ## 许可证
 
 [Apache License 2.0](LICENSE)。见 [NOTICE](NOTICE)。
-
-## 安全
-
-漏洞请私下报告：[SECURITY.md](SECURITY.md)。

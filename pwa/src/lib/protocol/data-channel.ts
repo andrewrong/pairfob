@@ -24,6 +24,7 @@ export class DataFrameChannel implements FrameChannel {
   private waiters: Array<{ resolve: (frame: Frame) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }> = [];
   private handler: ((frame: Frame) => void) | null = null;
   private closeHandlers = new Set<(error: ProtocolError) => void>();
+  private recoveryFailures = new Set<() => void>();
   private iceUnhealthy: (() => void) | null = null;
   private ended = false;
   private icePauses = new Set<"restart" | "page">();
@@ -103,6 +104,23 @@ export class DataFrameChannel implements FrameChannel {
   resumeIceWatch(reason: "restart" | "page" = "restart"): void {
     this.icePauses.delete(reason);
     this.handleICE();
+  }
+
+  /** Foreground probes may observe terminal failure during the page grace,
+   * but an explicit ICE restart continues to own its pause. */
+  watchRecoveryFailure(handler: () => void): () => void {
+    this.recoveryFailures.add(handler);
+    this.notifyRecoveryFailure();
+    return () => this.recoveryFailures.delete(handler);
+  }
+
+  private notifyRecoveryFailure(): void {
+    if (this.ended || this.icePauses.has("restart")) return;
+    const { ice_state, peer_state, channel_state } = this.diagnosticState();
+    if (ice_state === "failed" || ice_state === "closed" || peer_state === "failed" ||
+        peer_state === "closed" || channel_state === "closed") {
+      for (const handler of [...this.recoveryFailures]) handler();
+    }
   }
 
   onIceUnhealthy(handler: () => void): () => void {
@@ -189,6 +207,7 @@ export class DataFrameChannel implements FrameChannel {
   }
 
   private handleICE(): void {
+    this.notifyRecoveryFailure();
     if (this.ended || this.icePauses.size > 0) return;
     const ice = this.peer.iceConnectionState;
     const connection = this.peer.connectionState;
@@ -236,6 +255,7 @@ export class DataFrameChannel implements FrameChannel {
   private fail(error: ProtocolError): void {
     if (this.ended) return;
     this.ended = true;
+    this.recoveryFailures.clear();
     this.detachPeer();
     for (const waiter of this.waiters.splice(0)) {
       clearTimeout(waiter.timer);

@@ -1,3 +1,4 @@
+import type { RecoveryClock } from "./recovery-diagnostics";
 import { jsonFrame, Typ } from "./envelope.ts";
 import { ProtocolError } from "./errors.ts";
 import { envelopeError, openWS, send, Z16 } from "./frame-socket.ts";
@@ -15,10 +16,11 @@ export async function connectSession(
   emit: (event: SessionEvent) => void,
   signal?: AbortSignal,
   warmup?: RelayWarmup,
+  recovery?: RecoveryClock,
 ): Promise<SessionTransport> {
   const protocol = muxProtocolFromRelayURL(relayWS);
   const prepared = await warmup?.take(signal);
-  const trace = prepared?.trace ?? connectionTrace();
+  const trace = prepared?.trace ?? connectionTrace(false, recovery);
   let socket = prepared?.socket;
   let transport: SessionTransport | undefined;
   const abort = () => socket?.close(1000, "connection cancelled");
@@ -38,6 +40,7 @@ export async function connectSession(
     const epoch = await establishSessionEpoch(socket, bound.routeId, pair, protocol, trace);
     if (signal?.aborted) throw new ProtocolError("disconnected", "连接已取消");
     transport = new SessionTransport(socket, epoch.routeId, epoch.c2s, epoch.s2c, emit);
+    transport.recoveryDiagnostic = recovery;
     // A fresh encrypted response is still required before enabling operations.
     await transport.rpc("Ping", { t_ms: Date.now() }, 8_000);
     if (signal?.aborted) throw new ProtocolError("disconnected", "连接已取消");

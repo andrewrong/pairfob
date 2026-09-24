@@ -5,22 +5,21 @@ import { useConnection, useRuntime } from "../../features/connection/hooks";
 import { usePreferences } from "../../features/settings/hooks";
 import { computerTitle } from "../../lib/computer-catalog";
 import { t } from "../../lib/i18n";
-import { displayDeviceLabel, notificationAction, visiblePairedDevices } from "../../lib/ui-model";
-import { leaveSettings, refreshSettings } from "../../features/settings/actions";
-import { settingsNetworkHelp, settingsNetworkPath } from "../../features/settings/model";
+import { leaveSettings } from "../../features/settings/actions";
+import { useLang } from "../../features/settings/language";
 import { setSettingsSection, settingsSection, subscribeSettingsSection } from "../../features/settings/settings-section";
 import { herdStatusOf } from "../../features/connection/herd-status";
 import { AppNotice } from "../../app/notice";
-import { BackBar, Button, Feedback, HelpButton } from "../../shared/ui/primitives";
-import { helpWithCode, useLang } from "./settings-controls";
-import { ConnectionSection } from "./settings-connection";
-import { DevicesSection, devicesHelp } from "./settings-devices";
+import { BackBar } from "../../shared/ui/primitives";
+import { linkState } from "./computer-panel";
+import { ComputerSection } from "./settings-computer";
 import { SettingsOverview } from "./settings-overview";
 
 /**
- * Settings: an overview with one line per choice, and two sub-pages — the
- * connection page behind the computer card and the paired-devices page. On a
- * phone the page is a tab root (no back); on the desktop it keeps its back bar.
+ * Settings: the overview, and the computer page behind its computer panel. On
+ * a phone the overview is a tab root (no back); on the desktop it keeps its
+ * back bar. The computer page's name lives in its panel, so its bar carries
+ * only the back control and a hidden heading.
  */
 function useSettingsView() {
   const connection = useConnection();
@@ -53,6 +52,7 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
     networkOnline: connection.networkOnline,
     runtimeKind: runtime.runtimeKind,
     herdHost: runtime.herdHost,
+    reading: runtime.identityPending,
   });
   const network = {
     sessionTransport: connection.sessionTransport,
@@ -62,50 +62,35 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
     lastP2PAttempt: connection.lastP2PAttempt,
   };
   const computerName = runtime.herdHost || (computers.credential ? computerTitle(computers.credential) : t("settings.currentComputer"));
-  const self = runtime.deviceList.find((device) => device.self && !device.revoked_at);
-  const notifyHelp =
-    runtime.pushEnabled === false && !runtime.settingsLoading
-      ? () => [helpWithCode(t("settings.pushHowtoBody"), "PAIRFOB_PUSH=1", t("settings.pushHowtoTail"))]
-      : undefined;
-  const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-  const pushAction = notificationAction(runtime.pushEnabled, runtime.pushSubscribed, pushSupported, runtime.settingsLoading);
-  const pushNote = runtime.pushEnabled === false
-    ? t("settings.pushComputerOff")
-    : runtime.pushSubscribed === true ? t("settings.pushOn") : t("settings.pushOff");
+  const link = linkState(status, network, connected);
   const back = section === "overview" ? (withBack ? leaveSettings : null) : () => setSettingsSection("overview");
-  const title = section === "connection" ? t("settings.connection") : section === "devices" ? t("settings.devices") : t("settings.title");
-  // Long explanations stay behind the title's help button, not on the page.
-  const help = section === "devices" ? devicesHelp(runtime)
-    : section === "connection" ? [settingsNetworkHelp(network)] : undefined;
+  const title = section === "connection" ? computerName : t("settings.title");
   return (
     <>
-      {back ? <BackBar title={title} onBack={back}>{help ? <HelpButton title={title} blocks={help} /> : null}</BackBar>
+      {back ? <BackBar title={title} hideTitle={section === "connection"} onBack={back} />
         : <h1 className="settings-title">{title}</h1>}
       <AppNotice />
       {section === "connection" ? (
-        <ConnectionSection connection={connection} network={network} status={status} computerName={computerName}
-          phoneName={self ? displayDeviceLabel(self.label || "") || t("settings.pairedPhone") : null} />
-      ) : section === "devices" ? (
-        <DevicesSection runtime={runtime} connected={connected} />
+        <ComputerSection name={computerName} link={link} connection={connection} runtime={runtime} connected={connected} />
       ) : (
         <SettingsOverview input={{
           computerName,
-          computerLine: status.tone === "live" ? t("settings.connectedVia", { path: settingsNetworkPath(network) }) : status.text,
-          status,
+          link,
           computerCount: computers.computers.length || 1,
-          deviceCount: visiblePairedDevices([...runtime.deviceList]).length,
           defaultTermMode: preferences.defaultTermMode,
           defaultComposeLive: preferences.defaultComposeLive,
           composeEnterSends: preferences.composeEnterSends,
-          pushNote,
-          pushAction,
-          notifyHelp,
+          notification: {
+            loading: runtime.settingsLoading,
+            connected,
+            supported: "serviceWorker" in navigator && "PushManager" in window && "Notification" in window,
+            pushEnabled: runtime.pushEnabled,
+            pushSubscribed: runtime.pushSubscribed,
+            error: runtime.pushConfigError,
+          },
+          desk: withBack,
         }} />
       )}
-      {runtime.pushConfigError ? <Feedback value={{ text: runtime.pushConfigError, tone: "error" }} /> : null}
-      {runtime.devicesError || runtime.pushConfigError ? (
-        <Button className="btn btn-small btn-ghost retry" onClick={() => void refreshSettings()}>{t("retry")}</Button>
-      ) : null}
     </>
   );
 }

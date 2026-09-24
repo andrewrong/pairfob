@@ -13,18 +13,31 @@ describe("agent marks", () => {
     expect(agentIcon("agy")).toBe(AGENT_ICONS.antigravity);
     expect(agentIcon("roo-code")).toBe(AGENT_ICONS.roocode);
     expect(agentIcon("kilo")).toBe(AGENT_ICONS.kilocode);
+    expect(agentIcon("qodercli")).toBe(AGENT_ICONS.qoder);
+    expect(agentIcon("droid")).toBe(AGENT_ICONS.droid);
+    expect(agentIcon("hermes")).toBe(AGENT_ICONS.hermes);
+    expect(agentIcon("maki")).toBe(AGENT_ICONS.maki);
   });
 
   test("an unknown kind or a plain terminal has no mark, so a monogram stands in", () => {
     expect(agentIcon("aider")).toBeNull();
     expect(agentIcon("")).toBeNull();
-    expect(agentIcon("droid")).toBeNull();
   });
 
   test("bundled marks are inert path markup: no ids, scripts, links or external references", () => {
     for (const [kind, spec] of Object.entries(AGENT_ICONS)) {
+      if (spec.picture !== undefined) continue;
       expect(spec.body, kind).not.toMatch(/<script|\son\w+=|\sid=|href|url\(|<image|<foreignObject/i);
       expect(spec.body, kind).toMatch(/^<(path|g)[\s>]/);
+    }
+  });
+
+  test("picture marks are bundled with the app, never fetched from another host", () => {
+    const pictures = Object.entries(AGENT_ICONS).filter(([, spec]) => spec.picture !== undefined);
+    expect(pictures.map(([kind]) => kind)).toEqual(["maki"]);
+    for (const [kind, spec] of pictures) {
+      expect(spec.picture, kind).not.toMatch(/^(https?:)?\/\//i);
+      expect(spec.picture, kind).toMatch(/^data:image\/png;base64,|agent-marks\/maki\.png$/);
     }
   });
 });

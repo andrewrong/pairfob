@@ -276,6 +276,8 @@ describe("React herd list", () => {
   });
 
   test("new-session availability follows its capability, connection, and busy state", () => {
+    // The floating button sits beside rows; an empty list owns its own create action.
+    seed([agent("p1")]);
     paint();
     expect(app().querySelector(".create-fab")).toBeNull();
     act(() => applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_conversation: true }, []));
@@ -321,10 +323,12 @@ test("worktree cards retry only on request and cancel locally before a late resu
     refresh: async () => { events.push("refresh"); }, openPane: async () => { events.push("open"); },
     reconcile: async () => { events.push("reconcile"); }, messageOf: error => String(error), repaint: commitTest,
   };
+  // An answered, empty snapshot: the job sits above the empty state, not above placeholder rows.
+  seed([]);
   act(() => { startWorktreeJob(driver, { workspace_id: "alpha", branch: "feature/review", path: "/work/review" }); });
   expect(app().querySelector(".worktree-job-working .spinner")).not.toBeNull();
   expect([...app().querySelector(".page")!.children].map(node => node.className).slice(-3))
-    .toEqual(["herd-head", "worktree-jobs", "empty"]);
+    .toEqual(["herd-head", "worktree-jobs", "herd-empty"]);
   await act(async () => { pending[0].reject(new Error("fetch failed")); await Promise.resolve(); });
   expect(app().querySelector(".worktree-job-error")?.textContent).toContain("fetch failed");
   expect(events.filter(event => event === "create")).toHaveLength(1);

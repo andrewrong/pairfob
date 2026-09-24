@@ -19,6 +19,8 @@ export type HerdStatusInput = RuntimeLivenessInput & {
   /** Last known Herdr host label; empty means the daemon never reported one. */
   herdHost: string;
   checking?: boolean;
+  /** The session's first runtime read is still in flight (see `identityPending`). */
+  reading?: boolean;
 };
 
 export type HerdStatus = { tone: StatusTone; text: string };
@@ -35,6 +37,9 @@ export function canInterruptAgentWith(agentStatus: string, liveness: RuntimeLive
 export function herdStatusOf(input: HerdStatusInput): HerdStatus {
   if (!input.networkOnline) return { tone: "warn", text: t("chrome.networkOffline") };
   if (input.checking) return { tone: "pending", text: t("chrome.checking") };
+  // Not read yet is not a fault: the verdict stays "unverifiable" for gating,
+  // but the words say the phone is reading.
+  if (input.reading && input.connected && !input.runtimeKind) return { tone: "pending", text: t("chrome.reading") };
   const verdict = herdLivenessOf(input);
   if (verdict === "unverifiable") {
     return { tone: "warn", text: input.connected ? t("chrome.unverifiable") : t("chrome.reconnecting") };

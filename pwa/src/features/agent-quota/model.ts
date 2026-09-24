@@ -1,5 +1,6 @@
 import { locale, t, type CopyKey } from "../../lib/i18n";
 import { quotaIsStale, type AgentQuota, type QuotaRead, type QuotaStatus, type QuotaWindow } from "../../lib/agent-quota";
+import { formatDeviceAge } from "../../lib/ui-model";
 
 /**
  * Pure projection from quota protocol data to what the quota surfaces paint.
@@ -16,7 +17,7 @@ export const providerNames: Record<QuotaProvider, string> = {
   copilot: "GitHub Copilot", cursor: "Cursor", grok: "Grok Build",
 };
 
-/** Compact ring labels: the summary strip has room for one word per provider. */
+/** Short names for the settings module rows. */
 export const shortProviderNames: Record<QuotaProvider, string> = {
   codex: "Codex", claude: "Claude", antigravity: "Antigravity",
   copilot: "Copilot", cursor: "Cursor", grok: "Grok",
@@ -69,72 +70,98 @@ export function quotaWindowName(name: string): string {
   return key ? t(key) : name;
 }
 
-export function formatQuotaWhen(seconds: number): string {
-  return new Date(seconds * 1000).toLocaleString(locale());
+/** Copilot's overview reads only premium interactions; its other windows are separate categories. */
+function overviewWindows(q: QuotaRead): readonly QuotaWindow[] {
+  return q.provider === "copilot" ? q.windows.filter(w => w.name === "premium interactions") : q.windows;
 }
 
-/** One compact allowance number for the summary ring, or null when unknown. */
-export function quotaOverview(q: QuotaRead | undefined): number | "unlimited" | null {
+/**
+ * The window the overview shows for one provider: the one with the least
+ * remaining, or the unlimited one when nothing is limited. Null when the read
+ * is missing, not ok or stale.
+ */
+export function quotaTightestWindow(q: QuotaRead | undefined): QuotaWindow | null {
   if (!q || q.status !== "ok" || quotaIsStale(q)) return null;
-  const windows = q.provider === "copilot" ? q.windows.filter(w => w.name === "premium interactions") : q.windows;
-  if (!windows.length) return null;
+  const windows = overviewWindows(q);
   const limited = windows.filter(w => !w.unlimited);
-  return limited.length ? Math.min(...limited.map(w => 100 - w.used_percent)) : "unlimited";
+  if (!limited.length) return windows[0] ?? null;
+  return limited.reduce((tightest, w) => w.used_percent > tightest.used_percent ? w : tightest);
 }
 
-export function ringLabel(value: number | "unlimited" | null): string {
-  if (typeof value === "number") return t("quota.remaining", { percent: Math.round(value) });
-  if (value === "unlimited") return t("quota.unlimited");
-  return t("quota.unavailable");
+/** One compact allowance number for a provider, or null when unknown. */
+export function quotaOverview(q: QuotaRead | undefined): number | "unlimited" | null {
+  const w = quotaTightestWindow(q);
+  if (!w) return null;
+  return w.unlimited ? "unlimited" : 100 - w.used_percent;
 }
 
-export function ringCenter(value: number | "unlimited" | null): string {
-  if (value === "unlimited") return "∞";
-  if (value === null) return "—";
-  return `${Math.round(value)}%`;
+export type QuotaTone = "ok" | "warn" | "error";
+
+/** Below 30% the meter turns yellow, below 10% red. */
+export function quotaTone(remaining: number): QuotaTone {
+  return remaining < 10 ? "error" : remaining < 30 ? "warn" : "ok";
 }
 
-export function ringAngle(value: number | "unlimited" | null): string {
-  if (typeof value === "number") return `${value * 3.6}deg`;
-  if (value === "unlimited") return "360deg";
-  return "0deg";
+/** When a window comes back, relative to now: "2 小时后重置". */
+export function quotaResetIn(resetsAt: number, now = Date.now() / 1000): string {
+  if (!resetsAt) return t("quota.resetUnknown");
+  const seconds = resetsAt - now;
+  if (seconds < 60) return t("quota.resetSoon");
+  if (seconds < 3_600) return t("quota.resetIn.minutes", { n: Math.floor(seconds / 60) });
+  if (seconds < 86_400) return t("quota.resetIn.hours", { n: Math.floor(seconds / 3_600) });
+  return t("quota.resetIn.days", { n: Math.floor(seconds / 86_400) });
 }
 
-export type QuotaWindowModel =
-  | { kind: "unlimited"; key: string; labelText: string }
-  | {
-    kind: "limited"; key: string; labelText: string; remaining: number;
-    /** Inner window name, drawn as a note only when the daemon sent a span. */
-    windowName: string; showWindowName: boolean;
-    progressAria: string; resetCopy: string;
-  };
+/** The reset point itself: a clock time within a day, a short date after that. */
+export function quotaResetAt(resetsAt: number, now = Date.now() / 1000): string {
+  const at = new Date(resetsAt * 1000);
+  return resetsAt - now < 86_400
+    ? new Intl.DateTimeFormat(locale(), { hour: "2-digit", minute: "2-digit", hour12: false }).format(at)
+    : new Intl.DateTimeFormat(locale(), { month: "short", day: "numeric" }).format(at);
+}
+
+/** What a meter paints: a limited remaining share, or unlimited. */
+export type QuotaMeterModel = { kind: "limited"; remaining: number; tone: QuotaTone; aria: string } | { kind: "unlimited"; aria: string };
+
+function meterOf(name: string, window: string, w: QuotaWindow): QuotaMeterModel {
+  if (w.unlimited) return { kind: "unlimited", aria: `${name} ${window}: ${t("quota.unlimited")}` };
+  const remaining = Math.round(100 - w.used_percent);
+  return { kind: "limited", remaining, tone: quotaTone(remaining), aria: t("quota.meterAria", { name, window, percent: remaining }) };
+}
+
+/** One window row on the quota page: its span, when it resets, and its meter. */
+export type QuotaWindowModel = { key: string; label: string; sub: string; meter: QuotaMeterModel };
 
 export type QuotaCardModel = {
   provider: QuotaProvider;
   title: string;
   plan: string;
+  /** Fresh windows to draw, stale data to flag, or no data (the missing group). */
+  state: "fresh" | "stale" | "missing";
   statusCopy: string;
+  /** "1 分钟前更新", or null when the provider never reported. */
+  updated: string | null;
   /** Windows are drawn only for a fresh `ok` snapshot. */
   windows: QuotaWindowModel[];
   help: string | null;
   /** An extra CLI/current-command hint only some statuses carry (Cursor auth). */
   helpDetail: string | null;
-  /** The Cursor auth command, shown before observed and never on other states. */
+  /** The Cursor auth command, shown after the help and never on other states. */
   helpCommand: string | null;
-  observed: string | null;
   /** Provider and source notes, in the order the card has always shown them. */
   notes: string[];
   /** Setup command kept in its original ending placement (Claude setup_required). */
   command: string | null;
 };
 
+/** A window's span as a short label ("5 小时", "7 天"), or its name when the daemon sent no span. */
 function windowLabel(w: QuotaWindow): string {
   return w.window_minutes && w.window_minutes % 1440 === 0
-    ? t("quota.days", { count: w.window_minutes / 1440 })
+    ? t("quota.span.days", { count: w.window_minutes / 1440 })
     : w.window_minutes && w.window_minutes % 60 === 0
-      ? t("quota.hours", { count: w.window_minutes / 60 })
+      ? t("quota.span.hours", { count: w.window_minutes / 60 })
       : w.window_minutes
-        ? t("quota.window", { minutes: w.window_minutes })
+        ? t("quota.span.minutes", { count: w.window_minutes })
         : quotaWindowName(w.name);
 }
 
@@ -143,19 +170,12 @@ export function quotaCardModel(q: QuotaRead): QuotaCardModel {
   const stale = (q.status === "ok" || q.status === "stale") && quotaIsStale(q);
   const status = stale ? "stale" : q.status;
   const windows: QuotaWindowModel[] = status === "ok" ? q.windows.map((w, index) => {
-    const key = `${w.name}:${index}`;
-    const windowName = quotaWindowName(w.name);
-    if (w.unlimited) {
-      return { kind: "unlimited", key, labelText: `${windowName} · ${t("quota.unlimited")}` };
-    }
-    const remaining = Math.round((100 - w.used_percent) * 10) / 10;
     const label = windowLabel(w);
     return {
-      kind: "limited", key, remaining, windowName,
-      labelText: `${label} · ${t("quota.remaining", { percent: remaining })}`,
-      showWindowName: w.window_minutes > 0,
-      progressAria: `${title} ${label}`,
-      resetCopy: w.resets_at ? t("quota.resets", { when: formatQuotaWhen(w.resets_at) }) : t("quota.resetUnknown"),
+      key: `${w.name}:${index}`,
+      label: w.unlimited ? quotaWindowName(w.name) : label,
+      sub: w.unlimited ? t("quota.unlimited") : w.resets_at ? `${quotaResetIn(w.resets_at)} · ${quotaResetAt(w.resets_at)}` : t("quota.resetUnknown"),
+      meter: meterOf(title, label, w),
     };
   }) : [];
   const notes: string[] = [];
@@ -172,7 +192,7 @@ export function quotaCardModel(q: QuotaRead): QuotaCardModel {
       ? t(providerHelpKeys[q.provider])
       : null;
   const helpDetail = q.provider === "cursor" && q.status === "auth_required" ? t("quota.cursorKeychainHelp") : null;
-  // The Cursor auth command is its own slot shown before observed; the original
+  // The Cursor auth command is its own slot after the help; the original
   // Claude setup command keeps its ending placement in `command`.
   const helpCommand = q.provider === "cursor" && q.status === "auth_required"
     ? "export AGENT_CLI_CREDENTIAL_STORE=file\ncursor-agent login\npairfob service install"
@@ -181,12 +201,13 @@ export function quotaCardModel(q: QuotaRead): QuotaCardModel {
     provider: q.provider,
     title,
     plan: q.plan || t("quota.planUnknown"),
+    state: status === "ok" ? "fresh" : status === "stale" ? "stale" : "missing",
     statusCopy: t(statusKeys[status]),
+    updated: q.observed_at ? t("quota.updatedAgo", { when: formatDeviceAge(q.observed_at) }) : null,
     windows,
     help,
     helpDetail,
     helpCommand,
-    observed: q.observed_at ? t("quota.updated", { when: formatQuotaWhen(q.observed_at) }) : null,
     notes,
     command: q.status === "setup_required" ? "pairfob quota-setup-claude" : null,
   };
@@ -224,44 +245,47 @@ export function quotaPanelModel(snapshot: QuotaSnapshotLike | undefined, connect
   };
 }
 
-export type QuotaRingModel = {
-  provider: QuotaProvider;
-  name: string;
-  value: number | "unlimited" | null;
-  unknown: boolean;
-  center: string;
-  angle: string;
-  aria: string;
+/** One provider row in the settings quota module. */
+export type QuotaModuleRow = { provider: QuotaProvider; name: string; sub: string; meter: QuotaMeterModel };
+
+export type QuotaModuleModel = {
+  /** Offline and failed reads show one line instead of empty meters. */
+  state: "offline" | "loading" | "error" | "ready";
+  rows: QuotaModuleRow[];
+  /** Providers the module does not draw: stale, missing, or not reported. */
+  noData: number;
+  updated: string | null;
 };
 
-export type QuotaSummaryModel = {
-  busy: boolean;
-  title: string;
-  help: string[];
-  details: string;
-  rings: QuotaRingModel[];
-};
-
-export function quotaSummaryModel(snapshot: QuotaSnapshotLike | undefined, connected: boolean): QuotaSummaryModel {
-  const details = t("quota.details");
-  const entries = (Object.keys(providerNames) as QuotaProvider[]).map(provider => {
-    const q = snapshot?.items?.find(item => item.provider === provider);
-    return { provider, value: connected && !snapshot?.error ? quotaOverview(q) : null };
-  });
-  entries.sort((a, b) => Number(a.value === null) - Number(b.value === null));
+/**
+ * The settings quota module: one row per provider with a fresh read, in the
+ * fixed provider order (never re-sorted by how much is left), each showing its
+ * tightest window and when that window resets.
+ */
+export function quotaModuleModel(snapshot: QuotaSnapshotLike | undefined, connected: boolean): QuotaModuleModel {
+  const providers = Object.keys(providerNames) as QuotaProvider[];
+  if (!connected) return { state: "offline", rows: [], noData: 0, updated: null };
+  if (snapshot?.error) return { state: "error", rows: [], noData: 0, updated: null };
+  if (!snapshot?.items) return { state: snapshot?.loading ? "loading" : "error", rows: [], noData: 0, updated: null };
+  const rows: QuotaModuleRow[] = [];
+  let newest = 0;
+  for (const provider of providers) {
+    const q = snapshot.items.find(item => item.provider === provider);
+    const w = quotaTightestWindow(q);
+    if (!q || !w) continue;
+    newest = Math.max(newest, q.observed_at);
+    const name = shortProviderNames[provider];
+    const label = w.unlimited ? quotaWindowName(w.name) : windowLabel(w);
+    rows.push({
+      provider, name,
+      sub: w.unlimited ? `${label} · ${t("quota.unlimited")}` : `${label} · ${w.resets_at ? quotaResetIn(w.resets_at) : t("quota.resetUnknown")}`,
+      meter: meterOf(name, label, w),
+    });
+  }
   return {
-    busy: !!snapshot?.loading,
-    title: t("quota.title"),
-    help: [t("quota.note"), t("quota.summaryNote")],
-    details: `${details} ›`,
-    rings: entries.map(({ provider, value }) => ({
-      provider,
-      value,
-      name: shortProviderNames[provider],
-      unknown: value === null,
-      center: ringCenter(value),
-      angle: ringAngle(value),
-      aria: `${providerNames[provider]} · ${ringLabel(value)} · ${details}`,
-    })),
+    state: "ready",
+    rows,
+    noData: providers.length - rows.length,
+    updated: newest ? t("quota.updatedAgo", { when: formatDeviceAge(newest) }) : null,
   };
 }

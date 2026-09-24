@@ -1,14 +1,15 @@
+import type { RecoveryClock } from "./recovery-diagnostics";
 import { recordConnectionDiagnostic } from "./connection-diagnostics.ts";
 import { ProtocolError } from "./errors.ts";
 import { openWS, type FrameSocket } from "./frame-socket.ts";
 import { muxProtocolFromRelayURL, muxSubprotocol } from "./mux.ts";
 
 let nextConnectID = Date.now();
-export function connectionTrace(warm = false): (event: string, code?: string) => void {
+export function connectionTrace(warm = false, recovery?: RecoveryClock): (event: string, code?: string) => void {
   const connectID = ++nextConnectID;
   const started = performance.now();
   const trace = (event: string, code?: string) => recordConnectionDiagnostic({
-    event, code, transport: "relay", connect_id: connectID, elapsed_ms: performance.now() - started,
+    ...recovery?.(), event, code, transport: "relay", connect_id: connectID, elapsed_ms: performance.now() - started,
   });
   trace(warm ? "warmup_start" : "connect_start");
   return trace;
@@ -20,12 +21,12 @@ type Attempt = { controller: AbortController; result: Promise<Prepared | null>; 
 /** Preconnect only: never sends HELLO, ATTACH or DeviceHello and cannot evict the live route. */
 export class RelayWarmup {
   private attempt: Attempt | null = null;
-  constructor(private readonly url: string) {}
+  constructor(private readonly url: string, private readonly recovery: () => RecoveryClock | undefined = () => undefined) {}
 
   start(): void {
     if (this.attempt) return;
     const controller = new AbortController();
-    const trace = connectionTrace(true);
+    const trace = connectionTrace(true, this.recovery());
     const attempt: Attempt = { controller, result: Promise.resolve(null) };
     this.attempt = attempt;
     attempt.result = openWS(this.url, muxSubprotocol(muxProtocolFromRelayURL(this.url)), controller.signal).then(socket => {

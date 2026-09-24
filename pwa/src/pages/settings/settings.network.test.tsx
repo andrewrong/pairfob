@@ -62,10 +62,20 @@ function group(): HTMLElement {
   return found;
 }
 
+/** A route row's title, without its "recommended" tag. */
+function title(item: Element): string {
+  return item.querySelector(".set-item-label")?.firstChild?.textContent ?? "";
+}
+
 function choice(label: string): HTMLButtonElement {
-  const found = [...group().querySelectorAll("button")].find((item) => item.textContent === label);
+  const found = [...group().querySelectorAll("button")].find((item) => title(item) === label);
   if (!(found instanceof HTMLButtonElement)) throw new Error(`missing ${label}`);
   return found;
+}
+
+function checked(): string {
+  const item = group().querySelector('[aria-checked="true"]');
+  return item ? title(item) : "";
 }
 
 async function settle(): Promise<void> {
@@ -144,14 +154,14 @@ describe("settings network transport (actual App)", () => {
     mountSettings();
     const app = appRoot();
     expect(app.textContent).toContain("P2P 直连 · 18 毫秒");
-    expect([...group().querySelectorAll("button")].map((item) => item.textContent)).toEqual(["自动", "P2P", "Relay"]);
-    expect(group().querySelector('[aria-checked="true"]')?.textContent).toBe("自动");
-    await act(async () => choice("Relay").click());
+    expect([...group().querySelectorAll("button")].map(title)).toEqual(["自动", "仅 P2P", "仅 Relay"]);
+    expect(checked()).toBe("自动");
+    await act(async () => choice("仅 Relay").click());
     await settle();
     expect(targets).toEqual(["relay"]);
     expect(networkMode()).toBe("relay");
     expect(localStorage.getItem(NETWORK_MODE_KEY)).toBe("relay");
-    expect(group().querySelector('[aria-checked="true"]')?.textContent).toBe("Relay");
+    expect(checked()).toBe("仅 Relay");
     expect((group().querySelector("button") as HTMLButtonElement).disabled).toBeFalse();
   });
 
@@ -167,11 +177,11 @@ describe("settings network transport (actual App)", () => {
     }));
     mountSettings();
     expect(appRoot().textContent).toContain("Relay 中继 · 42 毫秒");
-    await act(async () => choice("P2P").click());
+    await act(async () => choice("仅 P2P").click());
     await settle();
     expect(targets).toEqual(["p2p"]);
     expect(networkMode()).toBe("p2p");
-    expect(group().querySelector('[aria-checked="true"]')?.textContent).toBe("P2P");
+    expect(checked()).toBe("仅 P2P");
     await act(async () => choice("自动").click());
     await settle();
     expect(targets).toEqual(["p2p", "auto"]);
@@ -182,13 +192,10 @@ describe("settings network transport (actual App)", () => {
     attachLiveSession(fakeSession(() => {}));
     mountSettings();
     act(() => applyOriginConfig({ protocol: 2, p2p: false }));
-    const p2p = [...group().querySelectorAll("button")].find((item) => item.textContent === "P2P") as HTMLButtonElement;
-    const auto = [...group().querySelectorAll("button")].find((item) => item.textContent === "自动") as HTMLButtonElement;
-    const relay = [...group().querySelectorAll("button")].find((item) => item.textContent === "Relay") as HTMLButtonElement;
-    expect(p2p.disabled).toBeTrue();
-    expect(auto.disabled).toBeFalse();
-    expect(relay.disabled).toBeFalse();
-    expect(appRoot().querySelector(".network-mode-row")?.textContent).toContain("当前站点未开放 P2P");
+    expect(choice("仅 P2P").disabled).toBeTrue();
+    expect(choice("自动").disabled).toBeFalse();
+    expect(choice("仅 Relay").disabled).toBeFalse();
+    expect(appRoot().querySelector(".route-group .set-foot")?.textContent).toContain("当前站点未开放 P2P");
   });
 
   test("keeps Relay usable and reports a failed manual P2P attempt", async () => {
@@ -197,15 +204,15 @@ describe("settings network transport (actual App)", () => {
       throw new Error("ICE failed");
     }));
     mountSettings();
-    await act(async () => choice("P2P").click());
+    await act(async () => choice("仅 P2P").click());
     await settle();
     expect(visibleNotice()?.text).toContain("已继续使用 Relay");
     expect(networkMode()).toBe("p2p");
     // The failed switch leaves the live path on relay and leaves the P2P
     // control usable again instead of sticking busy.
     expect(sessionTransport()).toBe("relay");
-    expect(group().querySelector('[aria-checked="true"]')?.textContent).toBe("P2P");
-    expect(([...group().querySelectorAll("button")].find((item) => item.textContent === "P2P") as HTMLButtonElement).disabled).toBeFalse();
+    expect(checked()).toBe("仅 P2P");
+    expect(choice("仅 P2P").disabled).toBeFalse();
     expect(group().getAttribute("aria-busy")).not.toBe("true");
   });
 
@@ -215,7 +222,7 @@ describe("settings network transport (actual App)", () => {
       throw new DirectError("ice_timeout", "candidate 192.0.2.1 failed");
     }));
     mountSettings();
-    await act(async () => choice("P2P").click());
+    await act(async () => choice("仅 P2P").click());
     await settle();
     expect(visibleNotice()?.text).toContain("手机浏览器未能收集直连地址");
     expect(visibleNotice()?.text).not.toContain("192.0.2.1");
@@ -231,13 +238,11 @@ describe("settings network transport (actual App)", () => {
     mountSettings();
     const app = appRoot();
     expect(app.textContent).toContain("P2P 优先 · 当前 Relay · 36 毫秒");
-    expect(app.querySelector(".network-mode-row")?.textContent).not.toContain("无需重新切换");
-    const help = [...app.querySelectorAll("button")].find((el) => el.getAttribute("aria-label") === "连接的说明");
-    if (!(help instanceof HTMLButtonElement)) throw new Error("missing help button");
-    await act(async () => help.click());
-    expect(document.querySelector("dialog.help")?.textContent).toContain("无需重新切换");
-    expect(group().querySelector('[aria-checked="true"]')?.textContent).toBe("P2P");
-    await act(async () => choice("P2P").click());
+    // The P2P row itself says it keeps retrying and that choosing it again retries now.
+    expect(choice("仅 P2P").querySelector(".set-item-sub")?.textContent).toContain("后台继续重试");
+    expect(document.querySelector("dialog[open]")).toBeNull();
+    expect(checked()).toBe("仅 P2P");
+    await act(async () => choice("仅 P2P").click());
     await settle();
     expect(targets).toEqual(["p2p"]);
   });
@@ -251,13 +256,13 @@ describe("settings network transport (actual App)", () => {
     mountSettings();
     const app = appRoot();
     expect(app.textContent).toContain("Relay 中继 · 24 毫秒");
-    const fail = app.querySelector(".network-mode-row .network-p2p-fail");
+    // The failure reads under the link it explains, inside the computer panel.
+    const fail = app.querySelector(".computer-panel .cp-note");
     expect(fail?.textContent).toContain("手机浏览器未能收集直连地址");
-    expect(fail?.parentElement?.classList.contains("network-mode-row")).toBeTrue();
     expect(app.textContent).not.toContain("ice_timeout");
   });
 
-  test("keeps a channel-failure note inside the padded network-mode row", () => {
+  test("shows a channel failure as a warning under the computer link", () => {
     applyOriginConfig({ protocol: 2, p2p: true });
     setSessionTransport("relay");
     noteRelayRtt(18);
@@ -265,16 +270,17 @@ describe("settings network transport (actual App)", () => {
     attachLiveSession(fakeSession(() => {}));
     mountSettings();
     const app = appRoot();
-    const fail = app.querySelector(".network-mode-row .network-p2p-fail");
+    const fail = app.querySelector(".computer-panel .cp-note");
     expect(fail?.textContent).toBe("两端网络无法互相直连，常见于蜂窝网络或严格 NAT。");
-    expect(app.querySelector(".set-card > .network-p2p-fail")).toBeNull();
+    expect(fail?.classList.contains("is-warn")).toBeTrue();
   });
 });
 
 test("connection diagnostics export works from settings while disconnected", async () => {
   mountSettings();
   recordConnectionDiagnostic({ event: "disconnect", reason: "heartbeat_timeout" });
-  const button = [...appRoot().querySelectorAll("button")].find((item) => item.textContent?.includes("导出连接诊断"));
+  const row = [...appRoot().querySelectorAll(".set-item")].find((item) => item.querySelector(".set-item-label")?.textContent === "导出连接诊断");
+  const button = row?.querySelector<HTMLButtonElement>(".set-action");
   expect(button).toBeDefined();
   let blob: Blob | undefined;
   let downloaded = "";

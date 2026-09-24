@@ -188,8 +188,7 @@ describe("home list while unverifiable", () => {
     leftoverAgent();
     renderHome();
     // The status the reader already looks at also says what a tap does.
-    expect(appRoot().querySelector(".host-title-line")?.textContent)
-      .toBe(`${t("chrome.unverifiable")} · ${t("host.retryShort")}`);
+    expect(appRoot().querySelector(".host-title-line")?.textContent).toBe(t("host.unverifiedLine"));
   });
 
   test("live home shows fresh statuses and no stale banner", () => {
@@ -204,12 +203,13 @@ describe("home list while unverifiable", () => {
     expect((app.querySelector(".banner-warn")) === null).toBe(true);
   });
 
-  test("disconnected home without agents offers the reconnecting empty state, not no-sessions", () => {
+  test("disconnected home without agents notes the reconnect, not no-sessions", () => {
     setSession(false);
     applyRuntimeIdentity({ herdHost: "", runtimeKind: "herdr" });
     renderHome();
-    const empty = appRoot().querySelector(".empty");
-    expect(empty?.textContent).toContain("正在重新连接");
-    expect(empty?.textContent).not.toContain("还没有会话");
+    // The header carries the status; the list only says what happens next.
+    expect(appRoot().querySelector(".herd-empty-note")?.textContent).toBe(t("empty.reconnectNote"));
+    expect(appRoot().querySelector(".herd-empty-title")).toBeNull();
+    expect(appRoot().querySelector(".herd-empty-action")).toBeNull();
   });
 });

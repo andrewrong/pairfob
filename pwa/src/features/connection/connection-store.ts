@@ -37,6 +37,14 @@ export type ConnectionRecord = {
   lastP2PAttempt: FinishedP2PAttemptObservation | null;
   /** A user-requested transport change is negotiating or reconnecting. */
   transportSwitching: boolean;
+  /**
+   * Why the last connection attempt failed (its protocol error code), or ""
+   * once a session is live. The single-computer failure page reads it to tell
+   * "could not reach" from "refused" (see `connection-path.ts`).
+   */
+  connectFailure: string;
+  /** A retry was started from that failure page; it stays up while the retry runs. */
+  retryingUnreachable: boolean;
 };
 
 /**
@@ -57,6 +65,8 @@ export function initialConnection(): ConnectionRecord {
     networkMode: "auto",
     lastP2PAttempt: null,
     transportSwitching: false,
+    connectFailure: "",
+    retryingUnreachable: false,
   };
 }
 
@@ -113,6 +123,28 @@ export function applyOriginConfig(config: Pick<OriginConfig, "protocol" | "p2p">
 }
 
 /** Browser reachability changed. `false` gates network work; `true` is a hint. */
+export function setConnectFailure(code: string): void {
+  if (read().connectFailure === code) return;
+  write((record) => {
+    record.connectFailure = code;
+  });
+}
+
+export function connectFailure(): string {
+  return read().connectFailure;
+}
+
+export function setRetryingUnreachable(retrying: boolean): void {
+  if (read().retryingUnreachable === retrying) return;
+  write((record) => {
+    record.retryingUnreachable = retrying;
+  });
+}
+
+export function retryingUnreachable(): boolean {
+  return read().retryingUnreachable;
+}
+
 export function setNetworkOnline(online: boolean): boolean {
   const changed = read().networkOnline !== online;
   write((record) => {

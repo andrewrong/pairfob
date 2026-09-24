@@ -1,122 +1,192 @@
-/* --- Prelude and pairing --------------------------------------------------- */
+@use "./terminal-miniature";
 
-.prelude {
-  position: relative;
-  max-width: 26rem;
-  margin: 0 auto;
-  padding: max(9vh, calc(env(safe-area-inset-top, 0px) + 48px)) 22px calc(40px + env(safe-area-inset-bottom, 0px));
-}
+/* --- Connect / pairing ----------------------------------------------------------
+   One skeleton for every stage: top bar, terminal miniature, title + lede, and
+   the actions pinned to the bottom (the thumb zone). Idle, connecting, approval
+   and failure only swap copy, so nothing moves between them.
+   -------------------------------------------------------------------------------- */
 
-.prelude.pairing {
-  position: fixed;
-  inset: 0;
+/* Doubled with .page: the shared page shell sets its own width and padding. */
+.page.connect-page {
   display: flex;
   flex-direction: column;
+  min-height: 100dvh;
+  max-width: 26rem;
+  padding-inline: 16px;
+}
+
+.connect-top { gap: var(--space-2); }
+.connect-top .wordmark { font-size: 1.1rem; }
+
+.connect-lang {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  max-width: none;
-  width: 100%;
-  padding: calc(24px + env(safe-area-inset-top, 0px)) 22px calc(40px + env(safe-area-inset-bottom, 0px));
-  text-align: center;
+  margin-left: auto;
+  margin-right: -6px;
+  color: var(--muted);
 }
 
-.prelude.pairing > * {
-  width: min(26rem, 100%);
+.connect-lang > svg {
+  position: absolute;
+  left: 8px;
+  pointer-events: none;
 }
 
-.prelude-title {
-  margin: 18px 0 8px;
-  font-size: 1.7rem;
+.connect-copy { margin-top: 26px; }
+
+.connect-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: var(--text-display);
   font-weight: 750;
   letter-spacing: -0.02em;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
-.lede {
+.connect-spinner { width: 22px; height: 22px; }
+
+.connect-lede {
+  margin: 8px 0 0;
   color: var(--muted);
-  font-size: var(--text-subhead);
+  font-size: var(--text-lead);
   line-height: 1.6;
-  margin: 0 0 22px;
 }
 
-.qr-note {
-  margin: -12px 0 20px;
-  font-size: var(--text-body);
-  color: var(--ok);
+.connect-lede.is-error { color: var(--error); }
+.connect-lede.is-status { color: var(--accent); }
+
+.connect-install {
+  display: inline;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
 }
 
-.desk-hint {
-  margin: -8px 0 20px;
-  padding: 12px 14px;
+.connect-key {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 0 6px;
   border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--accent);
-  border-radius: 0 12px 12px 0;
-  color: var(--muted);
-  font-size: var(--text-body);
-  line-height: 1.55;
-}
-
-.btn-scan {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 56px;
-  margin: 0;
-  border-radius: 15px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 1rem;
-  font-weight: 680;
-}
-
-.btn-scan:active { transform: scale(0.98); background: var(--accent-deep); }
-
-.manual-pair {
-  margin-top: 14px;
-  border-top: 1px solid var(--line-strong);
-}
-
-.manual-pair summary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 8px;
-  border-radius: var(--r-md);
-  color: var(--muted);
-  font-size: var(--text-body);
-  cursor: pointer;
-  list-style: none;
-}
-
-.manual-pair summary::-webkit-details-marker,
-.manual-pair summary::marker {
-  display: none;
-  content: none;
-}
-
-.manual-pair[open] summary { color: var(--ink); }
-.manual-pair-body { padding-top: 12px; }
-
-dialog.scanner-modal {
-  width: min(28rem, calc(100vw - 24px));
-  max-height: calc(100dvh - 24px);
-  margin: auto;
-  padding: 18px;
-  overflow: auto;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-xl);
-  background: var(--surface);
+  border-bottom-width: 2px;
+  border-radius: 6px;
   color: var(--ink);
-  box-shadow: var(--shadow-3);
+  font: 600 0.78rem/1.5 var(--mono);
+  vertical-align: 1px;
 }
 
-dialog.scanner-modal::backdrop { background: #04060ad9; backdrop-filter: blur(5px); }
-.scanner-modal h2 { margin: 0; font-size: var(--text-title); }
-.scanner-modal > p { margin: 8px 0 14px; color: var(--muted); font-size: var(--text-body); line-height: 1.5; }
+.connect-actions {
+  display: grid;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.connect-manual {
+  min-height: 48px;
+  font-size: var(--text-lead);
+  font-weight: 600;
+}
+
+.trust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+
+/* A desk has no thumb zone: the actions follow the copy instead of the floor. */
+@media (min-width: 900px) {
+  .page.connect-page {
+    min-height: 0;
+    padding-top: max(6vh, calc(env(safe-area-inset-top, 0px) + 24px));
+  }
+
+  .connect-actions { margin-top: 0; padding-top: 28px; }
+}
+
+/* --- Code sheet ---------------------------------------------------------------- */
+
+.pair-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 0 4px;
+}
+
+.field-label {
+  font-size: var(--text-body);
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.pair-paste {
+  min-height: 44px;
+  margin-right: -8px;
+  padding: 0 8px;
+  color: var(--accent);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.pair-code-sheet input.pair-code-input {
+  min-height: 52px;
+  padding: 0 14px;
+  background: var(--bg);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pair-code-sheet input.pair-code-input::placeholder {
+  color: rgba(154, 165, 180, 0.35);
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+}
+
+.pair-code-sheet input.pair-code-input[aria-invalid="true"] {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(255, 128, 128, 0.16);
+}
+
+.pair-help {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 20px;
+  margin: 7px 2px 14px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.pair-help.is-error { color: var(--error); }
+
+.field-count {
+  flex: none;
+  font: 500 0.75rem/1.45 var(--mono);
+  color: var(--muted);
+  transition: color var(--dur-2) var(--ease);
+}
+
+.field-count.ok { color: var(--ok); }
+
+@media (max-width: 899.98px) {
+  /* iOS does not shrink the layout viewport for the keyboard: lift the sheet by
+     the keyboard inset so the field and Connect stay above the keys. */
+  dialog.modal.pair-code-sheet {
+    margin-bottom: var(--kb, 0px);
+    max-height: calc(var(--vv-height, 100dvh) - 12px);
+  }
+}
+
+/* --- Scanner sheet ---------------------------------------------------------------- */
 
 .scanner-viewport {
   position: relative;
@@ -186,34 +256,48 @@ dialog.scanner-modal::backdrop { background: #04060ad9; backdrop-filter: blur(5p
   .scanner-guide { transition: none; }
 }
 
-.scanner-error { min-height: 1.5em; color: var(--error) !important; }
-.scanner-modal .btn { margin-top: 4px; }
-
-.trust {
-  margin: 16px 0 0;
-  text-align: center;
+.scanner-note {
+  margin: 12px 2px 0;
   color: var(--muted);
-  font-size: var(--text-secondary);
-  letter-spacing: 0.02em;
+  font-size: var(--text-body);
+  line-height: 1.5;
 }
 
-.connect-lang {
-  position: absolute;
-  top: calc(env(safe-area-inset-top, 0px) + 2px);
-  right: max(8px, env(safe-area-inset-right, 0px));
-  z-index: 3;
+.scanner-error { min-height: 1.5em; margin: 4px 2px 0; color: var(--error); font-size: var(--text-body); }
+
+.scanner-blocked {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin: 4px 0 14px;
+  padding: 28px 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  color: var(--muted);
+  text-align: center;
 }
 
-.prelude.pairing .connect-lang {
-  width: auto;
-  margin: 0;
-  padding: 0;
+.scanner-blocked-title { margin: 4px 0 0; color: var(--ink); font-size: var(--text-subhead); font-weight: 600; }
+.scanner-blocked-copy { margin: 0; font-size: var(--text-body); line-height: 1.55; }
+
+/* --- Shared with the computer picker ------------------------------------------ */
+
+.prelude-title {
+  margin: 18px 0 8px;
+  font-size: 1.7rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
-.topbar .connect-lang {
-  position: static;
-  margin-left: auto;
+.lede {
+  color: var(--muted);
+  font-size: var(--text-subhead);
+  line-height: 1.6;
+  margin: 0 0 22px;
 }
+
+.settings-page .topbar + .lede { margin-top: 14px; }
 
 .lang-select {
   display: block;
@@ -248,30 +332,11 @@ dialog.scanner-modal::backdrop { background: #04060ad9; backdrop-filter: blur(5p
   .lang-select { font-size: 16px; }
 }
 
-.settings-page .topbar + .lede { margin-top: 14px; }
-
-.field { display: block; margin: 0 0 14px; }
-
-.field-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 7px;
+/* The top-bar globe replaces the drawn arrow. */
+.connect-lang .lang-select {
+  padding: 0 8px 0 30px;
+  background-image: none;
 }
-
-.field-label {
-  font-size: var(--text-body);
-  font-weight: 550;
-  color: var(--muted);
-}
-
-.field-count {
-  font: 500 0.75rem var(--mono);
-  color: var(--muted);
-  transition: color var(--dur-2) var(--ease);
-}
-
-.field-count.ok { color: var(--ok); }
 
 input[type="text"] {
   display: block;
@@ -301,156 +366,3 @@ input[type="text"]:focus {
 }
 
 input[type="text"]:disabled { opacity: 0.55; }
-
-.connect-form input[type="text"] { text-transform: uppercase; }
-.btn-paste {
-  width: 100%;
-  min-height: 44px;
-  margin-bottom: 12px;
-  border: 1px dashed rgba(154, 165, 180, 0.55);
-  border-radius: var(--r-md);
-  background: rgba(110, 168, 254, 0.05);
-  color: var(--ink);
-  font-size: var(--text-body);
-}
-
-.btn-paste:active { background: var(--surface); }
-
-.btn-connect { margin-top: 6px; }
-
-/* The status or error bar is inserted right above this form, and .notice carries
-   a top margin only, so the bar would otherwise touch the step card below it. */
-.notice + .connect-form { margin-top: var(--space-4); }
-
-.pair-wait {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  padding: 28px 18px 24px;
-  margin-bottom: 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  text-align: center;
-}
-
-.pair-wait-title {
-  margin: 2px 0 0;
-  font-size: 1rem;
-  font-weight: 680;
-}
-
-.pair-wait-copy {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-body);
-  line-height: 1.5;
-}
-
-/* --- Pairing rail -------------------------------------------------------------
-   Three steps, three states. The travelling light only ever marks the step the
-   protocol is actually on, so a stalled pairing looks stalled.
-   ------------------------------------------------------------------------------ */
-
-.pair-rail {
-  display: grid;
-  gap: var(--space-4);
-  width: 100%;
-  margin: var(--space-4) 0 0;
-  padding: 0;
-  list-style: none;
-  text-align: left;
-}
-
-.pair-step {
-  position: relative;
-  display: grid;
-  grid-template-columns: 14px minmax(0, 1fr);
-  align-items: start;
-  column-gap: var(--space-3);
-}
-
-.pair-dot {
-  position: relative;
-  width: 14px;
-  height: 14px;
-  margin-top: 1px;
-  border: 1.5px solid var(--line-strong);
-  border-radius: 50%;
-}
-
-/* The track between steps, drawn downward from each dot but the last. */
-.pair-step:not(:last-child) .pair-dot::before {
-  content: "";
-  position: absolute;
-  top: 15px;
-  left: 50%;
-  width: 1.5px;
-  height: calc(100% + var(--space-4) - 3px);
-  transform: translateX(-50%);
-  background: var(--line-strong);
-}
-
-.pair-step-label {
-  font-size: var(--text-body);
-  color: var(--muted);
-  line-height: 1.35;
-}
-
-.pair-step-note {
-  grid-column: 2;
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-secondary);
-  color: var(--error);
-  line-height: 1.5;
-}
-
-.pair-step.is-done .pair-dot {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.pair-step.is-done .pair-dot::before { background: var(--accent); }
-
-.pair-step.is-done .pair-step-label { color: var(--ink); }
-
-.pair-step.is-active .pair-dot {
-  border-color: var(--accent);
-  animation: pair-dot-pulse 1.6s var(--ease-in-out) infinite;
-}
-
-.pair-step.is-active .pair-step-label {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-/* A light running down the track toward the step in progress. */
-.pair-step.is-active .pair-dot::before {
-  background: linear-gradient(180deg, var(--accent), transparent);
-  animation: pair-track-run 1.6s var(--ease-in-out) infinite;
-}
-
-.pair-step.is-failed .pair-dot {
-  border-color: var(--error);
-  background: var(--error);
-}
-
-.pair-step.is-failed .pair-step-label { color: var(--ink); font-weight: 600; }
-
-@keyframes pair-dot-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(110, 168, 254, 0.28); }
-  50% { box-shadow: 0 0 0 5px rgba(110, 168, 254, 0); }
-}
-
-@keyframes pair-track-run {
-  from { opacity: 0.25; }
-  50% { opacity: 1; }
-  to { opacity: 0.25; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pair-step.is-active .pair-dot { animation: none; background: rgba(110, 168, 254, 0.28); }
-  .pair-step.is-active .pair-dot::before { animation: none; background: var(--accent); }
-}
-
-.pair-dot { display: grid; place-items: center; color: var(--bg); }

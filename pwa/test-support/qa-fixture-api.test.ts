@@ -196,7 +196,7 @@ test("actual API scene reset removes earlier pairing validation state", async ()
   expect(pairingStore.get().pairErrorTarget).toBeNull();
   expect(pairingStore.get().pairFailedStep).toBeNull();
   expect(pairingStore.get().pairManualOpen).toBeFalse();
-  expect(document.querySelector("details")?.open).toBeFalse();
+  expect(document.querySelector("dialog.pair-code-sheet")).toBeNull();
   expect(document.querySelector('input[aria-invalid="true"]')).toBeNull();
   expect(a.snapshot().errors).toEqual([]);
 });

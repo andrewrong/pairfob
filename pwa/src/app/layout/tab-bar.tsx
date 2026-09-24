@@ -46,15 +46,23 @@ function needsUpdate(): boolean {
   return needsDaemonUpdate();
 }
 
-/** Phone bottom navigation: Sessions / Board / Settings. Desktop keeps the rail. */
+/**
+ * Phone bottom navigation: Sessions / Board / Settings. Desktop keeps the rail.
+ * While the phone is still booting or reconnecting the bar is already in place,
+ * but only Sessions is reachable: there is no board or session state to show.
+ */
 export function TabBar({ mode }: { mode: LayoutMode }) {
   const active = activeTab(mode);
+  // Not connected yet (booting, or the single computer cannot be reached).
+  const locked = mode === "boot" || mode === "pick";
   const attention = useHerdAttentionCount();
   const update = useSyncExternalStore(subscribeDaemonUpdates, needsUpdate);
+  // Before the session is live, any count would be left over from a previous one.
+  const count = locked ? 0 : attention;
   const tabs: Array<{ id: TabId; label: string; icon: typeof MessageSquare; badge?: string; dot?: boolean; aria?: string }> = [
     { id: "sessions", label: t("tabs.sessions"), icon: MessageSquare,
-      badge: attention > 0 ? String(attention) : undefined,
-      aria: attention > 0 ? t("tabs.attentionAria", { count: String(attention) }) : undefined },
+      badge: count > 0 ? String(count) : undefined,
+      aria: count > 0 ? t("tabs.attentionAria", { count: String(count) }) : undefined },
     { id: "board", label: t("tabs.board"), icon: LayoutDashboard },
     { id: "settings", label: t("tabs.settings"), icon: Settings, dot: update,
       aria: update ? t("tabs.updateAria") : undefined },
@@ -67,7 +75,8 @@ export function TabBar({ mode }: { mode: LayoutMode }) {
           type="button"
           className={`tab-bar-item${active === id ? " on" : ""}`}
           aria-current={active === id ? "page" : undefined}
-          onClick={() => switchTab(id)}
+          disabled={locked && id !== "sessions"}
+          onClick={() => { if (!locked) switchTab(id); }}
         >
           <span className="tab-bar-icon">
             <Icon size={22} aria-hidden="true" />

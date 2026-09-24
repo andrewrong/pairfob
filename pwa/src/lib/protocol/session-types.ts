@@ -1,3 +1,4 @@
+import type { RecoveryClock } from "./recovery-diagnostics";
 import type { AgentInspection } from "../agent-inspect";
 import type { AgentQuota } from "../agent-quota";
 import type {
@@ -65,6 +66,7 @@ export interface DeviceSummary {
 }
 
 export type LiveSession = {
+  connectionRecovery?: () => RecoveryClock | undefined;
   ping: (t: number) => Promise<unknown>;
   agentInspect?: (paneId: string) => Promise<AgentInspection>;
   agentQuota: () => Promise<AgentQuota[]>;

@@ -19,8 +19,16 @@ describe("composition selection", () => {
   test("boot and resume render the boot page before anything live", () => {
     expect(computeLayout(input({ phase: "boot" })).mode).toBe("boot");
     expect(computeLayout(input({ phase: "resuming" })).mode).toBe("boot");
-    expect(computeLayout(input({ phase: "boot", screen: "pane" })).shell.booting).toBeTrue();
-    expect(computeLayout(input({ phase: "boot" })).lockScroll).toBeTrue();
+    // The phone boots inside the list frame: tab bar in place, no splash, no lock.
+    const phone = computeLayout(input({ phase: "resuming", screen: "pane" }));
+    expect(phone.shell.booting).toBeFalse();
+    expect(phone.shell.tabs).toBeTrue();
+    expect(phone.lockScroll).toBeFalse();
+    // The desktop keeps the centered splash.
+    const desk = computeLayout(input({ phase: "boot", desk: true }));
+    expect(desk.shell.booting).toBeTrue();
+    expect(desk.shell.tabs).toBeFalse();
+    expect(desk.lockScroll).toBeTrue();
   });
 
   test("pairing and the computer picker own their phases", () => {

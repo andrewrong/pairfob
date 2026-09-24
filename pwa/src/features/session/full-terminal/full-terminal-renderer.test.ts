@@ -1,6 +1,6 @@
 import { Window } from "happy-dom";
 import { afterEach, describe, expect, test } from "bun:test";
-import type { ITerminalAddon } from "@xterm/xterm";
+import type { ITerminalAddon, Terminal } from "@xterm/xterm";
 import type { RendererTerminal } from "./full-terminal-renderer.ts";
 
 const happy = new Window({ url: "https://pairfob.com/pair" });
@@ -10,7 +10,7 @@ g.document = happy.document;
 g.HTMLElement = happy.HTMLElement;
 const originalGetContext = happy.HTMLCanvasElement.prototype.getContext;
 
-const { WEBGL_UNAVAILABLE, fullTerminalOptions, openWebglTerminal, supportsWebgl2 } =
+const { WEBGL_UNAVAILABLE, terminalScreenText, fullTerminalOptions, openWebglTerminal, supportsWebgl2 } =
   await import("./full-terminal-renderer.ts");
 
 function enableWebgl2(): void {
@@ -123,4 +123,23 @@ describe("complete-terminal renderer", () => {
     expect(options.fontFamily).toBe(fontFamily);
     expect(options.theme).toMatchObject({ background: "#090c10", foreground: "#e7ebf1" });
   });
+});
+
+test("screen copy reads the active viewport without scrollback or hidden rows", () => {
+  const accessed: number[] = [];
+  const terminal = {
+    rows: 3,
+    buffer: { active: {
+      viewportY: 5,
+      getLine(row: number) {
+        accessed.push(row);
+        return row === 7 ? undefined : { translateToString(trim: boolean) {
+          expect(trim).toBeTrue();
+          return row === 5 ? "你好 terminal" : "  indented";
+        } };
+      },
+    } },
+  } as unknown as Pick<Terminal, "rows" | "buffer">;
+  expect(terminalScreenText(terminal)).toBe("你好 terminal\n  indented\n");
+  expect(accessed).toEqual([5, 6, 7]);
 });

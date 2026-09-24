@@ -75,7 +75,7 @@ describe("computer picker (private root)", () => {
     expect(add?.classList.contains("switch-item")).toBe(true);
     expect(add?.classList.contains("btn-ghost")).toBe(false);
     expect(add?.querySelector(".add-mark")).toBeTruthy();
-    expect(add?.querySelector(".switch-name")?.textContent).toBe("添加另一台电脑");
+    expect(add?.querySelector(".switch-name")?.textContent).toBe("添加电脑");
     expect(add?.querySelector(".switch-meta")?.textContent).toBe(
       "先装 pairfob 再执行 pairfob pair。只是多一条凭证，不会替换现在这台。",
     );
@@ -98,7 +98,7 @@ describe("computer picker (private root)", () => {
     });
     const el = render(createElement(ComputersScreen));
     const add = el.querySelector(".computer-add");
-    expect(add?.querySelector(".switch-name")?.textContent).toBe("Add another computer");
+    expect(add?.querySelector(".switch-name")?.textContent).toBe("Add a computer");
     expect(add?.querySelector(".switch-meta")?.textContent).toBe(
       "Install pairfob, then run pairfob pair. This adds a credential; it does not replace this one.",
     );

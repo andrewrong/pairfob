@@ -64,3 +64,20 @@ test("checking is neutral even with a stale live runtime and yields to network l
   expect(herdStatusOf({ ...input(), checking: true, networkOnline: false }).text)
     .toBe(t("chrome.networkOffline"));
 });
+
+describe("the first runtime read", () => {
+  test("an identity not read yet reads as reading, not as a fault", () => {
+    expect(herdStatusOf(input({ runtimeKind: "", reading: true })))
+      .toEqual({ tone: "pending", text: t("chrome.reading") });
+    // The verdict itself stays unverifiable: nothing may be gated on a guess.
+    expect(herdLivenessOf(input({ runtimeKind: "", reading: true }))).toBe("unverifiable");
+  });
+
+  test("once the read answers, failed, or runs out of time, the real verdict shows", () => {
+    expect(herdStatusOf(input({ runtimeKind: "", reading: false })).text).toBe(t("chrome.unverifiable"));
+    expect(herdStatusOf(input({ runtimeKind: "herdr", reading: true })).tone).toBe("live");
+    // Offline and a dropped socket keep their own words while a read is pending.
+    expect(herdStatusOf(input({ runtimeKind: "", reading: true, networkOnline: false })).text).toBe(t("chrome.networkOffline"));
+    expect(herdStatusOf(input({ runtimeKind: "", reading: true, connected: false })).text).toBe(t("chrome.reconnecting"));
+  });
+});

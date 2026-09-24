@@ -250,6 +250,6 @@ describe("complete-terminal chrome stays a distinct surface", () => {
   });
 
   test("edge swipe-back does not steal an 80-column terminal pan", () => {
-    expect(swipe).toContain('closest?.(".full-terminal-pan")');
+    expect(swipe).toContain('closest?.(".full-terminal-pan, [data-pad-drag]")');
   });
 });

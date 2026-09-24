@@ -43,3 +43,16 @@
   white-space: normal;
   line-height: 1.45;
 }
+
+/* --- In-app computer list (back bar) ---------------------------------------- */
+
+.computer-set { margin-top: 14px; }
+
+.set-icon.is-accent {
+  background: rgba(110, 168, 254, 0.13);
+  color: var(--accent);
+}
+
+.computer-add-item .set-item-label { color: var(--accent); }
+
+.computers-edit[aria-pressed="true"] { font-weight: 650; }

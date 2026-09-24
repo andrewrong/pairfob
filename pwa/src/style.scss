@@ -6,6 +6,9 @@
 @use "./styles/chrome";
 @use "./features/dashboard/styles/herd-card";
 @use "./features/dashboard/styles/herd-page";
+@use "./features/dashboard/styles/herd-skeleton";
+@use "./features/dashboard/styles/herd-empty";
+@use "./features/dashboard/styles/herd-connect";
 @use "./app/layout/styles/tab-bar";
 @use "./features/pairing/styles/connect";
 @use "./features/session/guided/session-shell";

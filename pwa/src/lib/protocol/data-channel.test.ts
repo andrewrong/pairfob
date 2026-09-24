@@ -162,3 +162,40 @@ test("queue overflow reports the first cause and states before cleanup", () => {
   expect(failures[0]!.diagnostics).toEqual({ reason: "send_queue_full", ice_state: "connected", peer_state: "connected", channel_state: "open", buffered_bytes: 2 * 1024 * 1024 });
   expect(peer.connectionState).toBe("closed");
 });
+
+describe("foreground terminal-failure observation", () => {
+  test("page grace does not hide a definitive failure from a foreground probe", () => {
+    const peer = new FakePeer();
+    const link = new DataFrameChannel(new FakeChannel() as unknown as RTCDataChannel, peer as unknown as RTCPeerConnection);
+    link.pauseIceWatch("page");
+    let failures = 0;
+    const stop = link.watchRecoveryFailure(() => failures++);
+    peer.setIce("disconnected");
+    peer.setIce("checking");
+    expect(failures).toBe(0);
+    peer.setIce("failed");
+    expect(failures).toBe(1);
+    stop();
+    peer.setIce("failed");
+    expect(failures).toBe(1);
+    link.close();
+  });
+
+  test("observes failure already present at resume but preserves restart ownership", () => {
+    const peer = new FakePeer();
+    const link = new DataFrameChannel(new FakeChannel() as unknown as RTCDataChannel, peer as unknown as RTCPeerConnection);
+    link.pauseIceWatch("page");
+    link.pauseIceWatch("restart");
+    peer.setIce("failed");
+    let failures = 0;
+    const stop = link.watchRecoveryFailure(() => failures++);
+    expect(failures).toBe(0);
+    link.resumeIceWatch("restart");
+    expect(failures).toBe(1);
+    stop();
+    let immediate = 0;
+    link.watchRecoveryFailure(() => immediate++);
+    expect(immediate).toBe(1);
+    link.close();
+  });
+});

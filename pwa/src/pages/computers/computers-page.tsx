@@ -38,7 +38,7 @@ export function ComputersContent({ withBack }: { withBack: boolean }) {
   return (
     <ComputerListView
       view={view}
-      onSwitch={daemonId => void switchComputer(daemonId)}
+      onSwitch={daemonId => switchComputer(daemonId)}
       onForget={daemonId => void forgetComputer(daemonId)}
       onAdd={beginAddComputer}
       onBack={() => leaveComputers(view.backTarget)}

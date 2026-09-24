@@ -1,6 +1,6 @@
 import { t } from "../../lib/i18n";
 import { normalizeCrockford } from "../../lib/protocol/bytes";
-import { pairProgress, type PairStep, type PairStepKey } from "../../lib/ui-model";
+import type { PairStepKey } from "../../lib/ui-model";
 import type { FragmentPairing } from "../../lib/pairing-input";
 
 export type ConnectNotice = { text: string; tone: "error" | "status" };
@@ -8,7 +8,12 @@ export type ConnectNotice = { text: string; tone: "error" | "status" };
 /**
  * Pure projection for the connect/pairing screen. The caller supplies the
  * handshake input, connection phase and notice; this file does not read state.
+ *
+ * One skeleton for every stage: top bar, terminal miniature, title + lede and
+ * the bottom actions. A stage only swaps copy and the miniature's lines.
  */
+
+export type ConnectStage = "idle" | "connecting" | "approve" | "failed";
 
 export type ConnectViewInput = {
   phase: string;
@@ -25,62 +30,88 @@ export type ConnectViewInput = {
 };
 
 export type ConnectViewModel = {
-  pageClass: string;
   adding: boolean;
   busy: boolean;
-  scanned: boolean;
-  addingComputer: boolean;
+  stage: ConnectStage;
   backTitle: string;
-  title: string | null;
+  title: string;
   lede: string;
-  deskHint: string | null;
-  qrNote: string | null;
-  showGlobalNotice: boolean;
-  waitTitle: string;
-  waitCopy: string;
-  rail: PairStep[];
-  railNote: string | null;
-  showFailedRail: boolean;
+  ledeTone: "muted" | "error" | "status";
+  /** The lede carries a `{key}` slot for the Enter keycap. */
+  ledeKeycap: boolean;
+  showInstall: boolean;
+  sheetOpen: boolean;
+  /** The notice shown inside the code sheet instead of on the page. */
+  sheetNotice: ConnectNotice | null;
   pairCodeDraft: string;
   pairCodeLength: number;
   pairCodeComplete: boolean;
   pairCodeInvalid: boolean;
-  manualOpen: boolean;
 };
 
+/**
+ * Group a typed code as the computer prints it (4-4-6) while the reader types at
+ * the end of the field. Anything that is not plain code characters (a pasted
+ * link) is left for the submit parser.
+ */
+export function formatPairCodeDraft(raw: string): string {
+  if (!/^[0-9A-Za-z \-]*$/.test(raw)) return raw;
+  const code = normalizeCrockford(raw).slice(0, 14);
+  if (code.length > 8) return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
+  if (code.length > 4) return `${code.slice(0, 4)}-${code.slice(4)}`;
+  return code;
+}
+
+function stageOf(input: ConnectViewInput): ConnectStage {
+  if (input.phase === "pairing") return input.pairAwaitingApproval ? "approve" : "connecting";
+  return input.pairFailedStep && input.pairFailedStep !== "code" ? "failed" : "idle";
+}
+
 export function connectViewModel(input: ConnectViewInput): ConnectViewModel {
-  const busy = input.phase === "pairing";
-  const scanned = input.fragment !== null;
+  const stage = stageOf(input);
+  const busy = stage === "connecting" || stage === "approve";
   const adding = input.addingComputer || input.computerCount > 0;
-  const manualOpen = input.pairManualOpen || input.pairErrorTarget === "code";
-  const railFailure = input.pairFailedStep && input.pairFailedStep !== "code" ? input.notice : null;
-  const railNote = railFailure?.tone === "error" ? railFailure.text : null;
+  const sheetOpen = !busy && input.pairManualOpen;
   const length = normalizeCrockford(input.pairCodeDraft).length;
+  // A code error belongs to the field; the page never repeats it.
+  const pageNotice = sheetOpen || input.pairErrorTarget === "code" ? null : input.notice;
+  let title = t("connect.title");
+  let lede = input.desk && !adding && !input.fragment ? t("connect.ledeDesk") : t("connect.ledeIdle");
+  let ledeTone: ConnectViewModel["ledeTone"] = "muted";
+  let showInstall = true;
+  if (stage === "connecting") {
+    title = t("connect.connectingTitle");
+    lede = input.fragment ? t("connect.ledeScanned") : t("connect.connectingLede");
+    showInstall = false;
+  } else if (stage === "approve") {
+    title = t("connect.approveTitle");
+    lede = t("connect.approveLede");
+    showInstall = false;
+  } else if (stage === "failed") {
+    title = t("connect.failedTitle");
+    lede = pageNotice?.tone === "error" ? pageNotice.text : t("connect.failedLede");
+    ledeTone = "error";
+    showInstall = false;
+  } else if (pageNotice) {
+    lede = pageNotice.text;
+    ledeTone = pageNotice.tone === "error" ? "error" : "status";
+    showInstall = false;
+  }
   return {
-    pageClass: adding ? "page settings-page" : `prelude${busy ? " pairing" : ""}`,
     adding,
     busy,
-    scanned,
-    addingComputer: input.addingComputer,
-    backTitle: input.addingComputer ? t("settings.addComputer") : t("connect.pair"),
-    title: adding ? null : t("connect.title"),
-    lede: scanned ? t("connect.ledeScanned") : input.addingComputer ? t("connect.ledeAdd") : t("connect.ledeScan"),
-    deskHint: input.desk && !adding && !scanned && !busy ? t("connect.deskHint") : null,
-    qrNote: scanned ? t("connect.qrNote") : null,
-    showGlobalNotice: !input.pairErrorTarget && !railNote && !!input.notice,
-    waitTitle: input.pairAwaitingApproval ? t("connect.waitEnter") : t("connect.waitTitle"),
-    waitCopy: input.pairAwaitingApproval ? t("connect.waitEnterCopy") : t("connect.waitCopy"),
-    rail: pairProgress({
-      pairing: busy,
-      awaitingApproval: input.pairAwaitingApproval,
-      failedStep: input.pairFailedStep,
-    }),
-    railNote,
-    showFailedRail: !!input.pairFailedStep,
+    stage,
+    backTitle: t("settings.addComputer"),
+    title,
+    lede,
+    ledeTone,
+    ledeKeycap: stage === "approve",
+    showInstall,
+    sheetOpen,
+    sheetNotice: sheetOpen ? input.notice : null,
     pairCodeDraft: input.pairCodeDraft,
     pairCodeLength: length,
     pairCodeComplete: length === 14,
     pairCodeInvalid: input.pairErrorTarget === "code",
-    manualOpen,
   };
 }

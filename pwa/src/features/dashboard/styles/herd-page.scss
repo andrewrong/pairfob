@@ -77,9 +77,16 @@
   transition: max-height var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease);
 }
 
-.host-title.is-warn .host-title-line,
-.host-title.is-pending .host-title-line { color: var(--warn); }
+.host-title.is-warn .host-title-line { color: var(--warn); }
 .host-title.is-off .host-title-line { color: var(--error); }
+
+/* Reading or re-checking is work in progress, not a fault: a calm line and a
+   breathing accent dot, never the warning color. */
+.host-title.is-pending .dot-pending { background: var(--accent); animation: host-dot-breathe 1.2s ease-in-out infinite; }
+
+@keyframes host-dot-breathe {
+  50% { opacity: 0.35; }
+}
 
 .herd-head.is-folded .host-title-name { transform: scale(0.76); }
 .herd-head.is-folded .host-title-line { max-height: 0; opacity: 0; }
@@ -325,6 +332,7 @@ html:has(.herd-page) { scroll-padding-top: calc(var(--herd-head-h, 0px) + 64px);
   .attn-strip,
   .create-fab,
   .create-fab-label { transition: none; }
+  .host-title.is-pending .dot-pending { animation: none; }
 }
 
 .herd-page .herd-list { padding-bottom: 84px; }

@@ -1,7 +1,7 @@
 import { happy, resetTestDOM } from "../../test-support/boot-dom";
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { act } from "react";
-import { openPairingScanner, type ScannerFactory } from "./pairing-scanner-view";
+import { openPairingScanner, type ScannerFactory, type ScanResult } from "./pairing-scanner-view";
 import { parsePairingURL, type FragmentPairing } from "./pairing-input";
 import { setLang, t } from "./i18n";
 
@@ -35,7 +35,7 @@ function pendingCamera() {
 }
 
 function open(factory: ScannerFactory) {
-  let result!: Promise<FragmentPairing | null>;
+  let result!: Promise<ScanResult>;
   act(() => { result = openPairingScanner(origin, factory); });
   const dialog = [...document.querySelectorAll<HTMLDialogElement>("dialog.scanner-modal")].at(-1)!;
   return { dialog, result };

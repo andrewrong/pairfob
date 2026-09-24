@@ -49,6 +49,35 @@ An established P2P path that loses ICE drops back to a fresh Relay session
 without ending the logical session, then retries the upgrade. Pairfob does not
 operate TURN.
 
+## Foreground recovery and diagnostics
+
+Foreground recovery probes the existing authenticated transport. A healthy Ping
+reuses it immediately. After 500 ms an unanswered probe prepares one relay
+WebSocket without authenticating or replacing the live route. The Ping deadline
+remains 3 seconds; old-path recovery has a 4-second budget, separate from the
+subsequent relay authentication budget.
+
+During a foreground probe, definitive ICE/peer `failed` or `closed` states
+retire the old transport even while page grace is active. `disconnected` and
+`checking` keep their grace. An explicit ICE restart owns a separate pause.
+Hidden or superseded probes cannot affect a later connection; fallback never
+replays mutations.
+
+The daemon admits authenticated `Ping` requests to a separate health lane:
+one worker and four queued requests per logical session. Other RPC ordering
+is unchanged. Replies share the existing authenticated send/sequence lock;
+queue saturation returns `backpressure`. No envelope or RPC fields change.
+
+Browser diagnostics correlate recovery with `recovery_id` and monotonic
+`recovery_elapsed_ms`. `recovery_ready` measures connection readiness separately
+from terminal open and the first applied frame of each reopened bridge. A dial
+that spans hidden/visible cycles keeps its `connect_id`, but its later stages
+belong to the current foreground recovery. Daemon `health_ping` audit records
+sample route/request identifiers and queue/reply milliseconds asynchronously:
+at most one healthy sample per 30 seconds or one slow sample per second, with
+one queued log record. Server timings remain in the daemon audit log, not the
+phone export or Ping response. No payloads, credentials, or SDP are logged.
+
 ## ICE restart
 
 An established P2P session may send `TransportRestart` on the live DataChannel

@@ -91,7 +91,8 @@ export function initSwipeBack(goBack: () => void): () => void {
     clear();
     if (retired || phase() !== "live" || currentScreen() !== "pane" || isDesk()) return;
     if (event.touches.length !== 1) return;
-    if ((event.target as Element | null)?.closest?.(".full-terminal-pan")) return;
+    // A command being dragged on the pad owns its gesture, even from the edge.
+    if ((event.target as Element | null)?.closest?.(".full-terminal-pan, [data-pad-drag]")) return;
     const touch = event.touches[0];
     if (touch.clientX > EDGE_PX) return;
     const root = app.querySelector<HTMLElement>(".pane-root");

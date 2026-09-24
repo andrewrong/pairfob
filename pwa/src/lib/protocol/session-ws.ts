@@ -1,3 +1,4 @@
+import { RecoveryDiagnostics } from "./recovery-diagnostics";
 import { parseAgentInspection } from "../agent-inspect";
 import { pageHidden, watchPageVisibility } from "./page-activity.ts";
 import { parseAgentQuota } from "../agent-quota";
@@ -124,6 +125,8 @@ export async function trackMutationDelivery<T>(runOnce: (markSent: () => void) =
 }
 
 class ReconnectingSession implements LiveSession {
+  private readonly recovery = new RecoveryDiagnostics();
+  connectionRecovery = this.recovery.context;
   private transport: SessionTransport | null = null;
   private listeners = new Set<(event: SessionEvent) => void>();
   private stopped = false;
@@ -165,7 +168,7 @@ class ReconnectingSession implements LiveSession {
     private readonly options: SessionOptions,
   ) {
     this.networkMode = parseNetworkMode(options.networkMode);
-    this.relayWarmup = new RelayWarmup(relayWS);
+    this.relayWarmup = new RelayWarmup(relayWS, () => this.recovery.current);
     const session = this;
     this.direct = new DirectSessionDriver({
       pair: this.pair,
@@ -178,6 +181,7 @@ class ReconnectingSession implements LiveSession {
       get networkMode() { return session.networkMode; },
       getTransport: () => session.transport,
       setTransport: (transport) => {
+        transport.recoveryDiagnostic = session.recovery.context();
         session.transport = transport;
         session.uploadV2 = false;
         session.configRequest++;
@@ -198,7 +202,7 @@ class ReconnectingSession implements LiveSession {
     });
     this.unwatchVisibility = watchPageVisibility((hidden) => {
       this.direct.setPageHidden(hidden);
-      if (hidden) this.relayWarmup.cancel();
+      if (hidden) { this.relayWarmup.cancel(); this.recovery.cancel(); }
       if (hidden && this.transport) {
         // Hidden pages never run the probe: reject paused uploads visibly
         // instead of holding them until the deadline.
@@ -232,6 +236,8 @@ class ReconnectingSession implements LiveSession {
   };
   reconnectNow = (reason: ReconnectReason = "probe"): void => {
     if (this.stopped || !this.networkAvailable) return;
+    if (!pageHidden()) this.recovery.start();
+    if (this.transport) this.transport.recoveryDiagnostic = this.recovery.context();
     this.direct.resetBackoff();
     if (this.transport) {
       this.direct.probe(this.transport, reason);
@@ -452,6 +458,7 @@ class ReconnectingSession implements LiveSession {
   };
 
   close = (): void => {
+    this.recovery.cancel();
     this.unwatchVisibility();
     this.stopped = true;
     // close() publishes no public event: settle paused uploads promptly here
@@ -580,7 +587,10 @@ class ReconnectingSession implements LiveSession {
     if (event.type === "checking") {
       if (this.checking) return;
       this.checking = true;
-    } else if (event.type === "connected") this.checking = pageHidden();
+    } else if (event.type === "connected") {
+      this.checking = pageHidden();
+      if (!this.checking) this.recovery.ready();
+    }
     if (event.type === "latency" && typeof event.rttMs === "number") {
       this.lastRttMs = event.rttMs;
       this.lastTransport = event.transport ?? this.lastTransport;
@@ -608,11 +618,12 @@ class ReconnectingSession implements LiveSession {
   }
 
   private async connect(): Promise<void> {
+    if (!pageHidden()) this.recovery.start();
     const controller = new AbortController();
     this.connectAbort = controller;
     let transport: SessionTransport;
     try {
-      transport = await connectSession(this.relayWS, this.pair, (event) => this.emit(event), controller.signal, this.relayWarmup);
+      transport = await connectSession(this.relayWS, this.pair, (event) => this.emit(event), controller.signal, this.relayWarmup, this.recovery.current);
     } finally {
       if (this.connectAbort === controller) this.connectAbort = null;
     }
@@ -620,6 +631,7 @@ class ReconnectingSession implements LiveSession {
       transport.close();
       return;
     }
+    transport.recoveryDiagnostic = this.recovery.context();
     this.transport = transport;
     this.attempt = 0;
     transport.onDisconnect((error) => this.onDisconnect(transport, error));

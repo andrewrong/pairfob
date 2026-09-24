@@ -1,11 +1,11 @@
+import { Globe } from "lucide-react";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { useComputers } from "../../features/computers/hooks";
 import { useConnection } from "../../features/connection/hooks";
 import { usePairing } from "../../features/pairing/hooks";
-import { langRevision, subscribeLang } from "../../lib/i18n";
 import { cancelAddComputer } from "../../features/computers/actions";
 import {
-  connectPageInput, cancelPairing, disposePairingPageTransport, focusPairCode, onPairSubmit, pastePairCode,
+  connectPageInput, cancelPairing, disposePairingPageTransport, onPairSubmit, pastePairCode,
   scanPairCode, setManualPairOpen, setPairCode, retirePairingWork,
 } from "../../features/pairing/actions";
 import { ConnectView } from "../../features/pairing/connect-view";
@@ -14,6 +14,9 @@ import { claimPairingPage, releasePairingPage } from "../../features/pairing/wor
 import { LanguageSelect } from "../../features/settings/language";
 import { useAppNotice } from "../../app/notice";
 import { isDesk } from "../../app/viewport";
+import { appRoot } from "../../app/dom-root";
+import { langRevision, subscribeLang, t } from "../../lib/i18n";
+import { showHelp } from "../../shared/ui/overlay";
 
 /**
  * Connect/pairing page composition.
@@ -49,7 +52,7 @@ function useConnectView() {
   const notice = useAppNotice();
   // Project from the subscribed snapshots: a staged phase hold keeps the form's
   // busy state on the same published phase as its frame.
-  return { view: connectViewModel(connectPageInput(isDesk(), notice, { connection, computers, pairing })), notice };
+  return { view: connectViewModel(connectPageInput(isDesk(), notice, { connection, computers, pairing })) };
 }
 
 function usePairingPageOwner(): void {
@@ -65,34 +68,42 @@ function usePairingPageOwner(): void {
   }, []);
 }
 
+const INSTALL_COMMAND = "curl -fsSL https://pairfob.com/install.sh | sh";
+
+/** "Not installed yet?": the install command and the Herdr plugin route. */
+function showPairfobInstall(): void {
+  showHelp(t("connect.installTitle"), [
+    t("connect.installReq"),
+    { before: t("connect.installRunBefore"), code: INSTALL_COMMAND, after: t("connect.installRunAfter") },
+    t("connect.installPlugin"),
+  ]);
+}
+
 export function ConnectScreen() {
-  const { view, notice } = useConnectView();
-  const form = useRef<HTMLFormElement>(null);
+  const { view } = useConnectView();
   usePairingPageOwner();
+  // On a desk the keyboard lands on the primary action; the code sheet focuses
+  // its own field when it opens.
   useLayoutEffect(() => {
-    if (view.busy) return;
-    if (view.manualOpen) form.current?.querySelector<HTMLInputElement>("#pair-code")?.focus({ preventScroll: true });
-    else if (isDesk()) form.current?.querySelector<HTMLButtonElement>(".btn-scan")?.focus({ preventScroll: true });
-  }, [view.busy, view.manualOpen]);
+    if (view.busy || view.sheetOpen || !isDesk()) return;
+    appRoot().querySelector<HTMLButtonElement>(".connect-scan")?.focus({ preventScroll: true });
+  }, [view.busy, view.sheetOpen]);
 
   return (
     <ConnectView
       view={view}
-      notice={notice}
-      language={<div className="connect-lang"><LanguageSelect /></div>}
-      formRef={form}
+      language={<label className="connect-lang"><Globe size={16} aria-hidden="true" /><LanguageSelect /></label>}
       onBack={() => {
         retirePairingWork();
         cancelAddComputer();
       }}
       onCancel={cancelPairing}
       onScan={() => void scanPairCode()}
+      onOpenCode={() => setManualPairOpen(true)}
+      onCloseCode={() => setManualPairOpen(false)}
+      onInstall={showPairfobInstall}
       onPaste={() => void pastePairCode()}
       onSubmit={event => { void onPairSubmit(event.nativeEvent); }}
-      onToggleManual={open => {
-        setManualPairOpen(open);
-        if (open) focusPairCode();
-      }}
       onCodeChange={setPairCode}
     />
   );

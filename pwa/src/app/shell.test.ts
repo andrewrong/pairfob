@@ -70,10 +70,15 @@ describe("shell ownership", () => {
     expect(appRoot().classList.contains("board")).toBeTrue();
     expect(appRoot().classList.contains("desk")).toBeFalse();
 
-    applyShell(layout({ phase: "boot", screen: "home" }));
+    applyShell(layout({ phase: "boot", screen: "home", desk: true }));
     expect(appRoot().classList.contains("boot-screen")).toBeTrue();
     expect(appRoot().classList.contains("board")).toBeFalse();
     expect(document.body.classList.contains("lock")).toBeTrue();
+
+    // The phone boots inside the list frame instead of the splash.
+    applyShell(layout({ phase: "boot", screen: "home" }));
+    expect(appRoot().classList.contains("boot-screen")).toBeFalse();
+    expect(appRoot().classList.contains("tabs")).toBeTrue();
 
     applyShell(layout({ phase: "connect", screen: "home" }));
     expect(shellState().classes).toBe("");

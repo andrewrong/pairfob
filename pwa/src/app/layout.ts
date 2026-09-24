@@ -37,6 +37,12 @@ export type LayoutInput = {
   agentChat: boolean;
   /** Wide layout: the list stays beside the page instead of stacking. */
   desk: boolean;
+  /**
+   * The only paired computer could not be reached (a network failure, not a
+   * refusal): the phone explains it inside the list frame instead of the
+   * computer picker. Optional so older callers keep the picker.
+   */
+  unreachable?: boolean;
   /** A pane is open and still reported by the daemon, so the desk can show it. */
   hasSelectedPane: boolean;
   termFontPx: number;
@@ -48,9 +54,12 @@ export type ShellFlags = {
   desk: boolean;
   workspace: boolean;
   board: boolean;
+  /** The desktop splash while booting; the phone boots inside the list frame. */
   booting: boolean;
   /** Phone tab roots (home / board / settings) carry the bottom tab bar. */
   tabs: boolean;
+  /** The pick phase renders the single-computer "cannot reach" page in the list frame. */
+  unreachable: boolean;
 };
 
 export type LayoutDescriptor = {
@@ -80,8 +89,12 @@ export function computeLayout(input: LayoutInput): LayoutDescriptor {
     ? input.agentChat ? "chat" : "session"
     : null;
 
-  const tabs = live && !input.desk && !input.fullTerminal
-    && (input.screen === "home" || input.screen === "board" || input.screen === "settings");
+  // The phone boots and reconnects inside the list's own frame (header,
+  // placeholder rows, tab bar) so nothing jumps when the session goes live.
+  const splash = booting && input.desk;
+  const unreachable = input.phase === "pick" && input.unreachable === true && !input.desk;
+  const tabs = (booting && !input.desk) || unreachable || (live && !input.desk && !input.fullTerminal
+    && (input.screen === "home" || input.screen === "board" || input.screen === "settings"));
   const mode: LayoutMode = booting ? "boot"
     : input.phase === "connect" || input.phase === "pairing" ? "connect"
     : input.phase === "pick" ? "pick"
@@ -99,8 +112,8 @@ export function computeLayout(input: LayoutInput): LayoutDescriptor {
     mode,
     deskPage,
     deskChild,
-    shell: { session, desk, workspace, board, booting, tabs },
-    lockScroll: session || desk || workspace || board || booting,
+    shell: { session, desk, workspace, board, booting: splash, tabs, unreachable },
+    lockScroll: session || desk || workspace || board || splash,
     termFontPx: input.termFontPx,
     termLineHeightPx: termLineHeightPx(input.termFontPx),
     operationBusy: input.operationBusy,
@@ -124,5 +137,6 @@ export function layoutsEqual(left: LayoutDescriptor | null | undefined, right: L
     && left.shell.workspace === right.shell.workspace
     && left.shell.board === right.shell.board
     && left.shell.booting === right.shell.booting
-    && left.shell.tabs === right.shell.tabs;
+    && left.shell.tabs === right.shell.tabs
+    && left.shell.unreachable === right.shell.unreachable;
 }

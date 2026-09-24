@@ -106,7 +106,7 @@ func (e *Engine) rpcTransportOffer(parent *sess, id string, params json.RawMessa
 	candidate := &sess{
 		routeID: route, deviceID: parent.deviceID, state: "resumehello", transport: "p2p",
 		upgradeFrom: parent.routeID, attemptID: input.AttemptID,
-		rpcQueue: make(chan rpcRequest, sessionRPCQueueSize), rpcStop: make(chan struct{}),
+		rpcQueue: make(chan rpcRequest, sessionRPCQueueSize), pingQueue: make(chan rpcRequest, sessionPingQueueSize), rpcStop: make(chan struct{}),
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), directOfferTimeout)
 	defer cancel()
@@ -157,6 +157,7 @@ func (e *Engine) rpcTransportOffer(parent *sess, id string, params json.RawMessa
 		}
 	}
 	go e.runSessionRPC(candidate)
+	go e.runSessionPing(candidate)
 	time.AfterFunc(directReadyTTL, func() { e.expireDirectCandidate(route, candidate) })
 
 	if !e.reply(parent, id, map[string]any{

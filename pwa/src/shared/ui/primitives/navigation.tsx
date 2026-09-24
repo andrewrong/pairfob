@@ -12,8 +12,9 @@ export function BackButton({ onBack, label }: { onBack: () => void; label?: stri
   return <Button className="icon-btn back" onClick={onBack} aria-label={label ?? t("chrome.back")}><ChevronLeft size={24} aria-hidden="true" /></Button>;
 }
 
-export function BackBar({ title, onBack, children }: { title: string; onBack: () => void; children?: ReactNode }) {
-  return <div className="topbar"><BackButton onBack={onBack} /><h1 className="topbar-title">{title}</h1>{children}</div>;
+/** `hideTitle` keeps the heading for assistive tech when the page shows its name in its own content. */
+export function BackBar({ title, onBack, hideTitle = false, children }: { title: string; onBack: () => void; hideTitle?: boolean; children?: ReactNode }) {
+  return <div className="topbar"><BackButton onBack={onBack} /><h1 className={hideTitle ? "topbar-title sr-only" : "topbar-title"}>{title}</h1>{children}</div>;
 }
 
 /** Trailing page actions keep intrinsic targets and align right even when wrapped. */

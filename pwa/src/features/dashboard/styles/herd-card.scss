@@ -174,7 +174,8 @@
   font: 600 var(--text-body) var(--mono);
 }
 
-.agent-avatar > svg { width: 56%; height: 56%; }
+.agent-avatar > svg,
+.agent-avatar > img { width: 56%; height: 56%; }
 .agent-avatar.is-terminal { background: #192019; color: #a9c9b1; }
 .agent-avatar.is-terminal > svg { width: 58%; height: 58%; }
 .agent-avatar.is-sm { width: 24px; height: 24px; border-radius: 7px; font-size: var(--text-caption); }
