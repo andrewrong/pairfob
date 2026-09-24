@@ -2,11 +2,11 @@ import { ArrowDown } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { lineFillBackground, paintLines, spanCss, type StyledLine } from "../../../lib/ansi";
 import { t } from "../../../lib/i18n";
-import { openPaneId, paneFollow, paneUnread, setPaneFollow, termSelect } from "../session-store";
+import { openPaneId, paneFollow, paneUnread, sessionStore, setPaneFollow, termSelect } from "../session-store";
 import { termWrap } from "../../settings/preferences-store";
 import { haptic } from "../../../lib/dom";
 import { echoGhost, echoStoreRevision, subscribeEcho } from "./echo";
-import { openRow } from "./rowbar";
+import { closeRow, openRow } from "./rowbar";
 import {
   atBottom,
   bindPinch,
@@ -16,6 +16,7 @@ import {
   guidedCapturePan,
   jumpToBottom,
   pageScrollLines,
+  selectFromHold,
   sendGuidedTuiScroll,
   subscribeTermDisplay,
   syncJump,
@@ -31,14 +32,16 @@ function TermLine({
   line,
   index,
   ghost,
+  picked,
 }: {
   line: StyledLine;
   index: number;
   ghost: { text: string; rollback: boolean } | null;
+  picked: boolean;
 }) {
   const fill = lineFillBackground(line.spans);
   return (
-    <div className="term-line" data-row={String(index)} style={fill ? { backgroundColor: fill } : undefined}>
+    <div className={picked ? "term-line is-picked" : "term-line"} data-row={String(index)} style={fill ? { backgroundColor: fill } : undefined}>
       {line.spans.length
         ? line.spans.map((span, spanIndex) => (
             <span key={spanIndex} style={spanCss(span.style)}>{span.text || "\u00a0"}</span>
@@ -49,6 +52,10 @@ function TermLine({
       ) : null}
     </div>
   );
+}
+
+function pickedRow(): number | null {
+  return sessionStore.get().paneRow;
 }
 
 function ghostRowIndex(lines: StyledLine[]): number {
@@ -101,10 +108,15 @@ function JumpChip({ jumpRef }: { jumpRef: { current: HTMLButtonElement | null } 
  * text-selection freeze survives a root repaint. Ghost, jump, and page-pending
  * updates arrive through `subscribeEcho` / `subscribeTermDisplay` /
  * `subscribePagePending` rather than a single global observer.
+ *
+ * Gestures: tap a row → floating row actions (`onRow`); long-press → native
+ * selection; a hand pan dismisses the row actions. The picked row is read as a
+ * narrow session-store slice so highlighting it does not wait for a pane commit.
  */
 export function SessionTerminal({ onRow }: { onRow?: (index: number) => void } = {}) {
   useSyncExternalStore(subscribeEcho, echoStoreRevision);
   useSyncExternalStore(subscribeTermDisplay, termDisplayStoreRevision);
+  const picked = useSyncExternalStore(sessionStore.subscribe, pickedRow, pickedRow);
   const handleRow = onRow ?? openRow;
   const onRowRef = useRef(handleRow);
   onRowRef.current = handleRow;
@@ -119,7 +131,7 @@ export function SessionTerminal({ onRow }: { onRow?: (index: number) => void } =
   useEffect(() => {
     const term = termRef.current;
     if (!term) return;
-    const stopTap = bindTap(term, (index) => onRowRef.current(index));
+    const stopTap = bindTap(term, (index) => onRowRef.current(index), { onHold: selectFromHold, onPan: closeRow });
     const stopPinch = bindPinch(term);
     const stopHost = bindHostScroll(
       term,
@@ -150,7 +162,7 @@ export function SessionTerminal({ onRow }: { onRow?: (index: number) => void } =
       <div ref={termRef} className={termClass} role="log" aria-label={t("term.screenAria")}>
         <div className="term-inner">
           {live.map((line, index) => (
-            <TermLine key={index} line={line} index={index} ghost={index === ghostAt ? ghost : null} />
+            <TermLine key={index} line={line} index={index} ghost={index === ghostAt ? ghost : null} picked={index === picked} />
           ))}
         </div>
       </div>

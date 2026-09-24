@@ -119,7 +119,7 @@ describe("compose trailing Enter", () => {
     applyPaneRead("Delete everything? [Y/n]", "");
     const open = mount("");
     expect(open.disabled).toBe(false);
-    expect(open.textContent).toBe("Enter");
+    expect(open.dataset.sendKind).toBe("enter");
     expect(open.getAttribute("aria-label")).toBe("向终端发送 Enter");
 
     applyPaneRead(lifted, "");
@@ -131,7 +131,7 @@ describe("compose trailing Enter", () => {
 
   test("live mode keeps an empty trailing Enter", () => {
     const button = mount("", true);
-    expect(button.textContent).toBe("Enter");
+    expect(button.dataset.sendKind).toBe("enter");
     expect(button.disabled).toBe(false);
   });
 

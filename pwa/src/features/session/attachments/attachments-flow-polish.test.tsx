@@ -9,12 +9,11 @@ import { setPhase, setSessionTransport, setTransportSwitching, applyOriginConfig
 import { attachLiveSession, setCredential } from "../../computers/catalog-store";
 import { applyCapabilities } from "../../operations/capabilities-store";
 import { selectPane } from "../session-store";
-import { startUpload, startAllQueued, settleTransferQueue, setAttachmentTransferPort } from "./attachments-controller";
+import { checkUpload, startUpload, startAllQueued, settleTransferQueue, setAttachmentTransferPort } from "./attachments-controller";
 import { adoptIncoming, attachmentScopeKey, patchItem, queueSnapshot, resetAttachmentQueues, runtimeCheckpoint, runtimePreparedImage, setRuntimeCheckpoint } from "./attachments-store";
 import { resetAttachmentRecovery, setAttachmentJournalBackend } from "./attachments-recovery";
 import { setImagePreparer } from "./attachments-image";
 import { setThumbnailPreparer } from "./attachments-thumbnails";
-import { presentAttachmentSheet } from "./attachments-sheet";
 import type { AttachmentTransferPort, AttachmentCheckpoint } from "./attach-model";
 
 const scope = { daemonId: "d_polish", paneId: "p1" };
@@ -63,10 +62,8 @@ afterEach(async () => {
   setTransportSwitching(false);
 });
 
-function button(text: string): HTMLButtonElement {
-  return [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find(b => b.textContent === text)!;
-}
-
+// The controller itself never auto-starts; the tray's auto-start (see
+// attachment-tray.test.tsx) is what reacts to P2P returning.
 test("Relay queue does no compression or upload and P2P restoration never auto-starts it", async () => {
   const [id] = adoptIncoming(key, scope, [file("a.jpg", true)]);
   setSessionTransport("relay"); startUpload(scope, id); await settleTransferQueue();
@@ -92,36 +89,13 @@ test("one-ahead prepared image is reused; a third image never prepares after P2P
   expect(prepared).toEqual(["a.jpg", "b.jpg", "c.jpg"]); expect(uploads).toHaveLength(3);
 });
 
-test("read-only status remains clickable on Relay and never resumes", async () => {
+test("read-only status works on Relay and never resumes", async () => {
   const f = file("a.bin"); const [id] = adoptIncoming(key, scope, [f]);
   setRuntimeCheckpoint(key, id, checkpoint(f)); patchItem(key, id, { status: "error", recoverable: true });
-  setSessionTransport("relay"); act(() => presentAttachmentSheet(scope));
-  expect(button("Check status").disabled).toBe(false); expect(button("Continue upload").disabled).toBe(true);
-  await act(async () => { button("Check status").click(); await settleTransferQueue(); });
+  setSessionTransport("relay");
+  await act(async () => { await checkUpload(scope, id); await settleTransferQueue(); });
   expect(inspections).toBe(1); expect(uploads).toHaveLength(0);
-  expect(document.querySelector("dialog")!.textContent).toContain("Confirmed 1 B / 3 B");
-});
-
-test("inline P2P action is deduplicated, reports success, and does not upload", async () => {
-  adoptIncoming(key, scope, [file("a.bin")]); setSessionTransport("relay");
-  const gate = deferred(); switchAction = async () => { await gate.promise; setSessionTransport("p2p"); };
-  act(() => presentAttachmentSheet(scope));
-  const connect = button("Connect P2P");
-  act(() => { connect.click(); connect.click(); });
-  expect(switches).toBe(1); expect(button("Connecting to P2P…").disabled).toBe(true);
-  await act(async () => { gate.resolve(); await pump(); });
-  expect(document.querySelector("dialog")!.textContent).toContain("P2P connected");
-  expect(button("Upload all").disabled).toBe(false); expect(uploads).toHaveLength(0);
-});
-
-test("inline failure keeps the file and allows another explicit connection attempt", async () => {
-  adoptIncoming(key, scope, [file("a.bin")]); setSessionTransport("relay");
-  switchAction = async () => { throw Error("failed"); };
-  act(() => presentAttachmentSheet(scope));
-  await act(async () => { button("Connect P2P").click(); await pump(); });
-  expect(document.querySelector("dialog")!.textContent).toContain("P2P did not connect");
-  expect(button("Connect P2P").disabled).toBe(false); expect(queueSnapshot(key)!.items).toHaveLength(1);
-  expect(uploads).toHaveLength(0);
+  expect(row(id)).toMatchObject({ status: "error", recoverable: true, acknowledged: 1 });
 });
 
 test("checkpoint persistence has its own phase and cannot send Begin before saving settles", async () => {
@@ -134,22 +108,20 @@ test("checkpoint persistence has its own phase and cannot send Begin before savi
     begins++; opts?.onStage?.("begin"); return upload(s, pane, f, opts);
   };
   const [id] = adoptIncoming(key, scope, [file("a.bin")]);
-  act(() => presentAttachmentSheet(scope));
   await act(async () => { startUpload(scope, id); await entered.promise; });
-  expect(document.querySelector(".attach-status")!.textContent).toBe("Saving resume information…"); expect(row(id).transferPhase).toBe("persisting"); expect(begins).toBe(0);
+  expect(row(id).transferPhase).toBe("persisting"); expect(begins).toBe(0);
   await act(async () => { setSessionTransport("relay"); gate.resolve(); await settleTransferQueue(); });
   expect(begins).toBe(0); expect(runtimeCheckpoint(key, id)).toBeNull();
   expect(row(id).transferPhase).toBe("waiting-p2p");
   expect(row(id).stageTimings?.persistence).toBeGreaterThanOrEqual(0);
-  expect(document.querySelector(".attach-details")!.textContent).toContain("Local save");
 });
 
 test("a failed read-only status check does not claim the user cancelled", async () => {
   const f = file("a.bin"); const [id] = adoptIncoming(key, scope, [f]);
   setRuntimeCheckpoint(key, id, checkpoint(f)); patchItem(key, id, { status: "error", recoverable: true, acknowledged: 1 });
   port.inspect = async () => { throw Error("unavailable"); };
-  setSessionTransport("relay"); act(() => presentAttachmentSheet(scope));
-  await act(async () => { button("Check status").click(); await settleTransferQueue(); });
+  setSessionTransport("relay");
+  await act(async () => { await checkUpload(scope, id); await settleTransferQueue(); });
   expect(row(id)).toMatchObject({ acknowledged: 1, recoverable: true, cancelIntent: false });
   expect(row(id).errorText).toContain("Could not check upload status");
   expect(runtimeCheckpoint(key, id)).toBeTruthy();

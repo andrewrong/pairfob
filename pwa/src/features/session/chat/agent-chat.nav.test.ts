@@ -192,40 +192,6 @@ afterEach(async () => await act(async () => {
   await happyDom.happyDOM.abort();
 }));
 
-test("a restored multiline draft is measured after its chat field is mounted", async () => await act(async () => {
-  const prototype = happy.HTMLTextAreaElement.prototype;
-  const descriptor = Object.getOwnPropertyDescriptor(prototype, "scrollHeight");
-  Object.defineProperty(prototype, "scrollHeight", {
-    configurable: true,
-    get() { return this.isConnected ? 96 : 0; },
-  });
-  try {
-    bootAgentChat("first line\nsecond line\nthird line");
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    const field = app.querySelector<HTMLTextAreaElement>(".agent-dock textarea")!;
-    expect(field.value).toBe(composeDraft());
-    expect(field.style.height).toBe("96px");
-  } finally {
-    if (descriptor) Object.defineProperty(prototype, "scrollHeight", descriptor);
-    else delete (prototype as unknown as Record<string, unknown>).scrollHeight;
-  }
-}));
-
-test.each([true, false])("growing the chat composer preserves follow=%s", async (following) => await act(async () => {
-  bootAgentChat();
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  const stream = app.querySelector<HTMLElement>(".agent-stream")!;
-  const field = app.querySelector<HTMLTextAreaElement>(".agent-dock textarea")!;
-  Object.defineProperty(stream, "scrollHeight", { configurable: true, value: 1000 });
-  Object.defineProperty(field, "scrollHeight", { configurable: true, value: 96 });
-  stream.scrollTop = 80;
-  setTrace({ agentTraceFollow: following });
-  field.value = "first line\nsecond line\nthird line";
-  field.dispatchEvent(new happy.Event("input", { bubbles: true }));
-  expect(field.style.height).toBe("96px");
-  expect(stream.scrollTop).toBe(following ? 1000 : 80);
-}));
-
 describe("agent-chat remembers its mode per pane", () => {
   test("renders thinking, tools, and the final reply", async () => await act(async () => {
     bootAgentChat();
@@ -242,11 +208,11 @@ describe("agent-chat remembers its mode per pane", () => {
     expect(app.querySelector(".agent-stream-inner")).toBeTruthy();
     const title = app.querySelector(".agent-chat-root .chrome-title");
     expect(title).toBeTruthy();
-    expect(title?.getAttribute("aria-label") || "").toContain("切换会话");
-    if (!(title instanceof HTMLButtonElement)) throw new Error("title is not a button");
-    title.click();
-    expect(document.querySelector("dialog.sheet .modal-title")?.textContent).toBe("切换会话");
-    closeTestDialogs();
+    // The shared, display-only identity: no "switch session" affordance.
+    expect(title?.tagName).toBe("DIV");
+    expect(title?.querySelector(".chrome-avatar .agent-avatar")).toBeTruthy();
+    (title as HTMLElement).click();
+    expect(document.querySelector("dialog.sheet")).toBeNull();
   }));
 
   test("a cold working conversation shows loading instead of the empty call to action", async () => await act(async () => {
@@ -635,13 +601,17 @@ describe("agent-chat remembers its mode per pane", () => {
     expect(paneTermMode("p1")).toBe("agent");
   }));
 
-  test("Enter sends the draft and keeps the same compose field", async () => await act(async () => {
+  test("a phone's Return adds a line; the send button sends and keeps the same compose field", async () => await act(async () => {
     bootAgentChat();
     const field = app.querySelector(".agent-dock textarea");
     if (!(field instanceof HTMLTextAreaElement)) throw new Error("missing compose");
     field.value = "hello there";
     field.dispatchEvent(new happy.Event("input", { bubbles: true }));
-    field.dispatchEvent(new happy.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const enter = new happy.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    field.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(false);
+    expect(composeDraft()).toBe("hello there");
+    app.querySelector<HTMLButtonElement>(".agent-dock .send-btn")!.click();
     await Promise.resolve();
     await Promise.resolve();
     expect(app.querySelector(".agent-dock textarea")).toBe(field);
@@ -729,8 +699,8 @@ describe("agent-chat remembers its mode per pane", () => {
     paintPane();
     expect(app.querySelector(".agent-confirm")).toBeNull();
     expect(app.textContent).not.toContain("等你确认");
-    expect(app.querySelector(".chrome-meta-text")?.textContent).toBe("未知");
-    expect(app.querySelector(".agent-unknown")).not.toBeNull();
+    expect(app.querySelector(".chrome-status")?.textContent).toBe("未知");
+    expect(app.querySelector(".agent-avatar-status.is-unknown")).not.toBeNull();
     expect(app.querySelector(".icon-stop")).toBeNull();
   }));
 
@@ -740,9 +710,9 @@ describe("agent-chat remembers its mode per pane", () => {
     setNetworkOnline(false);
     try {
       paintPane();
-      expect(app.querySelector(".chrome-meta-text")?.textContent).toBe("未知");
-      expect(app.querySelector(".agent-unknown")).not.toBeNull();
-      expect(app.querySelector(".agent-working")).toBeNull();
+      expect(app.querySelector(".chrome-status")?.textContent).toBe("未知");
+      expect(app.querySelector(".agent-avatar-status.is-unknown")).not.toBeNull();
+      expect(app.querySelector(".agent-avatar-status.is-working")).toBeNull();
       expect(app.querySelector(".icon-stop")).toBeNull();
     } finally {
       setNetworkOnline(true);

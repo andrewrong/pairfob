@@ -22,11 +22,10 @@ afterEach(() => {
 });
 
 describe("pad modifiers", () => {
-  test("the extra row is holdable modifiers plus readline chords Herdr accepts", () => {
-    expect(TERTIARY_KEYS.filter((key) => key.modifier).map((key) => key.label)).toEqual(["Ctrl", "Opt", "Shift", "Cmd"]);
-    expect(TERTIARY_KEYS.map((key) => key.key)).toContain("ctrl+a");
-    expect(TERTIARY_KEYS.map((key) => key.key)).toContain("ctrl+e");
-    expect(TERTIARY_KEYS.map((key) => key.key)).toContain("ctrl+k");
+  test("the modifier row is the four holdable modifiers, with Alt named once", () => {
+    expect(TERTIARY_KEYS.map((key) => key.label)).toEqual(["Ctrl", "Alt", "Shift", "Cmd"]);
+    expect(TERTIARY_KEYS.every((key) => key.modifier)).toBe(true);
+    expect(TERTIARY_KEYS.find((key) => key.modifier === "alt")?.aria).toBe("Alt / Option");
   });
 
   test("Ctrl or Cmd turns a letter into ctrl+letter and preserves modified arrows", () => {

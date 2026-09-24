@@ -33,6 +33,7 @@ import {
   adoptEditedFile,
   attachmentScopeKey,
   queueSnapshot,
+  reissueAttachment,
   runtimeCheckpoint,
   runtimeRemoved,
   runtimeSourceFile,
@@ -68,14 +69,20 @@ function findItem(key: string, localId: string): AttachmentItem | null {
 }
 
 /**
- * A row is open for editing only while it is exactly a visible, unstarted
- * queued row: not scheduled (a queued+scheduled row may already be preparing),
- * not removed, and with no remote upload handle that must be reconciled.
- * Checked BEFORE the lazy editor load / full decode AND after every await.
+ * A row is open for editing only while nothing is running for it: an
+ * unstarted queued row (not scheduled — a queued+scheduled row may already be
+ * preparing), a finished upload (the edit uploads again under a new id), a
+ * cancelled row, or a plain failure. Never a removed row and never one with a
+ * remote upload handle that must be reconciled. Checked BEFORE the lazy
+ * editor load / full decode AND after every await.
  */
 function rowOpenForEdit(item: AttachmentItem | null, key: string, localId: string): item is AttachmentItem {
   if (!item) return false;
-  if (item.status !== "queued" || item.scheduled) return false;
+  const idle = (item.status === "queued" && !item.scheduled)
+    || item.status === "committed"
+    || item.status === "cancelled"
+    || (item.status === "error" && !item.cancelIntent);
+  if (!idle) return false;
   if (runtimeRemoved(key, localId) || runtimeCheckpoint(key, localId)) return false;
   return true;
 }
@@ -205,8 +212,7 @@ async function applyEditedImage(
   // Re-read the live row after the await: still queued, unscheduled,
   // unstarted, same source.
   const item = findItem(key, localId);
-  if (!item || item.status !== "queued" || item.scheduled || runtimeRemoved(key, localId)
-      || runtimeSourceFile(key, localId) !== originalFile || runtimeCheckpoint(key, localId)) {
+  if (!rowOpenForEdit(item, key, localId) || runtimeSourceFile(key, localId) !== originalFile) {
     return attachT("attach.scopeMoved");
   }
   // The edit is validated against the LOCAL retained-source intake budget —
@@ -235,7 +241,13 @@ async function applyEditedImage(
     haptic(2);
     return reason;
   }
-  adoptEditedFile(key, localId, edited, metaFromFile(edited));
+  // A finished row uploads the edit under a new id: its old id is already
+  // tombstoned in the recovery journal.
+  const target = item.status === "committed" || item.status === "cancelled"
+    ? reissueAttachment(key, localId)
+    : localId;
+  if (!target) return attachT("attach.scopeMoved");
+  adoptEditedFile(key, target, edited, metaFromFile(edited));
   haptic(4);
   return null;
 }

@@ -8,7 +8,7 @@
  * consumes attention once per paint and hands the resulting marks in.
  */
 import { agentDisplaySummary } from "../../../lib/agent-inspect";
-import { agentMeta, agentStatusLabel, agentTitle, statusLabel, type DashboardAgentCard } from "../../../lib/dashboard";
+import { agentMeta, agentStatusLabel, agentTitle, cwdName, statusLabel, terminalMeta, type DashboardAgentCard } from "../../../lib/dashboard";
 import type { HerdPaint, StatusMark } from "../../../lib/herd-attention";
 import { t } from "../../../lib/i18n";
 import {
@@ -84,6 +84,7 @@ export type HerdCardView = {
   pinned: boolean;
   pinnedLabel: string;
   selected: boolean;
+  /** The pane the declared navigation is about; the transition names its row itself. */
   sharesTransition: boolean;
 };
 
@@ -211,6 +212,58 @@ export function herdNeedsReader(agent: DashboardAgentCard): "blocked" | "done" |
   return agent.status === "blocked" ? "blocked" : agent.status === "done" ? "done" : "";
 }
 
+/**
+ * Who a pane is and what it is doing, as the list card shows it. The session
+ * header renders the same projection, so the title that travels between the two
+ * during the shared transition is the same text on both ends.
+ */
+export type PaneIdentity = {
+  kind: "agent" | "terminal";
+  agentKind: string;
+  title: string;
+  /** Status word for an agent; empty for a plain terminal. */
+  statusLabel: string;
+  statusTone: AgentCard["status"];
+  /** Status-free facts: the reported task, or agent · place · tab. */
+  line: string;
+  /** The facts without the task summary; the card's legacy meta column. */
+  meta: string;
+};
+
+export function paneIdentity(agent: DashboardAgentCard, listGroup: ListGroup, stale: boolean): PaneIdentity {
+  const isAgent = agent.hasAgent;
+  const meta = isAgent ? agentMeta(agent, listGroup) : terminalMeta(agent, listGroup);
+  return {
+    kind: isAgent ? "agent" : "terminal",
+    agentKind: agent.agent,
+    title: agentTitle(agent, listGroup),
+    statusLabel: isAgent ? (stale ? t("status.unverifiable") : agentStatusLabel(agent)) : "",
+    statusTone: stale ? "unknown" : agent.status,
+    line: agentDisplaySummary(agent) || meta,
+    meta,
+  };
+}
+
+/**
+ * The header has no group heading above it, so it names the workspace (or the
+ * directory) at the end of the card's line unless the line or title already
+ * says it.
+ */
+export function paneHeaderLine(identity: PaneIdentity, agent: DashboardAgentCard): string {
+  const place = agent.workspaceLabel?.trim() || cwdName(agent.cwd ?? "").trim();
+  const parts = identity.line.split(" · ").map((part) => part.trim().toLowerCase()).filter(Boolean);
+  if (!place || parts.includes(place.toLowerCase()) || identity.title.trim().toLowerCase() === place.toLowerCase()) {
+    return identity.line;
+  }
+  return identity.line ? `${identity.line} · ${place}` : place;
+}
+
+/** Other panes waiting on the reader. Nothing is claimed while status cannot be confirmed. */
+export function blockedElsewhere(agents: readonly DashboardAgentCard[], paneId: string, stale: boolean): number {
+  if (stale) return 0;
+  return agents.filter((agent) => agent.paneId !== paneId && herdNeedsReader(agent) === "blocked").length;
+}
+
 function cardView(
   agent: DashboardAgentCard,
   input: HerdModelInput,
@@ -218,16 +271,15 @@ function cardView(
   stale: boolean,
 ): HerdCardView {
   const pinned = paneIsPinned(input.panePinned, agent.paneId);
-  const isAgent = agent.hasAgent;
   const needs = stale ? "" : herdNeedsReader(agent);
-  const summary = agentDisplaySummary(agent);
+  const identity = paneIdentity(agent, input.listGroup, stale);
   return {
     paneId: agent.paneId,
-    kind: isAgent ? "agent" : "terminal",
-    agentKind: agent.agent,
-    statusLabel: isAgent ? (stale ? t("status.unverifiable") : agentStatusLabel(agent)) : "",
-    statusTone: stale ? "unknown" : agent.status,
-    line: summary || agentMeta(agent, input.listGroup),
+    kind: identity.kind,
+    agentKind: identity.agentKind,
+    statusLabel: identity.statusLabel,
+    statusTone: identity.statusTone,
+    line: identity.line,
     ago: herdAgo(input.paneTouched[agent.paneId], input.now),
     blocked: needs === "blocked",
     unread: needs === "done",
@@ -241,8 +293,8 @@ function cardView(
       dismissing: input.attention.isDismissing(agent.paneId),
     }),
     index,
-    title: agentTitle(agent, input.listGroup),
-    meta: agentMeta(agent, input.listGroup),
+    title: identity.title,
+    meta: identity.meta,
     pill: stale
       ? herdCardPill(agent.status, true)
       : { className: `pill pill-${agent.status}`, text: agentStatusLabel(agent) },

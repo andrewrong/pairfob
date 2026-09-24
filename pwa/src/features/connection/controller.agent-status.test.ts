@@ -7,6 +7,7 @@ import type { LiveSession, PairResult, SessionEvent } from "../../lib/protocol/c
 import { FullTerminalScreen } from "../session/full-terminal/full-terminal-screen";
 import { syncFullTerminalChrome } from "../session/full-terminal/full-terminal";
 import { appRoot } from "../../app/dom-root";
+import { t } from "../../lib/i18n";
 import { attachLiveSession, setCredential } from "../computers/catalog-store";
 import { setNetworkOnline } from "./connection-store";
 import { applySnapshot, dashboardStore } from "../dashboard/catalog-store";
@@ -74,7 +75,9 @@ type Boot = { reads: () => number; change: (next: string, paneId?: string) => vo
 async function boot(fullTerminal: boolean): Promise<Boot> {
   globalThis.fetch = (async () => new Response("1.0.0")) as typeof fetch;
   Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
-  let listener!: (event: SessionEvent) => void;
+  // A real LiveSession fans events out to every subscriber (the session pool and,
+  // with the pad mounted, the attachment tray's connection watch).
+  const listeners = new Set<(event: SessionEvent) => void>();
   let status = "working";
   let reads = 0;
   const session = {
@@ -82,7 +85,7 @@ async function boot(fullTerminal: boolean): Promise<Boot> {
     isConnected: () => true,
     setNetworkAvailable: () => undefined,
     switchTransport: async () => undefined,
-    onEvent: (fn: typeof listener) => { listener = fn; return () => {}; },
+    onEvent: (fn: (event: SessionEvent) => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; },
     getConfig: async () => ({ build: "1.0.0" }),
     snapshot: async () => {
       reads += 1;
@@ -107,7 +110,7 @@ async function boot(fullTerminal: boolean): Promise<Boot> {
     session,
     change: (next: string, paneId = "p1") => {
       status = next;
-      listener({ type: "poke", reason: "agent_status", paneId });
+      for (const listener of [...listeners]) listener({ type: "poke", reason: "agent_status", paneId });
     },
   };
 }
@@ -249,7 +252,7 @@ test("mobile full-terminal controls follow status without remounting the termina
   act(() => {
     syncFullTerminalChrome();
     renderScreen(createElement(FullTerminalScreen, {
-      onBack: noop, onSwitch: noop, onMode: noop, onWorkspace: noop, onMenu: noop, onStop: noop, onRetry: noop,
+      onBack: noop, onWorkspace: noop, onMenu: noop, onRetry: noop,
       scroll: noop, pageLines: () => 23, engineActive: false,
       controls: { sendKey: noop, sendCompose: () => true, desk: false,
         keyboard: { toggle: noop, open: noop, close: noop, isOpen: () => false } },
@@ -259,8 +262,9 @@ test("mobile full-terminal controls follow status without remounting the termina
   expect(host === null).toBeFalse();
   expect(app().querySelector("[data-react-full-terminal]") === null).toBeFalse();
   await act(async () => { runtime.change("working"); await settle(); });
-  expect(app().querySelector(".icon-stop") === null).toBeFalse();
+  expect(app().querySelector(".full-terminal-chrome .chrome-status")?.textContent).toBe(t("status.working"));
   await act(async () => { runtime.change("done"); await settle(); });
+  expect(app().querySelector(".full-terminal-chrome .chrome-status")?.textContent).toBe(t("status.done"));
   expect(app().querySelector(".icon-stop") === null).toBeTrue();
   expect(app().querySelector(".full-terminal-host")).toBe(host);
 });

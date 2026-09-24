@@ -2,15 +2,16 @@ import { describe, expect, test } from "bun:test";
 
 const composeSource = await Bun.file(new URL("./compose.ts", import.meta.url)).text();
 const composeViewSource = await Bun.file(new URL("./session-compose.tsx", import.meta.url)).text();
+const controlsSource = await Bun.file(new URL("./compose-controls.tsx", import.meta.url)).text();
 
 describe("compose send button", () => {
   test("is a real Enter key and does not depend on parsed terminal text", () => {
     expect(composeSource).not.toContain("liftedPromptSelect");
     expect(composeSource).not.toContain("prompt-select");
-    expect(composeViewSource).toContain("disabled={sending}");
-    expect(composeViewSource).toContain("const sending = snap.submitBusy && !snap.live");
-    expect(composeViewSource).toContain(' : "Enter"}</button>');
-    expect(composeViewSource).not.toContain(' : "发送"}</button>');
+    expect(composeViewSource).toContain("submitting: snap.submitBusy && !snap.live");
+    expect(controlsSource).toContain('const inert = kind === "busy" || kind === "stopping"');
+    // The empty-draft button is the ⏎ key, labelled for what it does.
+    expect(controlsSource).toContain('<CornerDownLeft size={19} aria-hidden="true" />, aria: t("compose.enterAria")');
     expect(composeViewSource).not.toContain('t("compose.blockedAria")');
     expect(composeSource).toContain("void submitTyped(true)");
     const submit = composeSource.slice(composeSource.indexOf("export async function submitTyped"));
@@ -28,12 +29,12 @@ describe("compose send button", () => {
     expect(bind.match(/syncSendButton\(\)/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
-  test("tapping the buffer focuses the same field the keyboard types into", async () => {
+  test("focusing compose reaches the same field the keyboard types into", async () => {
     const composeView = await Bun.file(new URL("./session-compose.tsx", import.meta.url)).text();
     expect(composeSource).toContain("export function focusCompose");
     expect(composeSource).toContain(".full-terminal-compose-input");
     expect(composeViewSource).toContain('t("compose.batchPh")');
-    expect(composeView).toContain('enterKeyHint="enter"');
+    expect(composeView).toContain('phoneEnterKeyHint() : "enter"');
     expect(composeSource).toContain("field.focus({ preventScroll: true })");
   });
 
@@ -58,9 +59,9 @@ describe("compose send button", () => {
     const submit = composeSource.slice(composeSource.indexOf("export async function submitTyped"));
     expect(submit).toContain("submitBusy");
     expect(submit).toContain("finally");
-    expect(composeSource).toContain("composeDraft() === value");
-    expect(composeViewSource).toContain('t("compose.sending")');
-    expect(composeViewSource).toContain('aria-busy={sending ? "true" : undefined}');
+    expect(composeSource).toContain("composeDraft() === message.draft");
+    expect(controlsSource).toContain('t("compose.sending")');
+    expect(controlsSource).toContain('aria-busy={inert || kind === "wait" ? "true" : undefined}');
   });
 
   test("keeps delayed guarded submit automatic and quiet unless it stalls", () => {
@@ -128,11 +129,10 @@ describe("compose live vs batch", () => {
     expect(composeSource).not.toContain("composeModePicker");
     expect(composeSource).not.toContain("export function composeLiveControl");
     expect(composeSource).not.toContain("syncComposeLiveControl");
-    expect(composeViewSource).toContain(' : "Enter"}</button>');
     expect(composeViewSource).toContain('t("compose.livePh")');
     const composeView = await Bun.file(new URL("./session-compose.tsx", import.meta.url)).text();
     expect(composeView).toContain('className="send-btn"');
-    expect(composeView).toContain(' : "Enter"}</button>');
+    expect(composeView).toContain("<SendButton");
     expect(composeView).toContain('aria-live="polite"');
     const dock = await Bun.file(new URL("./session-dock.tsx", import.meta.url)).text();
     expect(dock).not.toContain("composeLiveControl");

@@ -1,0 +1,342 @@
+/* "How does it work?": requirements, the three setup steps (computer, computer,
+   phone) and what the day after looks like. Copy buttons are shared with the
+   closing call to action. */
+
+.reqs {
+  list-style: none;
+  margin: -24px 0 28px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.reqs li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.reqs svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--blue);
+}
+
+.reqs b {
+  margin-right: 6px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.step-vis {
+  position: relative;
+  height: 312px;
+  background: var(--d-term);
+  overflow: hidden;
+}
+
+.step-body {
+  padding: 22px 24px 26px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.where {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.where .n {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: var(--page);
+  font: 700 12px var(--mono);
+}
+
+.where svg {
+  width: 15px;
+  height: 15px;
+}
+
+.step h3 {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.step h3 code {
+  font-size: 18px;
+}
+
+.step p {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.step p code {
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.step-body a {
+  color: var(--blue);
+}
+
+.mini-tty {
+  position: absolute;
+  inset: 0;
+  padding: 18px 20px;
+  font: 11.5px/1.7 var(--mono);
+  color: var(--d-term-ink);
+  display: flex;
+  flex-direction: column;
+}
+
+.mini-tty .dim {
+  color: var(--d-faint);
+}
+
+.mini-tty .acc {
+  color: var(--d-accent);
+}
+
+.mini-tty .gap {
+  margin-top: 14px;
+}
+
+.copybox,
+.url-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 12px;
+}
+
+.copybox {
+  margin-top: 14px;
+  background: var(--d-surface);
+  border: 1px solid var(--d-line);
+}
+
+.copybox code,
+.url-box code {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.copybox code {
+  font-size: 11.5px;
+  color: var(--d-ink);
+}
+
+.copybox code::-webkit-scrollbar,
+.url-box code::-webkit-scrollbar {
+  display: none;
+}
+
+.copy {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--d-accent);
+  color: var(--d-accent-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.copy[data-copied] {
+  background: var(--d-ok);
+}
+
+.qr {
+  width: 92px;
+  height: 92px;
+  margin: 8px 0 6px;
+  image-rendering: pixelated;
+}
+
+.phone-crop {
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  padding-top: 26px;
+}
+
+.phone-crop .phone {
+  width: 220px;
+  height: 330px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  padding-bottom: 0;
+}
+
+.phone-crop .phone-screen {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.phone-crop img {
+  width: 100%;
+  height: auto;
+}
+
+.step-url {
+  margin-top: 6px;
+}
+
+.url-box {
+  background: var(--surface-2);
+}
+
+.url-box code {
+  font-size: 13px;
+}
+
+.step-url .hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--faint);
+}
+
+.step-open {
+  margin-top: 6px;
+}
+
+.after {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 20px 24px;
+  border-radius: 20px;
+  background: var(--blue-wash);
+}
+
+.after div {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.after i {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  color: var(--blue);
+}
+
+.after i svg {
+  width: 17px;
+  height: 17px;
+}
+
+.after p {
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.after b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.after code {
+  font-size: 13.5px;
+}
+
+@media (max-width: 900px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .step-vis {
+    height: 100%;
+    min-height: 300px;
+  }
+
+  .step-body {
+    align-content: center;
+  }
+}
+
+@media (max-width: 760px) {
+  .reqs {
+    margin-top: -20px;
+  }
+
+  .reqs li {
+    align-items: flex-start;
+    border-radius: 14px;
+  }
+
+  .reqs svg {
+    margin-top: 3px;
+  }
+
+  .step {
+    display: flex;
+  }
+
+  .step-vis {
+    height: 300px;
+    min-height: 0;
+  }
+
+  .after {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

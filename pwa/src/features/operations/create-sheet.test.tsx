@@ -150,21 +150,23 @@ describe("create sheet", () => {
     expect(button(".create-chip.on").textContent).toBe(t("create.newWorkspace"));
   });
 
-  test("many kinds: four in the grid, the rest behind the full list, where a pick and a pin both stick", async () => {
-    const kinds = ["claude", "codex", "gemini", "amp", "goose", "kimi"];
+  test("many kinds: six in the grid, the rest behind the full list, where a pick and a pin both stick", async () => {
+    const kinds = ["claude", "codex", "gemini", "amp", "goose", "kimi", "qwen", "pi"];
     const { result } = await open({ kinds, lastKind: "claude", memory: { ...EMPTY, uses: { claude: 5, codex: 4, gemini: 2, amp: 1 } } });
+    // Two rows of four: six kinds, the terminal and the full list; icon and name only.
     expect([...sheet().querySelectorAll(".create-kind-name")].map((node) => node.textContent))
-      .toEqual(["claude", "codex", "gemini", "amp", t("create.terminal"), t("create.all", { n: "6" })]);
+      .toEqual(["claude", "codex", "gemini", "amp", "goose", "kimi", t("create.terminal"), t("create.all", { n: "8" })]);
+    expect(sheet().querySelector(".create-kind-sub")).toBeNull();
     act(() => button(".create-kind.is-all").click());
     expect([...sheet().querySelectorAll(".kind-pick-name")].map((node) => node.textContent))
-      .toEqual(["claude", "codex", "gemini", "amp", "goose", "kimi"]);
+      .toEqual(["claude", "codex", "gemini", "amp", "goose", "kimi", "pi", "qwen"]);
     act(() => button(".kind-star", undefined).click());
     expect(loadCreateMemory().pinned).toEqual(["claude"]);
-    act(() => button(".kind-pick", "kimi").click());
-    expect([...sheet().querySelectorAll(".create-kind-name")].slice(0, 4).map((node) => node.textContent))
-      .toEqual(["claude", "codex", "gemini", "kimi"]);
-    expect(button(".create-kind.on").textContent).toContain("kimi");
+    act(() => button(".kind-pick", "pi").click());
+    expect([...sheet().querySelectorAll(".create-kind-name")].slice(0, 6).map((node) => node.textContent))
+      .toEqual(["claude", "codex", "gemini", "amp", "goose", "pi"]);
+    expect(button(".create-kind.on").textContent).toContain("pi");
     await submit();
-    expect((await result as Extract<CreateRequest, { kind: "tab" }>).agentKind).toBe("kimi");
+    expect((await result as Extract<CreateRequest, { kind: "tab" }>).agentKind).toBe("pi");
   });
 });

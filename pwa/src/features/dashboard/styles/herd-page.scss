@@ -236,8 +236,10 @@ html:has(.herd-page) { scroll-padding-top: calc(var(--herd-head-h, 0px) + 64px);
   background: var(--bg);
 }
 
+/* A zero basis keeps the marks, + and ⋯ on the title's line in a narrow rail:
+   the title shrinks (its name truncates) instead of pushing ⋯ to a new line. */
 .group-head .group-title {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   width: auto;
   min-width: 0;
   margin: 0;

@@ -18,8 +18,8 @@ import { act } from "react";
  * (no WebGL/PTY): the open/frame/close lifecycle is production code. The two
  * `shellOnly` scenes deliberately render the standalone FullTerminalScreen
  * shell fixture without an engine. Coverage is reported honestly:
- * 62 scenes render through the stable App (including the 2 mock-engine
- * terminals), 2 shellOnly scenes render the QA shell fixture — all 64 catalog
+ * 66 scenes render through the stable App (including the 2 mock-engine
+ * terminals), 2 shellOnly scenes render the QA shell fixture — all 68 catalog
  * scenes are exercised here; the 240-shot browser matrix remains the full
  * visual contract.
  */
@@ -178,7 +178,7 @@ function assertPaneRoot(expectedPane: string): void {
 }
 
 test("every QA scene id + untitled built", () => {
-  expect(scenes.length).toBe(64);
+  expect(scenes.length).toBe(68);
   const seen = new Set<string>();
   for (const scene of scenes) {
     expect(seen.has(scene.name)).toBeFalse();
@@ -187,7 +187,7 @@ test("every QA scene id + untitled built", () => {
   }
 });
 
-test("every scene renders: 62 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
+test("every scene renders: 64 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
   expect(domReady).toBeTrue();
   const failures: string[] = [];
   const appRendered: string[] = [];
@@ -203,7 +203,8 @@ test("every scene renders: 62 through the stable App (incl. mock-engine terminal
         // The deliberate QA FullTerminalScreen shell fixture, App unmounted.
         expect(isAppMounted()).toBeFalse();
         assertPaneRoot(PANE);
-        const detail = document.querySelector(".full-terminal-status")?.textContent ?? "";
+        // Connection progress lives on the state layer; the header is the shared identity.
+        const detail = document.querySelector(".full-terminal-state-detail")?.textContent ?? "";
         expect(detail).toBe(scene.name === "terminal-error" ? t("ft.stateError") : t("ft.preparing"));
         shellRendered.push(scene.name);
       } else if (scene.name === "terminal-live") {
@@ -241,8 +242,8 @@ test("every scene renders: 62 through the stable App (incl. mock-engine terminal
   }
   expect(failures).toEqual([]);
   expect(shellRendered).toEqual(["terminal-loading", "terminal-error"]);
-  expect(appRendered).toHaveLength(62);
-  expect(appRendered.length + shellRendered.length).toBe(64);
+  expect(appRendered).toHaveLength(66);
+  expect(appRendered.length + shellRendered.length).toBe(68);
 }, 180_000);
 
 test("attention QA scenes show all statuses and runtime replacement without filter pills", async () => {
@@ -322,10 +323,39 @@ test("guided IME scene keeps the focused, selected compose field after its paint
   }
 });
 
+test("attachment QA scenes seed the tray in every state", async () => {
+  const session = await prepareScene("guided-attachments");
+  try {
+    const chips = [...document.querySelectorAll(".attach-tray .attach-chip")];
+    expect(chips.map((chip) => [...chip.classList].find((name) => name.startsWith("is-"))))
+      .toEqual(["is-ready", "is-ready", "is-uploading", "is-failed", "is-paused"]);
+    expect(document.querySelector(".attach-chip-tag")).not.toBeNull();
+    expect(document.querySelector(".attach-lead")).not.toBeNull();
+  } finally {
+    await teardownScene(session, false);
+  }
+  const relay = await prepareScene("guided-attachments-relay");
+  try {
+    const chips = [...document.querySelectorAll(".attach-tray .attach-chip")];
+    expect(chips).toHaveLength(2);
+    expect(chips.every((chip) => chip.classList.contains("is-waiting"))).toBeTrue();
+    expect(document.querySelector(".attach-lead .attach-lead-btn")).not.toBeNull();
+  } finally {
+    await teardownScene(relay, false);
+  }
+  // The next scene starts with an empty tray.
+  const plain = await prepareScene("guided");
+  try {
+    expect(document.querySelector(".attach-tray")).toBeNull();
+  } finally {
+    await teardownScene(plain, false);
+  }
+});
+
 test("scene names and descriptions are documented for the window.qa surface", () => {
   const names = scenes.map((scene) => scene.name);
   expect(names).toContain("terminal-loading");
   expect(names).toContain("terminal-error");
-  expect(names.length).toBe(64);
+  expect(names.length).toBe(68);
   for (const scene of scenes) expect(scene.description).toBeTruthy();
 });

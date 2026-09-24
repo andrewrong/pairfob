@@ -1,0 +1,240 @@
+/* --- Compose field, send / stop button (session page v2) --------------------------
+   Owned by the compose workstream. Loaded right after dock.scss so rules here win
+   over the older .dock-form rules without editing that file. The same frame and
+   button serve guided, agent chat and full-terminal compose. */
+
+/* Attach sits left of the field; the send button stays bottom-aligned while the
+   field grows. */
+.dock-form,
+.full-terminal-compose-form {
+  align-items: flex-end;
+}
+
+.compose-field {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+}
+
+/* The controller sets the height and the dynamic max-height inline. */
+.compose-field > textarea {
+  flex: 1 1 0;
+  max-height: none;
+  transition: border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
+}
+
+/* Live input: green border and a small tag riding the top edge. */
+.compose-field.is-live > textarea,
+.dock-form.live .compose-field > textarea {
+  border-color: rgba(70, 214, 140, 0.6);
+  box-shadow: 0 0 0 3px rgba(70, 214, 140, 0.08);
+}
+
+.compose-live-tag {
+  position: absolute;
+  top: -7px;
+  left: 10px;
+  z-index: 1;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--ok);
+  font: 600 9.5px/14px var(--font);
+  pointer-events: none;
+}
+
+/* "N 行": a hint, never a control. */
+.compose-lines {
+  position: absolute;
+  right: 9px;
+  bottom: 5px;
+  color: var(--muted);
+  opacity: 0.72;
+  font: 500 10px/1 var(--mono);
+  pointer-events: none;
+}
+
+/* Folded: two lines, fading out, so the terminal gets the room back. `!important`
+   beats the controller's inline height without forgetting it for the unfold. */
+.compose-field.is-folded > textarea {
+  height: calc(2lh + 22px) !important;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+
+.compose-unfold {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  cursor: text;
+}
+
+.compose-unfold:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* --- Send button ------------------------------------------------------------------- */
+
+.send-slot {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+}
+
+.send-btn,
+.full-terminal-compose-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 46px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.send-btn .spinner,
+.full-terminal-compose-send .spinner {
+  width: 15px;
+  height: 15px;
+}
+
+/* Empty draft: a quiet ⏎ that still sends Enter to the terminal. */
+.send-kind-enter {
+  padding: 0 12px;
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.send-kind-enter:active:not(:disabled) { background: #232c38; }
+
+.send-kind-wait,
+.send-kind-stopping,
+.send-kind-busy {
+  padding: 0 14px;
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--muted);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.send-btn.send-kind-stopping:disabled,
+.send-btn.send-kind-busy:disabled {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.send-kind-stop {
+  padding: 0 14px;
+  background: transparent;
+  border-color: rgba(255, 107, 94, 0.62);
+  color: var(--danger-bright);
+}
+
+.send-kind-stop:active:not(:disabled) { background: rgba(214, 59, 49, 0.14); }
+
+.send-kind-force {
+  padding: 0 14px;
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.send-kind-force:active:not(:disabled) { background: #b8322a; }
+
+/* Full-terminal live input: attachments go out through 组字, one tap away. */
+.full-terminal-live-actions { gap: var(--space-2); }
+
+.full-terminal-live-send {
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 13px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-lead);
+  font-weight: 660;
+}
+
+.full-terminal-live-send:active { background: var(--accent-deep); }
+
+/* --- Blocked attachments: a small popover above the send button ---------------------- */
+
+.send-issue {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 5;
+  width: max-content;
+  max-width: min(300px, calc(100vw - 32px));
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  animation: send-issue-in var(--dur-2) var(--ease);
+}
+
+.send-issue b {
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 620;
+}
+
+.send-issue-names {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.send-issue-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.send-issue-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font-size: var(--text-secondary);
+  font-weight: 600;
+}
+
+.send-issue-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.send-issue-skip {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.send-issue-close {
+  margin-left: auto;
+  min-width: 34px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+@keyframes send-issue-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .send-issue { animation: none; }
+  .compose-field > textarea { transition: none; }
+}

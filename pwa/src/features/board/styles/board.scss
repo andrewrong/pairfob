@@ -298,7 +298,20 @@
   box-shadow: 0 0 0 1px rgba(110, 168, 254, 0.35), var(--shadow-1);
 }
 
-.board-pane.status-blocked { border-color: rgba(255, 178, 36, 0.5); }
+/* A waiting tile reads like a waiting list row: amber edge and a warm header. */
+.board-pane.status-blocked {
+  border-color: rgba(255, 178, 36, 0.5);
+  box-shadow: inset 3px 0 0 var(--warn), var(--shadow-1);
+}
+
+.board-pane.sel.status-blocked {
+  border-color: rgba(110, 168, 254, 0.7);
+  box-shadow: inset 3px 0 0 var(--warn), 0 0 0 1px rgba(110, 168, 254, 0.35), var(--shadow-1);
+}
+
+.board-pane.status-blocked .board-pane-head {
+  background: linear-gradient(to bottom, rgba(40, 33, 14, 0.94), rgba(40, 33, 14, 0.3));
+}
 .board-pane.status-working { border-color: rgba(110, 168, 254, 0.4); }
 .board-pane.status-done { border-color: rgba(70, 214, 140, 0.4); }
 

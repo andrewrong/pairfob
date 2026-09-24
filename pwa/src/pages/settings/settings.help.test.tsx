@@ -124,7 +124,6 @@ describe("settings help copy (actual App)", () => {
     ).toEqual([
       { title: "订阅余量", help: true },
       { title: "会话默认", help: true },
-      { title: "通知", help: false },
       { title: "这台手机", help: false },
       { title: "危险操作", help: false },
     ]);
@@ -142,7 +141,7 @@ describe("settings help copy (actual App)", () => {
     expect(dialog.classList.contains("sheet")).toBeFalse();
     expect(dialog.querySelector(".modal-title")?.textContent).toBe("会话默认");
     expect(dialog.textContent).toContain("会话内切换只记住当前会话");
-    expect(dialog.textContent).toContain("组字写完再按 Enter");
+    expect(dialog.textContent).toContain("组字写完点发送");
     expect(app.textContent).not.toContain("会话内切换只记住当前会话");
     act(() => (dialog.querySelector(".help-close") as HTMLButtonElement).click());
     expect(document.querySelector("dialog.help")).toBeNull();
@@ -177,7 +176,7 @@ describe("settings help copy (actual App)", () => {
     expect(second.textContent).not.toContain("会话内切换只记住当前会话");
   });
 
-  test("notifications and devices expose setup commands only from help", () => {
+  test("notifications and devices expose setup commands only from help", async () => {
     act(() => {
       batch(() => {
         setPhase("live");
@@ -198,10 +197,21 @@ describe("settings help copy (actual App)", () => {
       mountApp();
     });
     const app = appRoot();
-    expect(app.textContent).toContain("电脑端还没有开启 Pairfob 通知");
+    // One row with the state; the explanation and the setup command sit behind it.
+    const row = [...app.querySelectorAll<HTMLButtonElement>(".set-nav")].find((el) => el.getAttribute("aria-label") === "通知")!;
+    expect(row.querySelector(".set-val")?.textContent).toBeTruthy();
+    expect(app.textContent).not.toContain("电脑端还没有开启 Pairfob 通知");
     expect(app.textContent).not.toContain("PAIRFOB_PUSH=1");
     expect(app.textContent).not.toContain("pairfob forget N");
-    expect(openHelp("通知").textContent).toContain("PAIRFOB_PUSH=1");
+    act(() => row.click());
+    const sheet = document.querySelector<HTMLDialogElement>("dialog.sheet[open]")!;
+    expect(sheet.textContent).toContain("电脑端还没有开启 Pairfob 通知");
+    const howto = [...sheet.querySelectorAll<HTMLButtonElement>("button")].find((el) => el.textContent?.includes(t("settings.pushHowtoOpen")))!;
+    await act(async () => {
+      howto.click();
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    });
+    expect(document.querySelector("dialog.help")?.textContent).toContain("PAIRFOB_PUSH=1");
     closeTestDialogs();
     openSection("已配对设备");
     expect(app.textContent).not.toContain("pairfob forget N");

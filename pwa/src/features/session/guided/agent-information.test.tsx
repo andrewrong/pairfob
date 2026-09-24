@@ -33,17 +33,17 @@ test("information is text-only and diagnosis loads only after an explicit click"
   renderReact(<AgentInformation agent={selectedAgent()!} session={session} />);
   expect(reads).toBe(0); expect(appRoot().textContent).toContain("Reviewer");
   expect(appRoot().querySelector("script")).toBeNull();
-  await act(async () => { (appRoot().querySelector("button") as HTMLButtonElement).click(); });
+  await act(async () => { (appRoot().querySelector(".pane-inspect") as HTMLButtonElement).click(); });
   expect(reads).toBe(1); expect(appRoot().textContent).toContain("1.2");
 });
 test("missing capability hides inspection and a replaced agent hides delayed replies", async () => {
   act(() => applyCapabilities(NO_OPERATION_CAPABILITIES, []));
   renderReact(<AgentInformation agent={selectedAgent()!} session={session} />);
-  expect(appRoot().querySelector("button")).toBeNull();
+  expect(appRoot().querySelector(".pane-inspect")).toBeNull();
   act(() => applyCapabilities({ ...NO_OPERATION_CAPABILITIES, agent_inspect: true }, []));
   let resolve!: (value: AgentInspection) => void;
   session.agentInspect = () => new Promise(done => { resolve = done; });
-  act(() => (appRoot().querySelector("button") as HTMLButtonElement).click());
+  act(() => (appRoot().querySelector(".pane-inspect") as HTMLButtonElement).click());
   act(() => applySnapshot(snapshot("replacement")));
   await act(async () => resolve({ status: "idle", manifest_version: "stale-version", rules: [], screen_detection_skipped: false }));
   expect(appRoot().textContent).toContain("Agent 已更换"); expect(appRoot().textContent).not.toContain("stale-version");

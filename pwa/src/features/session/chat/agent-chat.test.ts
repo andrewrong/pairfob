@@ -12,7 +12,7 @@ import { setScreen } from "../../../app/navigation-store";
 import { selectPane, setAgentChat, setFullTerminal } from "../session-store";
 import { applyCapabilities, setOperationBusy } from "../../operations/capabilities-store";
 import { applyTrace, setTraceBusy, setTraceLoadState, setTraceNote } from "./trace-store";
-import { setComposeDraft, setComposeIME } from "../compose-store";
+import { composeDraft, setComposeDraft, setComposeIME } from "../compose-store";
 import { clearNotice } from "../../../app/notices-store";
 import { replaceAgentsFromSnapshot } from "../../dashboard/catalog-store";
 import { attachLiveSession } from "../../computers/catalog-store";
@@ -87,19 +87,20 @@ test("the phone entry mounts the React page and forwards its chrome callbacks", 
       onBack: () => actions.push("back"),
       onWorkspace: () => actions.push("workspace"),
       onMenu: () => actions.push("menu"),
-      onSwitch: () => actions.push("switch"),
     },
   }));
   expect(appRoot().querySelector("[data-react-agent-chat]")?.getAttribute("data-back")).toBe("1");
   expect(appRoot().querySelector(".agent-md strong")?.textContent).toBe("Ready");
   act(() => {
     for (const selector of [".back", ".icon-workspace", ".icon-more", ".chrome-title"]) {
-      const button = appRoot().querySelector<HTMLButtonElement>(selector);
+      const button = appRoot().querySelector<HTMLElement>(selector);
       if (!button) throw new Error(`Missing ${selector}`);
       button.click();
     }
   });
-  expect(actions).toEqual(["back", "workspace", "menu", "switch"]);
+  // The identity is display-only: tapping it switches nothing.
+  expect(appRoot().querySelector(".chrome-title")?.tagName).toBe("DIV");
+  expect(actions).toEqual(["back", "workspace", "menu"]);
 });
 
 test("the desktop entry hosts React chat in the main column without a pane back button", () => {
@@ -113,3 +114,40 @@ test("the desktop entry hosts React chat in the main column without a pane back 
   expect(chat?.querySelector(".agent-user-text")?.textContent).toBe("Review this");
   expect(chat?.querySelector(".agent-dock textarea")).not.toBeNull();
 });
+
+test("a restored multiline draft is measured after its chat field is mounted", async () => await act(async () => {
+  const prototype = happy.HTMLTextAreaElement.prototype;
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, "scrollHeight");
+  Object.defineProperty(prototype, "scrollHeight", {
+    configurable: true,
+    get() { return this.isConnected ? 96 : 0; },
+  });
+  try {
+    setComposeDraft("first line\nsecond line\nthird line");
+    mountTestApp();
+    commitTest();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const field = appRoot().querySelector<HTMLTextAreaElement>(".agent-dock textarea")!;
+    expect(field.value).toBe(composeDraft());
+    expect(field.style.height).toBe("96px");
+  } finally {
+    if (descriptor) Object.defineProperty(prototype, "scrollHeight", descriptor);
+    else delete (prototype as unknown as Record<string, unknown>).scrollHeight;
+  }
+}));
+
+test.each([true, false])("growing the chat composer preserves follow=%s", async (following) => await act(async () => {
+  mountTestApp();
+  commitTest();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const stream = appRoot().querySelector<HTMLElement>(".agent-stream")!;
+  const field = appRoot().querySelector<HTMLTextAreaElement>(".agent-dock textarea")!;
+  Object.defineProperty(stream, "scrollHeight", { configurable: true, value: 1000 });
+  Object.defineProperty(field, "scrollHeight", { configurable: true, value: 96 });
+  stream.scrollTop = 80;
+  applyTrace({ agentTraceFollow: following });
+  field.value = "first line\nsecond line\nthird line";
+  field.dispatchEvent(new happy.Event("input", { bubbles: true }));
+  expect(field.style.height).toBe("96px");
+  expect(stream.scrollTop).toBe(following ? 1000 : 80);
+}));

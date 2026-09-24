@@ -24,7 +24,7 @@ import {
   LIST_GROUP_KEY,
   togglePanePin,
 } from "../../features/settings/preferences-store";
-import { nextTransition, takeTransition, withTransition } from "../../app/transition";
+import { nextTransition, takeTransition } from "../../app/transition";
 import type { DashboardAgentCard } from "../../lib/dashboard";
 import { noteCompletionAcknowledged, resetHerdAttention } from "../../lib/herd-attention";
 import { setLang, t } from "../../lib/i18n";
@@ -382,21 +382,14 @@ describe("React desktop routing", () => {
   });
 });
 
-test("the incoming card title stops sharing a transition name after the transition finishes", async () => {
+test("a card row never names itself for a transition; the list ↔ pane adapter does, per navigation", () => {
   seed([agent("p1")]);
   nextTransition("pop", "p1");
-  const transitionDocument = document as Document & { startViewTransition?: (paint: () => void) => { finished: Promise<void> } };
-  const original = transitionDocument.startViewTransition;
-  transitionDocument.startViewTransition = update => { update(); return { finished: Promise.resolve() }; };
-  try {
-    act(() => withTransition(takeTransition(), () => commitView()));
-    const title = app().querySelector<HTMLElement>(".card-title")!;
-    expect(title.style.viewTransitionName).toBe("pane-title");
-    await act(async () => { await Promise.resolve(); });
-    paint();
-    expect(app().querySelector(".card-title")).toBe(title);
-    expect(title.style.viewTransitionName).toBe("");
-  } finally {
-    transitionDocument.startViewTransition = original;
-  }
+  act(() => commitView());
+  const title = app().querySelector<HTMLElement>(".card-title")!;
+  // Two elements with one name would make the native API skip the transition,
+  // so render never puts one on; app/transition names the landing card itself.
+  expect(title.style.getPropertyValue("view-transition-name")).toBe("");
+  expect(title.getAttribute("style")).toBeNull();
+  takeTransition();
 });

@@ -2,7 +2,6 @@ import { sessionHandlers } from "../pane-actions";
 import { FullTerminalScreen, type FullTerminalScreenProps } from "./full-terminal-screen";
 import {
   fullTerminalControlOptions,
-  interruptFullTerminal,
   pageScrollLines,
   retryFullTerminal,
   sendFullTerminalScroll,
@@ -19,13 +18,11 @@ import {
  * `FullTerminalHost` layout effect; this route is presentation composition.
  */
 export function FullTerminalRoute(): React.ReactElement {
-  const { onBack, onSwitch, onWorkspace, onMenu } = sessionHandlers();
+  const { onBack, onWorkspace, onMenu } = sessionHandlers();
   const props: FullTerminalScreenProps = {
     onBack,
-    onSwitch,
     onWorkspace,
     onMenu,
-    onStop: interruptFullTerminal,
     onRetry: retryFullTerminal,
     scroll: sendFullTerminalScroll,
     pageLines: pageScrollLines,

@@ -26,6 +26,7 @@ import {
 } from "./attach-model";
 import {
   attachmentScopeKey,
+  clearInserted,
   markInserted,
   queueSnapshot,
   setQueueNotice,
@@ -165,4 +166,36 @@ export async function insertPaths(scope: AttachmentScope, localIds?: readonly st
   } finally {
     insertLocks.delete(key);
   }
+}
+
+/**
+ * Take one in-body path back out of the draft (the tray's "移出正文"). The
+ * first occurrence goes, with one separating space, so the sentence around it
+ * closes up; the row is then appended on send again. A path the reader
+ * already deleted by hand only clears the mark.
+ */
+export function removePathFromDraft(scope: AttachmentScope, localId: string): boolean {
+  const key = attachmentScopeKey(scope);
+  const item = queueSnapshot(key)?.items.find((row) => row.localId === localId);
+  if (!item || !item.inserted) return false;
+  clearInserted(key, localId);
+  if (!scopeLive(scope) || composeLive() || !item.path) return true;
+  const field = composeField();
+  const connected = field?.isConnected === true;
+  const base = connected ? field!.value : composeDraft();
+  const text = withoutPath(base, item.path);
+  if (text === base) return true;
+  insertIntoField(text, Math.min(connected ? (field!.selectionStart ?? text.length) : text.length, text.length));
+  return true;
+}
+
+/** Remove the first `path` and one adjacent space; exported for tests. */
+export function withoutPath(text: string, path: string): string {
+  const at = text.indexOf(path);
+  if (at < 0) return text;
+  let start = at;
+  let end = at + path.length;
+  if (text[end] === " ") end += 1;
+  else if (start > 0 && text[start - 1] === " ") start -= 1;
+  return text.slice(0, start) + text.slice(end);
 }

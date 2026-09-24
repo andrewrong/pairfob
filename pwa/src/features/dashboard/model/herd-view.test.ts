@@ -4,11 +4,14 @@ import type { HerdPaint, StatusMark } from "../../../lib/herd-attention";
 import { setLang, t } from "../../../lib/i18n";
 import { PINNED_GROUP_ID } from "../../../lib/ranking";
 import {
+  blockedElsewhere,
   buildHerdViewModel,
   herdAgo,
   herdCardClassName,
   herdCardPill,
   herdDoneCount,
+  paneHeaderLine,
+  paneIdentity,
   type HerdModelInput,
 } from "./herd-view";
 
@@ -285,5 +288,48 @@ describe("phone list projection", () => {
     expect(order(view)).toEqual(["alpha:a2,a1", "beta:b1,b2"]);
     const later = buildHerdViewModel(input({ agents, listGroup: "space", paneActivated: { a2: 10, b2: 20 } }));
     expect(order(later)).toEqual(["beta:b2,b1", "alpha:a2,a1"]);
+  });
+});
+
+describe("pane identity shared by the list card and the session header", () => {
+  beforeEach(() => setLang("zh"));
+
+  test("the card renders exactly the shared identity", () => {
+    const row = agent("fix login", "pairfob", "working");
+    const card = buildHerdViewModel(input({ agents: [row], listGroup: "space" })).groups[0]!.cards[0]!;
+    const identity = paneIdentity(row, "space", false);
+    expect([card.title, card.statusLabel, card.statusTone, card.line, card.meta, card.kind, card.agentKind])
+      .toEqual([identity.title, identity.statusLabel, identity.statusTone, identity.line, identity.meta, identity.kind, identity.agentKind]);
+  });
+
+  test("a plain terminal has no status word, and lost contact reads as unknown", () => {
+    expect(paneIdentity(agent("t", "w", "working", { agent: "", hasAgent: false }), "flat", false).statusLabel).toBe("");
+    const stale = paneIdentity(agent("a", "w", "working"), "flat", true);
+    expect([stale.statusLabel, stale.statusTone]).toEqual([t("status.unverifiable"), "unknown"]);
+  });
+
+  test("the header names the workspace the group heading would have, unless it is already shown", () => {
+    const row = agent("fix login", "pairfob", "working", { cwd: "/src/pairfob" });
+    // Grouped by workspace, the card line leaves the workspace to the heading.
+    const grouped = paneIdentity(row, "space", false);
+    expect(grouped.line.split(" · ")).not.toContain("pairfob");
+    expect(paneHeaderLine(grouped, row)).toBe(`${grouped.line} · pairfob`);
+    // Flat, the line already carries it; the header does not repeat it.
+    const flat = paneIdentity(row, "flat", false);
+    expect(paneHeaderLine(flat, row)).toBe(flat.line);
+    // Nor when the title already is the workspace.
+    expect(paneHeaderLine({ ...grouped, title: "pairfob", line: "codex" }, row)).toBe("codex");
+  });
+
+  test("the back badge counts other agents waiting on the reader and nothing while unverifiable", () => {
+    const rows = [
+      agent("p1", "w", "blocked"),
+      agent("p2", "w", "blocked"),
+      agent("p3", "w", "blocked", { agent: "", hasAgent: false }),
+      agent("p4", "w", "working"),
+    ];
+    expect(blockedElsewhere(rows, "p1", false)).toBe(1);
+    expect(blockedElsewhere(rows, "p4", false)).toBe(2);
+    expect(blockedElsewhere(rows, "p4", true)).toBe(0);
   });
 });

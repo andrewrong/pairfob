@@ -20,10 +20,10 @@ import { AgentCompose } from "../chat/agent-compose";
 import { SessionCompose } from "../guided/session-compose";
 import {
   addPickedFiles,
-  insertPaths,
   setAttachmentTransferPort,
   startAllQueued,
 } from "./attachments-controller";
+import { insertPaths } from "./attachments-insertion";
 import { resetAttachmentQueues, attachmentScopeKey, queueSnapshot } from "./attachments-store";
 import type { AttachmentTransferOptions, AttachmentTransferPort, UploadStateLike } from "./attach-model";
 

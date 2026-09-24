@@ -123,7 +123,8 @@ function BoardPaneTile({
       <Button className="board-pane-more" aria-label={t("boardMenu.more", { title: tile.title })}
         aria-haspopup="menu" onClick={(event) => { event.stopPropagation(); menu(); }}>⋯</Button>
       <span className="board-pane-head">
-        <span className={`agent-dot agent-${tile.status}`} />
+        {/* A plain terminal has no agent state: its tile shows the output only. */}
+        {tile.agentKind ? <span className={`agent-dot agent-${tile.status}`} /> : null}
         <AgentAvatar kind={tile.agentKind} size="sm" />
         <span className="board-pane-name">{tile.title}</span>
         {tile.pill ? <span className={`pill pill-${tile.status}`}>{tile.pill}</span> : null}

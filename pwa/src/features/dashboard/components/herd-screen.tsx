@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../../lib/i18n";
 import { Brand, Button, StatusDot, TopbarActions } from "../../../shared/ui/primitives";
 import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
+import { rememberedScroll, useRememberedScroll } from "../../../shared/ui/dom/remembered-scroll";
 import { preferencesStore, setListGroupCollapsed } from "../../settings/preferences-store";
 // AppNotice is the connected App notice (chrome barrel seam); HerdBanners is the
 // connection feature's own pure banner component.
@@ -97,9 +98,14 @@ export function HerdScreen({
   const root = useRef<HTMLElement>(null);
   const reveal = useReveal(view, root);
   const lastLocated = useRef({ blocked: "", done: "" });
-  const [folded, setFolded] = useState(false);
+  // A page returning past the fold renders folded from the start: folding after
+  // the offset is restored would shrink the header above it and scroll
+  // anchoring would pull the list up by the difference.
+  const [folded, setFolded] = useState(() => variant === "page" && rememberedScroll("herd") > FOLD_PX);
   const head = useRef<HTMLElement>(null);
   useMinuteTick();
+  // The list keeps its place across tab switches and a trip into a session.
+  useRememberedScroll("herd", variant === "page");
   useEffect(() => {
     if (variant !== "page") return;
     let frame = 0;

@@ -4,7 +4,7 @@ import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { appRoot } from "../../../app/dom-root";
 import { composeDraft, composeIME, composeLive, setComposeDraft, setComposeFocused, setComposeIME, setComposeLive } from "../compose-store";
-import { paneComposeLive, setKeysExpanded, setPadKind } from "../../settings/preferences-store";
+import { COMPOSE_ENTER_SENDS_KEY, paneComposeLive, setComposeEnterSends, setKeysExpanded, setPadKind } from "../../settings/preferences-store";
 import { selectPane } from "../session-store";
 import { PaneComposePreferenceRestorer } from "../../../../test-support/preferences-restore";
 const { notifyFullTerminalKeyboard } = await import("./full-terminal-input");
@@ -46,11 +46,17 @@ const app = appRoot();
 
 /** Restore the one persisted per-pane compose choice without resurrecting other daemon maps. */
 const paneComposeRestorer = new PaneComposePreferenceRestorer();
+let enterSendsRaw: string | null = null;
 
 beforeEach(async () => {
   await resetBoardTestDOM();
   selectPane("p1");
   paneComposeRestorer.capture("p1");
+  // These cases pin the keyboard Enter / IME submit policy, which applies
+  // wherever Return sends: external keyboards and the "Return sends" preference.
+  // The phone default (Return adds a line) has its own cases below.
+  enterSendsRaw = localStorage.getItem(COMPOSE_ENTER_SENDS_KEY);
+  setComposeEnterSends(true);
 });
 
 afterEach(async () => {
@@ -63,6 +69,9 @@ afterEach(async () => {
   setKeysExpanded(false);
   setPadKind("keys");
   paneComposeRestorer.restore("p1");
+  setComposeEnterSends(false);
+  if (enterSendsRaw === null) localStorage.removeItem(COMPOSE_ENTER_SENDS_KEY);
+  else localStorage.setItem(COMPOSE_ENTER_SENDS_KEY, enterSendsRaw);
   appRoot().replaceChildren();
 });
 
@@ -271,5 +280,84 @@ describe("React full-terminal compose", () => {
     expect(composeLive()).toBe(false);
     expect(composeDraft()).toBe("not connected");
     expect(paneComposeLive("p1")).toBe(false);
+  });
+});
+describe("full-terminal compose v2", () => {
+  test("on a phone, Return adds a line and only the send button sends", () => {
+    act(() => { setComposeEnterSends(false); });
+    const sent: Array<[string, boolean]> = [];
+    act(() => { paint((text, enter) => { sent.push([text, enter]); return true; }); });
+    const input = app.querySelector<HTMLTextAreaElement>(".full-terminal-compose-input")!;
+    expect(input.getAttribute("enterkeyhint")).toBe("enter");
+    input.value = "line one";
+    act(() => { input.dispatchEvent(new (input.ownerDocument.defaultView!.Event)("input", { bubbles: true })); });
+    const view = input.ownerDocument.defaultView!;
+    const enter = new view.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    act(() => { input.dispatchEvent(enter); });
+    expect(enter.defaultPrevented).toBeFalse();
+    expect(sent).toEqual([]);
+    const button = app.querySelector<HTMLButtonElement>(".full-terminal-compose-send")!;
+    expect(button.dataset.sendKind).toBe("send");
+    act(() => { button.click(); });
+    expect(sent).toEqual([["line one", true]]);
+    expect(composeDraft()).toBe("");
+    expect(button.dataset.sendKind).toBe("enter");
+  });
+
+  test("a working agent's empty draft offers stop, written as the Esc byte", async () => {
+    const { setNetworkOnline, setPhase } = await import("../../connection/connection-store");
+    const { applyRuntimeIdentity, runtimeIdentity } = await import("../../connection/runtime-store");
+    const { attachLiveSession } = await import("../../computers/catalog-store");
+    const { applySnapshot } = await import("../../dashboard/catalog-store");
+    const { cancelStop } = await import("../guided/session-stop");
+    const runtimeBefore = runtimeIdentity();
+    try {
+      act(() => {
+        setPhase("live");
+        setNetworkOnline(true);
+        applyRuntimeIdentity({ herdHost: runtimeBefore.herdHost, runtimeKind: "herdr" });
+        attachLiveSession({ isConnected: () => true } as never);
+        applySnapshot({ panes: [{ pane_id: "p1", agent: "codex", agent_status: "working", interactive_ready: true }] });
+      });
+      const sent: Array<[string, boolean]> = [];
+      act(() => { paint((text, enter) => { sent.push([text, enter]); return true; }); });
+      const button = app.querySelector<HTMLButtonElement>(".full-terminal-compose-send")!;
+      expect(button.dataset.sendKind).toBe("stop");
+      act(() => { button.click(); });
+      expect(sent).toEqual([["\u001b", false]]);
+      expect(button.dataset.sendKind).toBe("stopping");
+    } finally {
+      act(() => {
+        cancelStop();
+        applySnapshot({ panes: [] });
+        attachLiveSession(null);
+        applyRuntimeIdentity(runtimeBefore);
+      });
+    }
+  });
+
+  test("live input sends attachments by switching to 组字 first", async () => {
+    const { connectSendAttachments, resetSendGate } = await import("../guided/send-gate");
+    const { sendFullTerminalAttachments } = await import("./full-terminal-compose");
+    let marked = 0;
+    connectSendAttachments({
+      state: () => ({ readyPaths: ["/w/a.png"], pending: 0, blocked: 0 }),
+      subscribe: () => () => undefined,
+      markSent: () => { marked++; },
+      retryBlocked: () => undefined,
+      dropBlocked: () => undefined,
+      acceptPaste: () => false,
+    });
+    try {
+      act(() => { setComposeLive(true); });
+      const sent: Array<[string, boolean]> = [];
+      act(() => { sendFullTerminalAttachments((text, enter) => { sent.push([text, enter]); return true; }, () => undefined); });
+      expect(composeLive()).toBeFalse();
+      expect(paneComposeLive("p1")).toBeFalse();
+      expect(sent).toEqual([["/w/a.png", true]]);
+      expect(marked).toBe(1);
+    } finally {
+      resetSendGate();
+    }
   });
 });

@@ -18,10 +18,10 @@ import { FullTerminalPad } from "../full-terminal/full-terminal-pad";
 import type { FullTerminalControlsOptions } from "../full-terminal/full-terminal-compose";
 import {
   addPickedFiles,
-  insertPaths,
   setAttachmentTransferPort,
   startUpload,
 } from "./attachments-controller";
+import { insertPaths } from "./attachments-insertion";
 import { resetAttachmentQueues, attachmentScopeKey, queueSnapshot } from "./attachments-store";
 import type { AttachmentTransferOptions, AttachmentTransferPort, UploadStateLike } from "./attach-model";
 
@@ -116,19 +116,22 @@ describe("full terminal live mode attachment entry", () => {
     paintPad();
     const liveEntry = appRoot().querySelector(".full-terminal-live-actions .attach-btn");
     expect(liveEntry).not.toBeNull();
-    expect(liveEntry?.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(liveEntry?.getAttribute("aria-label")).toBe("Add attachments");
     expect(appRoot().querySelector(".full-terminal-compose-input")).toBeNull();
     // Exactly one attach affordance in the whole pad.
     expect(appRoot().querySelectorAll(".attach-btn")).toHaveLength(1);
   });
 
-  test("opens the attachment sheet from live mode", () => {
+  test("opens the system picker directly from live mode (no intermediate sheet)", () => {
     paintPad();
+    const inputs = appRoot().querySelectorAll<HTMLInputElement>('.full-terminal-live-actions input[type="file"]');
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0].multiple).toBe(true);
+    let opened = 0;
+    inputs[0].click = () => { opened += 1; };
     act(() => appRoot().querySelector<HTMLButtonElement>(".full-terminal-live-actions .attach-btn")!.click());
-    const sheet = document.querySelector(".attach-sheet");
-    expect(sheet).not.toBeNull();
-    expect(sheet?.querySelectorAll('input[type="file"]')).toHaveLength(3);
-    act(() => document.querySelector<HTMLButtonElement>(".modal .sheet-close")?.click());
+    expect(opened).toBe(1);
+    expect(document.querySelector("dialog")).toBeNull();
   });
 
   test("inserting a committed path switches the real parent to batch compose without sending anything", async () => {

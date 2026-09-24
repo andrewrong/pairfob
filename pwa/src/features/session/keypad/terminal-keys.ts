@@ -19,7 +19,8 @@ export function encodeTerminalKey(key: string, applicationCursor = false): strin
   // share bytes (e.g. Ctrl+Shift+C and Ctrl+C); GUI Command is not a PTY key.
   if (key === "tab") return shift ? "\x1b[Z" : "\t";
   let bytes: string;
-  if (key === "enter") bytes = "\r";
+  if (key === "space") bytes = ctrl ? "\0" : " ";
+  else if (key === "enter") bytes = "\r";
   else if (key === "esc") bytes = "\x1b";
   else if (key === "backspace") bytes = ctrl ? "\b" : "\x7f";
   else if (/^[a-z]$/i.test(key)) bytes = ctrl
@@ -34,7 +35,10 @@ export function encodeTerminalKey(key: string, applicationCursor = false): strin
   return (alt ? "\x1b" : "") + bytes;
 }
 
-/** Native SendKeys only accepts ctrl+letter; other chords need one PTY write. */
+/**
+ * Native SendKeys only accepts ctrl+letter and printable non-space characters;
+ * other chords and Space need one PTY write.
+ */
 export function requiresTerminalText(key: string): boolean {
-  return /^(ctrl|alt|shift)\+/.test(key) && !/^ctrl\+[a-z]$/.test(key);
+  return key === "space" || (/^(ctrl|alt|shift)\+/.test(key) && !/^ctrl\+[a-z]$/.test(key));
 }

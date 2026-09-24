@@ -1,3 +1,8 @@
+import { zhComposeV2 } from "./i18n-compose-v2";
+import { zhKeypadV2 } from "./i18n-keypad-v2";
+import { zhChromeV2 } from "./i18n-chrome-v2";
+import { zhPaneMenuV2 } from "./i18n-pane-menu-v2";
+import { zhRowbarV2 } from "./i18n-rowbar-v2";
 import { zhAgentInfo } from "./i18n-zh-agent-info";
 import { zhBoardMenu } from "./i18n-board-menu";
 import { zhDialogs } from "./i18n-dialogs";
@@ -9,6 +14,11 @@ import { zhWorkspace } from "./i18n-zh-workspace.ts";
  * must cover exactly the same keys. Workspace copy lives in its own file.
  */
 export const zh = {
+  ...zhComposeV2,
+  ...zhKeypadV2,
+  ...zhChromeV2,
+  ...zhPaneMenuV2,
+  ...zhRowbarV2,
   ...zhWorkspace,
   ...zhShell,
   ...zhAgentInfo,
@@ -279,9 +289,6 @@ export const zh = {
   "home.pendingCountAria": "定位下一个待处理的会话，共 {count} 个",
   "home.doneCount": "{count} 个新完成",
   "home.doneCountAria": "定位下一个新完成的会话，共 {count} 个",
-  "home.switcherEmpty": "还没有读到别的会话。",
-  "home.switcherEmptyTitle": "只有这一个会话",
-  "home.switcherTitle": "切换会话",
   "pane.menuTitle": "会话操作",
   "pane.sectionMode": "模式",
   "cancel": "取消",
@@ -333,7 +340,7 @@ export const zh = {
   "settings.mode": "模式",
   "settings.modeNote": "自动会在打开会话时选择：P2P 直连、支持 WebGL2 且未开启省流时使用终端，否则使用控制。控制是适合手机的终端视图；终端是真终端；对话是和 Agent 发消息。会话内切换只记住当前会话。",
   "settings.input": "输入",
-  "settings.inputNote": "设置新会话的默认输入方式。组字写完再按 Enter；实时边打边进终端。会话内切换只影响当前会话。",
+  "settings.inputNote": "设置新会话的默认输入方式。组字写完点发送；实时边打边进终端。会话内切换只影响当前会话。",
   "settings.notifications": "通知",
   "settings.pushComputerOff": "电脑端还没有开启 Pairfob 通知，先在电脑端设置。",
   "settings.pushOn": "Agent 等你处理或完成任务时，会通知这台手机。",
@@ -545,7 +552,7 @@ export const zh = {
   "compose.batch": "组字",
   "compose.send": "发送",
   "compose.enter": "Enter",
-  "compose.batchPh": "组字 · 写完再按 Enter",
+  "compose.batchPh": "组字 · 写完点发送",
   "compose.livePh": "实时 · 边打边进终端",
   "compose.pendingPh": "本机待回显 · {text}",
   "compose.pendingStatus": "本机已接收 {n} 个字符，正在等待终端回显",
@@ -617,21 +624,16 @@ export const zh = {
   "pane.colsShort": "{cols} 列",
   "pane.panColsAria": "保持 {cols} 列，可左右滑动",
   "pane.inputAria": "终端输入方式",
-  "pane.composeAria": "组字，写完再按 Enter",
+  "pane.composeAria": "组字，写完点发送",
   "pane.liveAria": "实时，边打边进终端",
   "pane.thisCell": "这一格",
   "pane.splitUnsupported": "电脑上是分屏。当前 Herdr 还不支持铺满这一格。",
-  "pane.interrupt": "打断当前任务",
-  "pane.interruptTitle": "打断（Esc）",
 
   "trace.tool": "工具",
 
   "slash.goal": "插入 /goal，接着填目标",
   "slash.loop": "插入 /loop，接着填参数",
   "slash.padKind": "扩展键盘形态",
-  "slash.commandsShort": "命令",
-  "slash.switchKeys": "切换到按键",
-  "slash.switchCommands": "切换到命令",
   "keys.pages": "快捷面板分页",
   "keys.page": "第 {page} 页，共 {total} 页",
   "slash.keys": "按键",
@@ -639,16 +641,10 @@ export const zh = {
   "slash.agentCmds": "Agent 常用命令",
   "slash.insert": "插入 {label}",
 
-  "row.aria": "这一行的操作",
-  "row.copyLine": "复制整行",
   "row.copiedLine": "已复制这一行。",
-  "row.copyPath": "复制 {path}",
   "row.copiedPath": "已复制路径。",
-  "row.quote": "引用到输入框",
 
   "keys.morePad": "更多按键",
-  "keys.newline": "换行",
-  "keys.newlineAria": "在输入框里插入换行",
   "keys.wheelUp": "鼠标滚轮向上",
   "keys.pageUp": "上一页",
   "keys.pageDown": "下一页",
@@ -658,12 +654,8 @@ export const zh = {
   "term.screenAria": "电脑上的终端画面",
   "term.newOutput": "新输出",
   "term.jumpLines": "{n} 行新输出",
-  "term.selectHint": "选择模式：长按选中文字，再用系统菜单复制。",
-  "term.done": "完成",
 
   "chrome.split": "分屏",
-  "chrome.switchAria": "{title}，切换会话",
-  "chrome.switchAriaMeta": "{title}，{line}，切换会话",
   "chrome.backList": "返回会话列表",
 
   "desk.pickTitle": "选择一个会话",
@@ -752,16 +744,6 @@ export const zh = {
   "update.refresh": "刷新更新进度",
   "update.view": "查看更新",
   "update.later": "明天提醒",
-  "quick.manage": "管理指令",
-  "quick.help": "保存在本机；点击只填入草稿。最多 24 条，首页最多固定 8 条。",
-  "quick.label": "按钮名称",
-  "quick.text": "指令内容",
-  "quick.pin": "固定到首页",
-  "quick.up": "上移",
-  "quick.down": "下移",
-  "quick.remove": "删除",
-  "quick.add": "新增指令",
-  "quick.save": "保存",
   "quick.reviewLabel": "检查改动",
   "quick.reviewText": "请检查当前改动，指出潜在问题和遗漏，先不要修改代码。",
   "quick.testLabel": "运行测试",

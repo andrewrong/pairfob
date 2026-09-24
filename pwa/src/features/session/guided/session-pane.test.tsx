@@ -21,10 +21,10 @@ import { SessionPane } from "./session-pane";
 import type { LiveSession } from "../../../lib/protocol/client";
 
 let connected = true;
-let back = 0, menu = 0, inspect = 0, switched = 0;
+let back = 0, menu = 0, inspect = 0;
 const handlers = {
   onBack: () => { back++; }, onMenu: () => { menu++; },
-  onWorkspace: () => { inspect++; }, onSwitch: () => { switched++; },
+  onWorkspace: () => { inspect++; },
 };
 const parts = {
   Terminal: ({ model }: { model: PaneModel }) => <div data-testid="buffer">{model.texts.join("\n")}</div>,
@@ -56,7 +56,7 @@ beforeEach(async () => {
   await resetTestDOM();
   setLang("zh");
   connected = true;
-  back = menu = inspect = switched = 0;
+  back = menu = inspect = 0;
   snapshotRestorer.capture();
   act(() => {
     setPhase("live");
@@ -85,31 +85,30 @@ afterEach(() => {
 
 test("losing contact updates the header by itself, with no session repaint", () => {
   paint();
-  const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
-  expect(appRoot().querySelector(".icon-stop") !== null).toBeTrue();
+  const title = appRoot().querySelector<HTMLElement>(".chrome-title")!;
+  expect(title.querySelector(".chrome-status")?.textContent).toBe(t("status.working"));
   // A typed connection action only: nothing asks the session view to repaint.
   act(() => setNetworkOnline(false));
-  expect(appRoot().querySelector(".icon-stop")).toBeNull();
-  expect(title.querySelector(".agent-unknown") !== null).toBeTrue();
-  expect(title.getAttribute("aria-label")).toContain(t("status.unverifiable"));
+  expect(title.querySelector(".agent-avatar-status.is-unknown") !== null).toBeTrue();
+  expect(title.querySelector(".chrome-status")?.textContent).toBe(t("status.unverifiable"));
   act(() => setNetworkOnline(true));
-  expect(appRoot().querySelector(".icon-stop") !== null).toBeTrue();
-  expect(title.getAttribute("aria-label")).toContain(t("status.working"));
+  expect(title.querySelector(".chrome-status")?.textContent).toBe(t("status.working"));
+  // Stopping is the send button's job; the header never shows a stop target.
+  expect(appRoot().querySelector(".icon-stop")).toBeNull();
 });
 
-test("status publication keeps header identity while updating visible status, accessibility and Stop together", () => {
+test("status publication keeps header identity while updating the visible status and its full text together", () => {
   paint();
-  const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
-  expect(appRoot().querySelector(".icon-stop") !== null).toBeTrue();
-  expect(title.getAttribute("aria-label")).toContain(t("status.working"));
+  const title = appRoot().querySelector<HTMLElement>(".chrome-title")!;
+  expect(title.getAttribute("title")).toContain(t("status.working"));
   act(() => { applySnapshot(SNAPSHOT("idle")); notifySessionUI(); });
   expect(appRoot().querySelector(".chrome-title") === title).toBeTrue();
-  expect(appRoot().querySelector(".icon-stop")).toBeNull();
-  expect(title.getAttribute("aria-label")).toContain(t("status.waitingInput"));
+  expect(title.querySelector(".chrome-status")?.textContent).toBe(t("status.waitingInput"));
+  expect(title.getAttribute("title")).toContain(t("status.waitingInput"));
   connected = false;
   act(notifySessionUI);
-  expect(title.querySelector(".agent-unknown") !== null).toBeTrue();
-  expect(title.getAttribute("aria-label")).toContain(t("status.unverifiable"));
+  expect(title.querySelector(".agent-avatar-status.is-unknown") !== null).toBeTrue();
+  expect(title.getAttribute("title")).toContain(t("status.unverifiable"));
 });
 
 test("snapshot updates preserve the focused draft and selection while selection mode pins terminal and row data", () => {
@@ -129,8 +128,11 @@ test("snapshot updates preserve the focused draft and selection while selection 
   act(notifySessionUI);
   expect(appRoot().querySelector('[data-testid="buffer"]')?.textContent).toBe("next output");
   expect(appRoot().querySelector('[data-testid="rowbar"]')?.textContent).toBe("next output");
-  expect(appRoot().querySelector(".select-bar") !== null).toBeTrue();
-  expect(appRoot().querySelector(".dock")).toBeNull();
+  // Selection floats its hint over the buffer; the dock keeps its place (inert)
+  // so the rows do not move under the finger that started the selection.
+  expect(appRoot().querySelector(".term-stage > .select-hint") !== null).toBeTrue();
+  expect(appRoot().querySelector(".dock-slot > .dock") !== null).toBeTrue();
+  expect(appRoot().querySelector(".dock-slot")?.hasAttribute("inert")).toBeTrue();
   act(() => { setTermSelect(false); });
   paint();
   expect(appRoot().querySelector('[data-testid="buffer"]')?.textContent).toBe("later output");
@@ -140,13 +142,14 @@ test("header actions and busy gating remain available in the expected order", ()
   paint();
   act(() => {
     appRoot().querySelector<HTMLButtonElement>(".back")!.click();
-    appRoot().querySelector<HTMLButtonElement>(".chrome-title")!.click();
+    appRoot().querySelector<HTMLElement>(".chrome-title")!.click();
     appRoot().querySelector<HTMLButtonElement>(".icon-workspace")!.click();
     appRoot().querySelector<HTMLButtonElement>(".icon-more")!.click();
   });
-  expect([back, switched, inspect, menu]).toEqual([1, 1, 1, 1]);
+  // The identity is display-only; the trailing pair never changes with status.
+  expect([back, inspect, menu]).toEqual([1, 1, 1]);
   expect([...appRoot().querySelectorAll(".chrome-actions button")].map(button => button.className))
-    .toEqual(["icon-btn icon-stop", "icon-btn icon-workspace", "icon-btn icon-more"]);
+    .toEqual(["icon-btn icon-workspace", "icon-btn icon-more"]);
   act(() => { setOperationBusy(true); notifySessionUI(); });
   expect(appRoot().querySelector<HTMLButtonElement>(".icon-more")!.disabled).toBeTrue();
   paint(false);
@@ -160,7 +163,8 @@ test("notices update between chrome and buffer without resetting the pane", () =
   expect(appRoot().querySelector(".pane-root") === pane).toBeTrue();
   const notice = appRoot().querySelector("[data-react-notice]")!;
   expect(notice.previousElementSibling?.className).toBe("chrome");
-  expect(notice.nextElementSibling?.getAttribute("data-testid")).toBe("buffer");
+  expect(notice.nextElementSibling?.className).toBe("term-stage");
+  expect(notice.nextElementSibling?.firstElementChild?.getAttribute("data-testid")).toBe("buffer");
   act(clearNotice);
   expect(appRoot().querySelector("[data-react-notice]")).toBeNull();
 }

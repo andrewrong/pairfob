@@ -110,16 +110,19 @@ export function rememberCreate(input: { kind: string; workspaceId?: string; cwd?
   }
 }
 
+/** Favourite slots: with the terminal and "all" they fill two rows of four. */
+export const FAVORITE_SLOTS = 6;
+
 /**
- * The four kinds the grid shows: pinned first, then by use, restricted to what
- * the computer advertises. A kind picked from the full list takes the last slot.
+ * The kinds the grid shows: pinned first, then by use, restricted to what the
+ * computer advertises. A kind picked from the full list takes the last slot.
  */
 export function favoriteKinds(advertised: readonly string[], memory: CreateMemory, selected = ""): string[] {
   const order = [...advertised].sort((left, right) =>
     Number(memory.pinned.includes(right)) - Number(memory.pinned.includes(left))
     || (memory.uses[right] ?? 0) - (memory.uses[left] ?? 0)
     || advertised.indexOf(left) - advertised.indexOf(right));
-  let top = order.slice(0, 4);
-  if (selected && advertised.includes(selected) && !top.includes(selected)) top = [...top.slice(0, 3), selected];
+  let top = order.slice(0, FAVORITE_SLOTS);
+  if (selected && advertised.includes(selected) && !top.includes(selected)) top = [...top.slice(0, FAVORITE_SLOTS - 1), selected];
   return top;
 }

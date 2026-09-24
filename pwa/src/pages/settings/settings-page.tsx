@@ -1,4 +1,5 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useSyncExternalStore } from "react";
+import { useRememberedScroll } from "../../shared/ui/dom/remembered-scroll";
 import { useComputers } from "../../features/computers/hooks";
 import { useConnection, useRuntime } from "../../features/connection/hooks";
 import { usePreferences } from "../../features/settings/hooks";
@@ -29,6 +30,12 @@ function useSettingsView() {
   const section = useSyncExternalStore(subscribeSettingsSection, settingsSection);
   // However Settings is left — back, a tab, a desk page swap — it reopens on the overview.
   useEffect(() => () => setSettingsSection("overview"), []);
+  // The overview keeps its place across tabs and a detail page; a detail page
+  // always opens at its top.
+  useRememberedScroll("settings", section === "overview");
+  useLayoutEffect(() => {
+    if (section !== "overview") window.scrollTo(0, 0);
+  }, [section]);
   return { connection, runtime, preferences, computers, section };
 }
 
@@ -89,6 +96,7 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
           deviceCount: visiblePairedDevices([...runtime.deviceList]).length,
           defaultTermMode: preferences.defaultTermMode,
           defaultComposeLive: preferences.defaultComposeLive,
+          composeEnterSends: preferences.composeEnterSends,
           pushNote,
           pushAction,
           notifyHelp,

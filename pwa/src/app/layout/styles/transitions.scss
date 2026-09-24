@@ -21,8 +21,113 @@
   html[data-transition="pop"]::view-transition-new(root) { animation-name: screen-forward; }
 
   /* An expanding tile carries the travel by itself, so the screens only cross-fade. */
-  ::view-transition-group(pane-title),
   ::view-transition-group(pane-open) { animation-duration: var(--dur-4); }
+
+  /* --- List ↔ pane: one container transform ------------------------------------
+     html[data-transition="morph-open|morph-close"] is set by
+     navigateWithTransition for exactly one navigation. The card and the pane
+     share pane-container; avatar and title fly on the same curve, scaled
+     uniformly (the images keep their aspect, so text never stretches). The
+     list does not move: it only dims behind the pane.
+     ------------------------------------------------------------------------------ */
+  html[data-transition="morph-open"] {
+    --morph-ms: 300ms;
+    --morph-ease: cubic-bezier(.2, 0, 0, 1);
+  }
+
+  html[data-transition="morph-close"] {
+    --morph-ms: 260ms;
+    --morph-ease: cubic-bezier(.3, 0, .1, 1);
+  }
+
+  html[data-transition^="morph-"]::view-transition-group(pane-container),
+  html[data-transition^="morph-"]::view-transition-group(pane-avatar),
+  html[data-transition^="morph-"]::view-transition-group(pane-title) {
+    animation-duration: var(--morph-ms);
+    animation-timing-function: var(--morph-ease);
+  }
+
+  html[data-transition^="morph-"]::view-transition-old(pane-avatar),
+  html[data-transition^="morph-"]::view-transition-new(pane-avatar),
+  html[data-transition^="morph-"]::view-transition-old(pane-title),
+  html[data-transition^="morph-"]::view-transition-new(pane-title) {
+    width: auto;
+    height: 100%;
+    animation-duration: var(--morph-ms);
+  }
+
+  html[data-transition^="morph-"]::view-transition-image-pair(pane-container) {
+    overflow: hidden;
+    animation: var(--morph-ms) var(--morph-ease) both;
+  }
+
+  html[data-transition="morph-open"]::view-transition-image-pair(pane-container) { animation-name: morph-grow; }
+  html[data-transition="morph-close"]::view-transition-image-pair(pane-container) { animation-name: morph-shrink; }
+
+  /* Open: the card face goes early, the pane arrives after a quarter. */
+  html[data-transition="morph-open"]::view-transition-old(root) { animation: morph-dim var(--morph-ms) var(--morph-ease) both; }
+  html[data-transition="morph-open"]::view-transition-new(root) { animation: morph-hidden var(--morph-ms) linear both; }
+  html[data-transition="morph-open"]::view-transition-old(pane-container) { animation: morph-out calc(var(--morph-ms) / 4) linear both; }
+  html[data-transition="morph-open"]::view-transition-new(pane-container) { animation: morph-in-quarter var(--morph-ms) linear both; }
+  html[data-transition="morph-open"]::view-transition-new(pane-meta),
+  html[data-transition="morph-open"]::view-transition-new(pane-actions) { animation: morph-in-late var(--morph-ms) linear both; }
+
+  /* Close is the reverse: the pane's content goes first, the card face lands last. */
+  html[data-transition="morph-close"]::view-transition-old(root) { animation: morph-hidden var(--morph-ms) linear both; }
+  html[data-transition="morph-close"]::view-transition-new(root) { animation: morph-undim var(--morph-ms) var(--morph-ease) both; }
+  html[data-transition="morph-close"]::view-transition-old(pane-container) { animation: morph-out-early var(--morph-ms) linear both; }
+  html[data-transition="morph-close"]::view-transition-new(pane-container) { animation: morph-in-late var(--morph-ms) linear both; }
+
+  /* No card to land on (closed, collapsed or scrolled away): the pane just fades. */
+  html[data-transition="morph-close"]::view-transition-old(pane-container):only-child,
+  html[data-transition="morph-close"]::view-transition-old(pane-avatar):only-child,
+  html[data-transition="morph-close"]::view-transition-old(pane-title):only-child {
+    animation: morph-out var(--morph-ms) var(--morph-ease) both;
+  }
+
+  @keyframes morph-grow {
+    from { border-radius: 14px; background-color: var(--surface); }
+    to { border-radius: 35px; background-color: var(--term-bg); }
+  }
+
+  @keyframes morph-shrink {
+    from { border-radius: 35px; background-color: var(--term-bg); }
+    to { border-radius: 14px; background-color: var(--surface); }
+  }
+
+  @keyframes morph-dim {
+    from { filter: none; }
+    to { filter: brightness(0.65); }
+  }
+
+  @keyframes morph-undim {
+    from { filter: brightness(0.65); }
+    to { filter: none; }
+  }
+
+  @keyframes morph-hidden {
+    from, to { opacity: 0; }
+  }
+
+  @keyframes morph-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes morph-out-early {
+    from { opacity: 1; }
+    35%, to { opacity: 0; }
+  }
+
+  @keyframes morph-in-quarter {
+    from, 25% { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes morph-in-late {
+    from, 60% { opacity: 0; }
+    to { opacity: 1; }
+  }
 
   @keyframes screen-from-right {
     from { transform: translateX(100%); }
@@ -59,8 +164,48 @@
     from { opacity: 0; }
     to { opacity: 1; }
   }
+
+  /* List ↔ pane without the native API (FLIP in app/transition.ts): a static
+     copy of the list under the growing pane, and a stand-in for the pane while
+     it shrinks back into its card. The session shell is transparent meanwhile
+     so the list copy shows around the pane's clip. */
+  html[data-morph="open"] #app.session { background: transparent; }
+
+  .pane-morph-under {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: var(--bg);
+    pointer-events: none;
+  }
+
+  .pane-morph-page { position: absolute; margin: 0; }
+
+  .pane-morph-dim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pane-morph-dim.is-over {
+    position: fixed;
+    z-index: 40;
+  }
+
+  .pane-morph-ghost {
+    position: fixed;
+    inset: 0;
+    z-index: 41;
+    background: var(--term-bg);
+    pointer-events: none;
+  }
 }
 
 @mixin app-transition-reduced {
   html[data-fallback-transition] #app { animation: none; }
+  /* List ↔ pane under reduced motion: no travel, a short fade only. */
+  html[data-fallback-transition="reduced"] #app { animation: screen-fade 120ms linear; }
 }

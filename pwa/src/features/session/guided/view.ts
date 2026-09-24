@@ -27,10 +27,13 @@ import { flushSync } from "react-dom";
 
 import { notifySessionUI } from "./ui-revision";
 
+/**
+ * What the session header can do. The identity itself is display-only, so there
+ * is no "switch session" handler: switching goes back through the list.
+ */
 export type SessionHandlers = {
   onBack: () => void;
   onMenu: () => void;
-  onSwitch: () => void;
   onWorkspace: () => void;
 };
 
@@ -115,8 +118,7 @@ export function patchSessionScreen(): SessionPatchOutcome {
   if (compositionPublicationHeld()) return "deferred";
 
   const term = termElement();
-  const extras = appRoot().querySelector(".session-extras") as HTMLElement | null;
-  if (!term || !extras || currentScreen() !== "pane") return "missing";
+  if (!term || currentScreen() !== "pane") return "missing";
   // The committed frame must own the canonical owner/live handle before ANY
   // measurement, so a no-hold replaced live handle is never accepted.
   const bound = committedBound();

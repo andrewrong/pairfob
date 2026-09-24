@@ -191,11 +191,11 @@ test("held Alt survives repaint, maps one physical arrow, and releases without l
   attachLiveSession(live({ sendText: async (_id: string, value: string) => { sent.push(value); },
     sendKeys: async (_id: string, value: string[]) => { plain.push(value); } }));
   paint();
-  const alt = key("Opt");
+  const alt = key("Alt");
   const left = key("左箭头");
   dispatch(alt, "pointerdown", { pointerId: 11, button: 0, pointerType: "touch" });
   paint();
-  expect(key("Opt") === alt).toBeTrue();
+  expect(key("Alt") === alt).toBeTrue();
   expect(modifierIsActive("alt")).toBeTrue();
   dispatch(left, "pointerdown", { pointerId: 12, button: 0, pointerType: "touch" });
   dispatch(document, "pointerup", { pointerId: 12, pointerType: "touch" });
@@ -347,19 +347,20 @@ test("actual route hides row actions while output is frozen and quotes current o
   setPaneRow(0);
   mountTestApp();
   act(commitTest);
-  expect(appRoot().querySelector(".row-quote")?.textContent).toBe("old visible line");
+  expect(appRoot().querySelector(".term-line.is-picked")?.textContent).toBe("old visible line");
+  expect(appRoot().querySelector(".row-bubble")).not.toBeNull();
   act(() => toggleTermSelect(true));
   act(() => {
     applyPaneRead("current line /work/app.ts", "1".repeat(64));
     expect(patchSessionScreen()).toBe("patched");
   });
   expect(appRoot().querySelector(".term")?.textContent).toContain("old visible line");
-  expect(appRoot().querySelector(".row-bar")).toBeNull();
+  expect(appRoot().querySelector(".row-bubble")).toBeNull();
   expect(paneRow()).toBeNull();
   act(() => toggleTermSelect(false));
   act(() => { setPaneRow(0); commitTest(); });
-  expect(appRoot().querySelector(".row-quote")?.textContent).toBe("current line /work/app.ts");
-  const quote = [...appRoot().querySelectorAll<HTMLButtonElement>(".row-act")].find(el => el.textContent === "引用到输入框")!;
+  expect(appRoot().querySelector(".term-line.is-picked")?.textContent).toBe("current line /work/app.ts");
+  const quote = [...appRoot().querySelectorAll<HTMLButtonElement>(".row-act")].find(el => el.textContent === "引用")!;
   act(() => quote.click());
   expect(field().value).toBe("current line /work/app.ts");
   expect(paneRow()).toBeNull();

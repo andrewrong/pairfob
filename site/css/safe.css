@@ -1,0 +1,317 @@
+/* "Is it secure?": an always-dark band. P2P direct is the lead route; the relay
+   is drawn as the fallback. Claims follow site/doc/zh/security.md. */
+
+.band {
+  background: var(--band);
+  color: var(--band-ink);
+}
+
+.band .sec-head p {
+  color: var(--band-muted);
+}
+
+.band .sec-head .ask {
+  color: #8bbbff;
+}
+
+.routes {
+  display: grid;
+  gap: 16px;
+}
+
+.route {
+  border-radius: 22px;
+  padding: 22px 26px 26px;
+  border: 1px solid var(--band-line);
+  background: var(--band-2);
+}
+
+.route-p2p {
+  background: linear-gradient(180deg, rgba(61, 123, 253, 0.16), rgba(61, 123, 253, 0.04));
+  border-color: rgba(110, 168, 254, 0.45);
+  box-shadow: 0 0 0 1px rgba(110, 168, 254, 0.08), 0 30px 60px -40px rgba(61, 123, 253, 0.6);
+}
+
+.route-relay {
+  background: transparent;
+  border-style: dashed;
+}
+
+.route-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--band-muted);
+}
+
+.route-p2p .route-tag {
+  color: #8bbbff;
+}
+
+.route-tag .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #46d68c;
+  box-shadow: 0 0 0 4px rgba(70, 214, 140, 0.18);
+}
+
+.route-line {
+  display: grid;
+  align-items: center;
+}
+
+.route-p2p .route-line {
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr) minmax(0, 220px);
+}
+
+.route-relay .route-line {
+  grid-template-columns: minmax(0, 120px) minmax(40px, 1fr) minmax(0, 300px) minmax(40px, 1fr) minmax(0, 120px);
+}
+
+.rnode {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.rnode .ic {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: rgba(233, 237, 243, 0.07);
+  border: 1px solid var(--band-line);
+}
+
+.rnode .ic svg {
+  width: 24px;
+  height: 24px;
+}
+
+.rnode b {
+  font-size: 16px;
+}
+
+.rnode .key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(110, 168, 254, 0.14);
+  color: #8bbbff;
+  font: 500 12px var(--mono);
+}
+
+.rnode .key svg {
+  width: 12px;
+  height: 12px;
+}
+
+.rnode.small .ic,
+.rnode.relay .ic {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.rnode.small .ic svg,
+.rnode.relay .ic svg {
+  width: 19px;
+  height: 19px;
+}
+
+.rnode.small b {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--band-muted);
+}
+
+.rnode.relay {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(233, 237, 243, 0.22);
+}
+
+.rnode.relay .ic {
+  background: transparent;
+  color: var(--band-muted);
+}
+
+.rnode.relay b {
+  font-size: 15px;
+}
+
+.rnode.relay span {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--band-muted);
+}
+
+.rwire {
+  position: relative;
+  height: 56px;
+  display: grid;
+  place-items: center;
+}
+
+.rwire::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 50%;
+  border-top: 2px dashed rgba(233, 237, 243, 0.22);
+}
+
+.rwire em {
+  position: relative;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--band);
+  font: 500 11.5px var(--mono);
+  font-style: normal;
+  color: var(--band-muted);
+}
+
+.rwire.strong::before {
+  top: calc(50% - 1px);
+  height: 3px;
+  border: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(110, 168, 254, 0.2), #6ea8fe, rgba(110, 168, 254, 0.2));
+}
+
+.rwire.strong em {
+  background: #13203a;
+  border: 1px solid rgba(110, 168, 254, 0.35);
+  color: #cfe0ff;
+  font-size: 12.5px;
+}
+
+.rwire.strong i {
+  position: absolute;
+  top: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: #9cc4ff;
+  box-shadow: 0 0 14px #6ea8fe;
+  animation: packet 2.4s linear infinite;
+}
+
+.rwire.strong i + i {
+  animation-direction: reverse;
+  animation-delay: -1.2s;
+}
+
+@keyframes packet {
+  from {
+    left: 10px;
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  88% {
+    opacity: 1;
+  }
+
+  to {
+    left: calc(100% - 20px);
+    opacity: 0;
+  }
+}
+
+.route-fine {
+  margin-top: 16px;
+  max-width: 62em;
+  font-size: 13px;
+  color: var(--band-muted);
+}
+
+.guar {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--band-line);
+}
+
+.guar div {
+  display: grid;
+  gap: 4px;
+  padding: 22px 22px 24px;
+  background: var(--band);
+}
+
+.guar b {
+  font-size: 16px;
+}
+
+.guar span {
+  font-size: 14px;
+  color: var(--band-muted);
+}
+
+@media (max-width: 1040px) {
+  .guar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .route {
+    padding: 18px;
+  }
+
+  .route-p2p .route-line,
+  .route-relay .route-line {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .rwire {
+    width: 100%;
+    height: 64px;
+  }
+
+  .rwire::before {
+    left: 50%;
+    right: auto;
+    top: 6px;
+    bottom: 6px;
+    border-top: 0;
+    border-left: 2px dashed rgba(233, 237, 243, 0.22);
+  }
+
+  .rwire.strong::before {
+    left: calc(50% - 1px);
+    width: 3px;
+    height: auto;
+    background: linear-gradient(180deg, rgba(110, 168, 254, 0.2), #6ea8fe, rgba(110, 168, 254, 0.2));
+  }
+
+  .rwire.strong i {
+    display: none;
+  }
+
+  .rnode.relay {
+    width: 100%;
+  }
+
+  .guar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

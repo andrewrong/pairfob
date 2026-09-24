@@ -1,18 +1,316 @@
 /*
-  Pages pushed inside the pane sheet: the live layout panel (preview, size
-  steppers, swap directions) and the split / new-tab forms.
+  The pane sheet: one bottom sheet, one navigation stack. The root is the
+  session's menu; every follow-up (new tab, split, layout, Worktree, info,
+  rename) is a page pushed inside it with the same skeleton — the sheet head
+  names the page and the way back, a pinned footer says what will happen
+  above the one primary button.
 */
 
-/* --- Layout and size --------------------------------------------------------- */
+/* --- Height follows content ---------------------------------------------------
+   Short pages leave the pane visible above the sheet so in-place changes are
+   seen landing; only pages whose content is long by nature grow tall. */
+
+@media (max-width: 899.98px) {
+  /* The soft keyboard does not shrink the layout viewport on iOS, so the
+     bottom-anchored sheet lifts by the keyboard inset and never grows past
+     the visible viewport: the field and the pinned footer stay above the keys. */
+  /* Four tiles always sit on one row; auto-fit wrapped the fourth onto its own line. */
+  dialog.modal.pane-menu-sheet .menu-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  dialog.modal.pane-menu-sheet {
+    margin-bottom: var(--kb, 0px);
+    max-height: calc(var(--vv-height, 100dvh) - 12px);
+  }
+
+  dialog.modal.pane-menu-sheet > form {
+    max-height: min(82dvh, calc(var(--vv-height, 100dvh) - 12px));
+  }
+
+  dialog.modal.pane-menu-sheet:has(.pane-page.is-tall) > form,
+  html[data-kb="open"] dialog.modal.pane-menu-sheet > form { max-height: min(92dvh, calc(var(--vv-height, 100dvh) - 12px)); }
+}
+
+/* A field scrolled into view clears the sticky footer below it. */
+.pane-create :is(input, textarea) { scroll-margin: 12px 0 144px; }
+
+/* The root page carries its own identity head (with the close button), so the
+   generic title bar is only drawn on pushed pages. */
+.pane-menu-sheet .sheet-head:not(.has-back) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  padding: 0;
+}
+
+.sheet-back.has-label {
+  width: auto;
+  max-width: 40%;
+  gap: 2px;
+  padding: 0 8px 0 2px;
+  color: var(--accent);
+}
+
+.sheet-back-label {
+  overflow: hidden;
+  font-size: var(--text-body);
+  font-weight: 560;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pane-menu-sheet .sheet-head.has-back .modal-title {
+  font-size: var(--text-lead);
+  text-align: center;
+}
+
+/* A sticky page footer sits inside the scroller's padding; it carries the
+   safe-area inset itself. */
+.sheet-body:has(.pane-page-footer) { padding-bottom: 0; }
+
+/* --- Root: identity, mode, tiles, groups, close ------------------------------- */
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 12px 0 4px;
+}
+
+.pane-head-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.pane-head-id > b {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--text-subhead);
+  font-weight: 680;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pane-head-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-height: 28px;
+  color: var(--muted);
+  font: 500 var(--text-caption) var(--mono);
+}
+
+.pane-head-path > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pane-head-status {
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.pane-head-status.is-working { color: var(--accent); }
+.pane-head-status.is-blocked { color: var(--warn); }
+.pane-head-status.is-done { color: var(--ok); }
+
+.pane-head-close {
+  flex: none;
+  align-self: flex-start;
+  color: var(--muted);
+}
+
+.pane-mode { margin-top: 8px; }
+
+.pane-mode .menu-mode { margin: 0; }
+
+.pane-mode-hint {
+  margin: 6px 2px 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.45;
+}
+
+.pane-menu-status {
+  min-height: 1.2em;
+  margin: 6px 2px 0;
+  color: var(--ok);
+  font-size: var(--text-caption);
+}
+
+.pane-menu-status:empty { min-height: 0; margin: 0; }
+
+.pane-group-title {
+  margin: 16px 2px -4px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 650;
+}
+
+.pane-row-value {
+  flex: none;
+  max-width: 42%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-body);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pane-row-accent { color: var(--accent); }
+
+.pane-confirm {
+  display: grid;
+  gap: 10px;
+  padding: 4px 0 14px;
+  border-top: 1px solid var(--line);
+}
+
+.pane-confirm p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.pane-confirm .pane-confirm-warn {
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  background: rgba(240, 180, 60, 0.12);
+  color: var(--warn);
+}
+
+.pane-confirm-subject {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: 10px;
+}
+
+.pane-confirm-subject > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pane-confirm-subject small {
+  overflow: hidden;
+  color: var(--muted);
+  font: 500 var(--text-caption) var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pane-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+/* --- Page skeleton ------------------------------------------------------------ */
+
+.pane-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pane-fieldset:disabled { opacity: 0.6; }
+
+.pane-page-footer .create-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pane-page-note {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.pane-page-note.is-error { color: var(--danger-bright); }
+
+.pane-where {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.pane-where-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pane-where-text b { color: var(--ink); font-size: var(--text-body); }
+
+.pane-where-text small {
+  overflow: hidden;
+  font: 500 var(--text-caption) var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pane-rename {
+  position: relative;
+  margin-top: 8px;
+}
+
+.pane-create .pane-rename .create-input { padding-right: 44px; }
+
+.pane-rename-clear {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+
+.pane-precise {
+  margin: 12px 0 0;
+}
+
+.pane-precise > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pane-precise > .create-input { margin-bottom: 4px; }
+
+/* --- Layout preview (layout page and split page) ------------------------------- */
 
 .pane-layout-preview {
   position: relative;
   width: 100%;
-  max-height: 11rem;
+  max-height: 14rem;
   margin: 12px 0 0;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: #0e1218;
+  touch-action: pan-y;
 }
 
 .pane-layout-cell {
@@ -20,13 +318,19 @@
   display: grid;
   place-items: center;
   padding: 3px;
+  border: 0;
+  background: none;
+  color: inherit;
   transition: left var(--dur-3) var(--ease), top var(--dur-3) var(--ease),
     width var(--dur-3) var(--ease), height var(--dur-3) var(--ease);
 }
 
+.pane-layout-preview.is-dragging .pane-layout-cell { transition: none; }
+
 .pane-layout-cell > span {
   display: grid;
   place-items: center;
+  align-content: center;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -47,11 +351,104 @@
   text-overflow: ellipsis;
 }
 
+.pane-layout-cell em {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
 .pane-layout-cell.is-current > span {
   background: rgba(110, 168, 254, 0.16);
   box-shadow: inset 0 0 0 1.5px var(--accent);
   color: var(--accent);
 }
+
+.pane-layout .pane-layout-cell.is-current { touch-action: none; user-select: none; -webkit-user-select: none; }
+
+.pane-layout-cell.is-lifted {
+  z-index: 2;
+  transition: none;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5));
+}
+
+.pane-layout-cell.is-other { cursor: pointer; }
+
+.pane-layout-cell.is-other:active > span { background: var(--line); }
+
+.pane-layout-cell.is-target > span { box-shadow: inset 0 0 0 1.5px var(--ink); color: var(--ink); }
+
+.pane-layout-cell.is-new > span {
+  background: rgba(110, 168, 254, 0.06);
+  box-shadow: none;
+  outline: 1.5px dashed var(--accent);
+  outline-offset: -1.5px;
+  color: var(--accent);
+}
+
+/* A 28px grab target centred on the edge; the visible line is 3px. */
+.pane-divider {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  cursor: col-resize;
+}
+
+.pane-divider.is-v { width: 28px; margin-left: -14px; }
+
+.pane-divider.is-h { height: 28px; margin-top: -14px; cursor: row-resize; }
+
+.pane-divider::before {
+  content: "";
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.pane-divider.is-v::before { width: 3px; height: 40%; }
+
+.pane-divider.is-h::before { width: 40%; height: 3px; }
+
+.pane-divider:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: var(--r-sm); }
+
+.pane-divider[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
+
+.pane-split-plus {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* Keep the 28px disc but give the finger 44px. */
+.pane-split-plus::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.pane-split-plus.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.pane-layout-hint,
+.pane-layout-single {
+  margin: 8px 2px 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+
+.pane-layout-single { color: var(--ink); font-size: var(--text-body); }
 
 .pane-swap-grid {
   display: grid;
@@ -87,82 +484,176 @@
   line-height: 1.5;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pane-layout-cell { transition: none; }
-}
+/* --- Worktree ----------------------------------------------------------------- */
 
-/* --- Split / new tab ---------------------------------------------------------- */
-
-.sheet-form { padding-bottom: 4px; }
-
-.sheet-form .btn.sheet-form-submit {
-  width: 100%;
-  margin-top: 16px;
-}
-
-.split-picker {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
+.pane-wt-list {
   margin: 12px 0 0;
-  padding: 0;
+  padding: 0 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  list-style: none;
+}
+
+.pane-wt-list:empty { display: none; }
+
+.pane-wt-list > li + li { border-top: 1px solid var(--line); }
+
+.pane-wt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 0;
   border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
 }
 
-.split-picker legend {
-  grid-column: 1 / -1;
-  margin-bottom: 6px;
-  padding: 0;
-  color: var(--muted);
-  font-size: var(--text-body);
-  font-weight: 550;
-}
+.pane-wt:disabled { opacity: 0.6; }
 
-.split-choice {
-  position: relative;
+.pane-wt .spinner { width: 18px; height: 18px; }
+
+.pane-wt-icon { flex: none; color: var(--muted); }
+
+.pane-wt-text {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 44px;
-  padding: 10px;
-  border: 1.5px solid var(--line-strong);
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  color: var(--ink);
-  font-size: var(--text-body);
+  gap: 2px;
+}
+
+.pane-wt-text b {
+  overflow: hidden;
+  font: 600 var(--text-body) var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pane-wt-text small {
+  overflow: hidden;
+  color: var(--muted);
+  font: 500 var(--text-caption) var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pane-wt-tag {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--text-caption);
   font-weight: 600;
-  cursor: pointer;
 }
 
-.split-choice.is-on { border-color: var(--accent); }
+.pane-wt-tag.is-current { background: rgba(110, 168, 254, 0.12); color: var(--accent); }
 
-/* The native radio keeps keyboard and form semantics; the tile is its label. */
-.split-choice input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+.pane-wt.is-skeleton { flex-direction: column; align-items: stretch; justify-content: center; gap: 7px; }
+
+.pane-skel {
+  display: block;
+  width: 55%;
+  height: 11px;
+  border-radius: 4px;
+  background: var(--surface);
+  animation: pane-skel 1.2s var(--ease-in-out) infinite alternate;
 }
 
-.split-choice:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.pane-skel.is-short { width: 80%; height: 8px; }
+
+@keyframes pane-skel {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
 }
 
-.split-viz {
+/* --- Agent information -------------------------------------------------------- */
+
+.pane-info-subject {
   display: flex;
-  gap: 4px;
-  height: 52px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 0 4px;
 }
 
-.split-viz.is-down { flex-direction: column; }
-
-.split-viz i {
-  flex: 1;
-  border-radius: 5px;
-  background: #28303c;
+.pane-info-subject-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.split-viz i:last-child {
-  background: rgba(110, 168, 254, 0.22);
-  box-shadow: inset 0 0 0 1.5px var(--accent);
+.pane-info-subject-text b { font-size: var(--text-lead); }
+
+.pane-info-subject-text small { color: var(--muted); font-size: var(--text-caption); }
+
+.pane-info-kv {
+  display: grid;
+  grid-template-columns: 5.2rem minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 10px 0 0;
+  font-size: var(--text-body);
+}
+
+.pane-info-kv dt { color: var(--muted); font-size: var(--text-caption); font-weight: 620; line-height: 1.6; }
+
+.pane-info-kv dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+
+.pane-info-kv dd.is-mono { font-family: var(--mono); font-size: var(--text-secondary); }
+
+.pane-info-path {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  color: var(--ink);
+  font: 500 var(--text-secondary) var(--mono);
+  text-align: left;
+  text-decoration: underline dotted var(--line-strong);
+  overflow-wrap: anywhere;
+}
+
+.pane-info-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pane-info-tokens li {
+  display: inline-flex;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+.pane-info-tokens i { color: var(--muted); font-style: normal; font-family: var(--mono); }
+
+.pane-info-diagnose { margin-top: 22px; }
+
+.pane-inspect {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.pane-info-rules {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font: 500 var(--text-caption) / 1.7 var(--mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-layout-cell { transition: none; }
+  .pane-skel { animation: none; }
 }

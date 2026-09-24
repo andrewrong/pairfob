@@ -228,3 +228,11 @@
 .set-hero-line.is-warn,
 .set-hero-line.is-pending { color: var(--warn); }
 .set-hero .chev { flex: none; color: var(--muted); }
+
+/* A sentence of context at the top of a settings choice sheet. */
+.set-sheet-note {
+  margin: 4px 2px 10px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.5;
+}

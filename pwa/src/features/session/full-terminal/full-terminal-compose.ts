@@ -1,8 +1,6 @@
 import { t } from "../../../lib/i18n";
 import { fitOperationPrompt } from "../../../lib/operations";
 import {
-  COMPOSE_MAX_PX,
-  COMPOSE_MIN_PX,
   composeDraft,
   composeFocused,
   composeIME,
@@ -16,6 +14,10 @@ import {
 import { openPaneId } from "../session-store";
 import { setPaneComposeLive } from "../../settings/preferences-store";
 import { haptic } from "../../../lib/dom";
+import { showError } from "../../../app/notices-store";
+import { fitComposeHeight } from "../compose-size";
+import { returnAddsNewline, withQuickCommand, withSlashCommand } from "../compose-keys";
+import { acceptComposePaste, attachmentMessage, markSentAttachments, requestSend } from "../guided/send-gate";
 
 export type TerminalKeyboardControl = {
   toggle: () => void;
@@ -133,12 +135,48 @@ export function submitFullTerminalCompose(
 }
 
 function sizeField(field: HTMLTextAreaElement): void {
-  field.style.height = "auto";
-  field.style.height = `${Math.min(Math.max(field.scrollHeight, COMPOSE_MIN_PX), COMPOSE_MAX_PX)}px`;
+  fitComposeHeight(field);
+}
+
+/**
+ * Write the draft and its ready attachment paths (draft, blank line, one path
+ * per line) followed by Enter. False when nothing was delivered.
+ */
+function deliverMessage(paths: readonly string[], send: (text: string, enter: boolean) => boolean): boolean {
+  const draft = composeDraft();
+  const text = attachmentMessage(draft, paths);
+  if (fitOperationPrompt(text).truncated) {
+    showError(t("compose2.tooLong"));
+    return false;
+  }
+  if (!send(text, true)) return false;
+  if (composeDraft() === draft) setComposeDraft("");
+  if (paths.length) markSentAttachments();
+  haptic(8);
+  return true;
+}
+
+/**
+ * Live input has no send button and its Enter goes straight to the PTY, so
+ * attachments are sent the way guided live input sends them: back to 组字
+ * first (paths typed live would press Enter at every newline), then through
+ * the same wait / blocked checks as the batch field.
+ */
+export function sendFullTerminalAttachments(
+  sendCompose: FullTerminalControlsOptions["sendCompose"],
+  repaint: () => void,
+): void {
+  setFullTerminalInputMode(false, sendCompose, repaint);
+  void requestSend((paths) => { deliverMessage(paths, sendCompose); });
 }
 
 export type FullTerminalComposeFeedback = {
   draft: string;
+};
+
+export type FullTerminalComposeOptions = {
+  /** A phone keyboard's Return adds a line instead of sending (see compose-keys). */
+  phoneField?: () => boolean;
 };
 
 const padComposeBindings = new WeakMap<HTMLFormElement, () => void>();
@@ -157,20 +195,31 @@ function setComposeText(root: ParentNode, text: string): void {
   haptic(4);
 }
 
-/** Slash chips in batch mode fill/focus the full-terminal field; never append Enter. */
-export function setFullTerminalComposeText(root: ParentNode, text: string): void {
-  setComposeText(root, text);
+/**
+ * Command pad contract for the full terminal (session page v2), matching the
+ * guided `insertSlashCommand`: the token goes before the draft, replacing a
+ * leading slash command; live input writes it to the terminal without Enter.
+ */
+export function insertFullTerminalSlashCommand(
+  root: ParentNode,
+  token: string,
+  sendCompose: FullTerminalControlsOptions["sendCompose"],
+): void {
+  if (composeLive()) {
+    sendCompose(token, false);
+    return;
+  }
+  setComposeText(root, withSlashCommand(composeDraft(), token));
 }
 
-/** Insert at the current selection without submitting the batch draft. */
-export function insertFullTerminalNewline(root: ParentNode): void {
-  const field = root.querySelector<HTMLTextAreaElement>(".full-terminal-compose-input");
-  if (!field) return;
-  const start = field.selectionStart;
-  const end = field.selectionEnd;
-  const text = field.value.slice(0, start) + "\n" + field.value.slice(end);
-  setComposeText(root, text);
-  field.setSelectionRange(start + 1, start + 1);
+/** A saved command goes in at the caret of the batch field (an empty draft is filled). */
+export function insertFullTerminalQuickCommand(root: ParentNode, text: string): void {
+  const input = root.querySelector<HTMLTextAreaElement>(".full-terminal-compose-input");
+  const draft = input?.value ?? composeDraft();
+  const { next, caret } = withQuickCommand(draft, input?.selectionStart ?? draft.length, input?.selectionEnd ?? draft.length, text);
+  setComposeText(root, next);
+  const fitted = input?.value.length ?? 0;
+  input?.setSelectionRange(Math.min(caret, fitted), Math.min(caret, fitted));
 }
 
 /**
@@ -182,6 +231,7 @@ export function bindFullTerminalCompose(
   form: HTMLFormElement,
   send: (text: string, enter: boolean) => boolean,
   feedback?: (next: FullTerminalComposeFeedback) => void,
+  options: FullTerminalComposeOptions = {},
 ): () => void {
   padComposeBindings.get(form)?.();
   const sendButton = form.querySelector<HTMLButtonElement>(".full-terminal-compose-send");
@@ -209,15 +259,17 @@ export function bindFullTerminalCompose(
     sizeField(field);
     publish();
   };
+  const submitMessage = (paths: readonly string[]): void => {
+    if (!alive || !deliverMessage(paths, send)) return;
+    field.value = composeDraft();
+    sizeField(field);
+    publish();
+  };
+  // Ready attachments ride with the text; running uploads make the send wait.
   const submit = (): void => {
     if (!alive) return;
     sync();
-    if (!send(composeDraft(), true)) return;
-    setComposeDraft("");
-    field.value = "";
-    sizeField(field);
-    publish();
-    haptic(8);
+    void requestSend(submitMessage);
   };
   const transition = (event: ComposeEnterPolicyEvent): ComposeEnterPolicyAction => {
     const result = reduceComposeEnterPolicy(enterPolicy, event);
@@ -281,6 +333,8 @@ export function bindFullTerminalCompose(
     }, 0);
   };
   const onKeyDown = (event: KeyboardEvent): void => {
+    // Return adds a line on a phone; it never reaches the IME submit policy.
+    if (returnAddsNewline(event, options.phoneField?.() === true)) return;
     const action = transition({
       type: "keydown",
       enter: event.key === "Enter",
@@ -333,6 +387,7 @@ export function bindFullTerminalCompose(
   field.addEventListener("blur", onBlur);
   field.addEventListener("keydown", onKeyDown);
   field.addEventListener("keyup", onKeyUp);
+  field.addEventListener("paste", acceptComposePaste);
   form.addEventListener("submit", onSubmit);
   sendButton?.addEventListener("pointerdown", onSendPointerDown);
 
@@ -351,6 +406,7 @@ export function bindFullTerminalCompose(
     field.removeEventListener("blur", onBlur);
     field.removeEventListener("keydown", onKeyDown);
     field.removeEventListener("keyup", onKeyUp);
+    field.removeEventListener("paste", acceptComposePaste);
     form.removeEventListener("submit", onSubmit);
     sendButton?.removeEventListener("pointerdown", onSendPointerDown);
     if (padComposeBindings.get(form) === dispose) padComposeBindings.delete(form);

@@ -8,6 +8,7 @@ import { setSessionTransport } from "../src/features/connection/connection-store
 import { FIXED_NOW, record } from "./environment";
 import type { FixtureTerminalFrame } from "./types";
 import * as data from "./data";
+import type { SnapshotWire } from "../src/lib/dashboard";
 
 export type FixtureSession = {
   live: LiveSession;
@@ -22,8 +23,16 @@ export type FixtureSession = {
   dispose(): void;
 };
 
+/** What a scene's computer reports; the baseline fixture when a scene names none. */
+export type SessionSource = {
+  snapshot?: () => SnapshotWire;
+  /** Per-pane screen text; panes it does not know read the shared baseline text. */
+  paneText?: (paneId: string) => string | undefined;
+  agentKinds?: string[];
+};
+
 /** Every request is local and logged. Holds/errors allow deliberate async interaction probes. */
-export function createSession(): FixtureSession {
+export function createSession(source: SessionSource = {}): FixtureSession {
   let connected = true;
   let disposed = false;
   let operation = 0;
@@ -35,7 +44,7 @@ export function createSession(): FixtureSession {
   const held = new Set<string>();
   const waiters = new Map<string, Array<{ resolve(): void; reject(error: Error): void }>>();
   const failures = new Map<string, string>();
-  const snapshot = data.snapshot();
+  const snapshot = (source.snapshot ?? data.snapshot)();
   const board = boardLayoutFixture(snapshot);
   const deviceList = data.devices();
   let trace = data.trace();
@@ -61,9 +70,9 @@ export function createSession(): FixtureSession {
     isConnected: () => connected && !disposed,
     onEvent(listener: (event: SessionEvent) => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     ping: (time: number) => request("ping", [time], () => ({ t: time })),
-    getConfig: () => request("getConfig", [], () => ({ runtime: "herdr", hostname: "MacBook Pro", build: "v2.4.0", push_enabled: false, capabilities, agent_kinds: ["codex", "claude", "grok", "pi"] })),
+    getConfig: () => request("getConfig", [], () => ({ runtime: "herdr", hostname: "MacBook Pro", build: "v2.4.0", push_enabled: false, capabilities, agent_kinds: source.agentKinds ?? ["codex", "claude", "grok", "pi"] })),
     snapshot: () => request("snapshot", [], () => structuredClone(snapshot)),
-    paneRead: (paneId: string, lines?: number, format?: string) => request("paneRead", [paneId, lines, format], () => ({ text, hash: hash.toString(16).padStart(64, "0"), truncated: false })),
+    paneRead: (paneId: string, lines?: number, format?: string) => request("paneRead", [paneId, lines, format], () => ({ text: source.paneText?.(paneId) ?? text, hash: hash.toString(16).padStart(64, "0"), truncated: false })),
     sendText: (paneId: string, input: string) => mutation("sendText", [paneId, input], () => { text += input; hash++; return { operation_id: op() }; }),
     sendKeys: (paneId: string, keys: string[], extra?: unknown) => mutation("sendKeys", [paneId, keys, extra]),
     promptAgent: (params: { pane_id?: string; paneId?: string }) => mutation("promptAgent", [params], () => ({ operation_id: op(), pane_id: params.pane_id ?? params.paneId ?? data.PANE, agent_status: "unknown", outcome: "applied" })),

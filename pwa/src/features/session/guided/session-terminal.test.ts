@@ -6,7 +6,7 @@ import { ScalarPreferenceState } from "../../../../test-support/preferences-scal
 import { appRoot } from "../../../app/dom-root";
 import { setScreen } from "../../../app/navigation-store";
 import { setPhase } from "../../connection/connection-store";
-import { applyPaneRead, paneFollow, selectPane, setFullTerminal, setPaneFollow, setPaneRow, setPaneUnread, setTermSelect } from "../session-store";
+import { applyPaneRead, paneFollow, selectPane, setFullTerminal, setPaneFollow, setPaneRow, setPaneUnread, setTermSelect, termSelect } from "../session-store";
 import { composeFocused, setComposeDraft, setComposeFocused } from "../compose-store";
 import { setTermFontPx, setTermWrap, termFontPx } from "../../settings/preferences-store";
 import { attachLiveSession } from "../../computers/catalog-store";
@@ -92,6 +92,27 @@ function boot(text = "ready"): void {
   setComposeDraft("");
   attachLiveSession(live());
   renderReact(createElement(Fragment, null, createElement(SessionTerminal), createElement(SessionRowBar)));
+}
+
+function tapFixture() {
+  const term = document.createElement("div");
+  term.className = "term";
+  const row = document.createElement("div");
+  row.className = "term-line";
+  row.dataset.row = "0";
+  row.textContent = "hello";
+  term.append(row);
+  const field = document.createElement("textarea");
+  const form = document.createElement("form");
+  form.className = "dock-form";
+  form.append(field);
+  const focused: EventTarget[] = [];
+  field.focus = (() => {
+    focused.push(field);
+    setComposeFocused(true);
+  }) as typeof field.focus;
+  appRoot().replaceChildren(term, form);
+  return { term, row, field, focused };
 }
 
 function paint(): void {
@@ -326,37 +347,121 @@ describe("react guided terminal gestures", () => {
     expect(opened).toEqual([]);
   });
 
-  test("a short tap focuses compose", () => {
+  test("a short tap reports its row and never focuses compose", () => {
     unmountReact();
     setComposeFocused(false);
-    const term = document.createElement("div");
-    term.className = "term";
-    const row = document.createElement("div");
-    row.className = "term-line";
-    row.dataset.row = "0";
-    row.textContent = "hello";
-    term.append(row);
-    const field = document.createElement("textarea");
-    const form = document.createElement("form");
-    form.className = "dock-form";
-    form.append(field);
-    const focused: EventTarget[] = [];
-    field.focus = ((opts?: FocusOptions) => {
-      focused.push(field);
-      setComposeFocused(true);
-      void opts;
-    }) as typeof field.focus;
-    appRoot().replaceChildren(term, form);
-    const stop = bindTap(term, () => {
-      throw new Error("short tap must not open the row bar");
-    });
+    const { term, row, field, focused } = tapFixture();
+    const opened: number[] = [];
+    const stop = bindTap(term, (index) => opened.push(index));
     try {
       row.dispatchEvent(pointer("pointerdown", row));
       row.dispatchEvent(pointer("pointerup", row));
-      expect(focused).toEqual([field]);
-      expect(composeFocused()).toBeTrue();
+      term.dispatchEvent(pointer("pointerdown", term));
+      term.dispatchEvent(pointer("pointerup", term));
+      expect(opened).toEqual([0, -1]);
+      expect(focused).toEqual([]);
+      expect(composeFocused()).toBeFalse();
+      void field;
     } finally {
       stop();
+    }
+  });
+
+  test("with the soft keyboard up, the first tap only puts it away", () => {
+    unmountReact();
+    const { term, row, field } = tapFixture();
+    const blurred: EventTarget[] = [];
+    field.blur = () => { blurred.push(field); };
+    Object.defineProperty(document, "activeElement", { configurable: true, get: () => field });
+    document.documentElement.dataset.kb = "open";
+    const opened: number[] = [];
+    const stop = bindTap(term, (index) => opened.push(index));
+    try {
+      row.dispatchEvent(pointer("pointerdown", row));
+      row.dispatchEvent(pointer("pointerup", row));
+      expect(blurred).toEqual([field]);
+      expect(opened).toEqual([]);
+      document.documentElement.dataset.kb = "closed";
+      row.dispatchEvent(pointer("pointerdown", row));
+      row.dispatchEvent(pointer("pointerup", row));
+      expect(opened).toEqual([0]);
+    } finally {
+      stop();
+      Reflect.deleteProperty(document, "activeElement");
+      delete document.documentElement.dataset.kb;
+    }
+  });
+
+  test("a hold is reported instead of a tap, and a hand pan dismisses", async () => {
+    unmountReact();
+    const { term, row } = tapFixture();
+    const opened: number[] = [];
+    const held: number[] = [];
+    let pans = 0;
+    const stop = bindTap(term, (index) => opened.push(index), {
+      onHold: (index) => held.push(index),
+      onPan: () => { pans += 1; },
+    });
+    try {
+      row.dispatchEvent(pointer("pointerdown", row));
+      await wait(480);
+      row.dispatchEvent(pointer("pointerup", row));
+      expect(held).toEqual([0]);
+      expect(opened).toEqual([]);
+      // Follow-output scroll with no finger down is not the reader panning.
+      term.dispatchEvent(new happy.Event("scroll") as unknown as Event);
+      expect(pans).toBe(0);
+      row.dispatchEvent(pointer("pointerdown", row));
+      row.dispatchEvent(pointer("pointermove", row, 8, 40));
+      expect(pans).toBe(1);
+      row.dispatchEvent(pointer("pointerup", row, 8, 40));
+      expect(opened).toEqual([]);
+      row.dispatchEvent(pointer("pointerdown", row));
+      row.dispatchEvent(pointer("pointercancel", row));
+      expect(pans).toBe(2);
+      term.dispatchEvent(new happy.Event("wheel") as unknown as Event);
+      expect(pans).toBe(3);
+    } finally {
+      stop();
+    }
+  });
+
+  test("tapping a row highlights it and a pan clears it", () => {
+    boot("first\nsecond");
+    const rows = () => [...appRoot().querySelectorAll<HTMLElement>(".term-line")];
+    const second = rows()[1];
+    act(() => {
+      second.dispatchEvent(pointer("pointerdown", second));
+      second.dispatchEvent(pointer("pointerup", second));
+    });
+    expect(rows().map((row) => row.classList.contains("is-picked"))).toEqual([false, true]);
+    expect(appRoot().querySelector(".row-bubble")).not.toBeNull();
+    act(() => {
+      second.dispatchEvent(pointer("pointerdown", second));
+      second.dispatchEvent(pointer("pointermove", second, 8, 60));
+    });
+    expect(rows().some((row) => row.classList.contains("is-picked"))).toBeFalse();
+    expect(appRoot().querySelector(".row-bubble")).toBeNull();
+  });
+
+  test("a long press enters selection mode and selects the held row", async () => {
+    boot("held line");
+    const row = appRoot().querySelector<HTMLElement>(".term-line")!;
+    const selection = window.getSelection;
+    const ranges: Range[] = [];
+    window.getSelection = () => ({
+      isCollapsed: ranges.length === 0,
+      removeAllRanges: () => { ranges.length = 0; },
+      addRange: (range: Range) => { ranges.push(range); },
+    }) as unknown as Selection;
+    try {
+      row.dispatchEvent(pointer("pointerdown", row));
+      await act(async () => { await wait(480); });
+      expect(termSelect()).toBeTrue();
+      expect(ranges).toHaveLength(1);
+      expect(ranges[0].toString()).toContain("held");
+    } finally {
+      window.getSelection = selection;
     }
   });
 });

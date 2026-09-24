@@ -6,7 +6,7 @@ import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { appRoot } from "../../../app/dom-root";
 import { composeDraft, composeIME, composeLive, setComposeDraft, setComposeFocused, setComposeIME, setComposeLive } from "../compose-store";
-import { paneComposeLive, setKeysExpanded, setPadKind } from "../../settings/preferences-store";
+import { COMPOSE_ENTER_SENDS_KEY, paneComposeLive, setComposeEnterSends, setKeysExpanded, setPadKind } from "../../settings/preferences-store";
 import { selectPane } from "../session-store";
 import { PaneComposePreferenceRestorer } from "../../../../test-support/preferences-restore";
 const {
@@ -59,11 +59,17 @@ function fire(node: Node, type: string): void {
 
 /** Restore the one persisted per-pane compose choice without resurrecting other daemon maps. */
 const paneComposeRestorer = new PaneComposePreferenceRestorer();
+let enterSendsRaw: string | null = null;
 
 beforeEach(async () => {
   await resetBoardTestDOM();
   selectPane("p1");
   paneComposeRestorer.capture("p1");
+  // These cases pin the keyboard Enter / IME submit policy, which applies
+  // wherever Return sends: external keyboards and the "Return sends" preference.
+  // The phone default (Return adds a line) has its own cases below.
+  enterSendsRaw = localStorage.getItem(COMPOSE_ENTER_SENDS_KEY);
+  setComposeEnterSends(true);
 });
 
 afterEach(async () => {
@@ -76,6 +82,9 @@ afterEach(async () => {
   setKeysExpanded(false);
   setPadKind("keys");
   paneComposeRestorer.restore("p1");
+  setComposeEnterSends(false);
+  if (enterSendsRaw === null) localStorage.removeItem(COMPOSE_ENTER_SENDS_KEY);
+  else localStorage.setItem(COMPOSE_ENTER_SENDS_KEY, enterSendsRaw);
   appRoot().replaceChildren();
 });
 
@@ -292,7 +301,7 @@ describe("complete-terminal compose input", () => {
     const root = appRoot();
     act(() => { (root.querySelector('[aria-label="更多按键"]') as HTMLButtonElement).click(); });
     expect(root.querySelector(".full-terminal-compose-input") !== null).toBeTrue();
-    const commandMode = root.querySelector<HTMLButtonElement>(".pad-mode");
+    const commandMode = [...root.querySelectorAll<HTMLButtonElement>(".pad-kind-option")].find((el) => el.textContent === "命令");
     act(() => { commandMode?.click(); });
     expect(root.querySelector(".full-terminal-compose-input") !== null).toBeTrue();
     act(() => { seedPadSnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] }); selectPadPane("shortcut-test"); });

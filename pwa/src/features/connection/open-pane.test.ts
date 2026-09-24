@@ -99,6 +99,30 @@ describe("openPane atomic transition", () => {
     expect(reads).toBe(0);
   });
 
+  test("a deferred (shared-transition) commit is awaited before the pane is read", async () => {
+    await resetBoardTestDOM();
+    setPhase("live");
+    const session = { isConnected: () => true } as LiveSession;
+    attachLiveSession(session);
+    const order: string[] = [];
+    let commit!: () => void;
+    const pending = openPaneWithOwner("pD", ports({
+      currentLive: () => session,
+      currentScreen: () => "pane",
+      commitView: () => new Promise<void>((resolve) => {
+        order.push("capture");
+        commit = () => { order.push("commit"); resolve(); };
+      }),
+      refreshPane: async () => { order.push("read"); },
+    }));
+    for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    expect(order).toEqual(["capture"]);
+    commit();
+    const nav = await pending;
+    expect(order).toEqual(["capture", "commit", "read"]);
+    expect(nav?.isCurrent()).toBeTrue();
+  });
+
   test("a subscriber completing a newer openPane during rememberPane wins", async () => {
     await resetBoardTestDOM();
     setPhase("live");

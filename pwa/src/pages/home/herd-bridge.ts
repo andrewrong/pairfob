@@ -43,7 +43,7 @@ import { groupAgents, syncGroupCollapsed, toggleCollapsedForIds } from "../../li
 import { haptic } from "../../shared/ui/dom/feedback";
 import { herdLivenessModel, herdStatusModel } from "../../features/dashboard/model/herd-status";
 import { buildHerdViewModel, type HerdHostView, type HerdModelInput, type HerdStatus, type HerdViewModel } from "../../features/dashboard/model/herd-view";
-import { morphingPane, shareTitle } from "../../app/transition";
+import { morphingPane } from "../../app/transition";
 import { openBoard } from "../board/board-bridge";
 import { openListPaneMenu, openListWorkspaceMenu } from "./object-menu";
 
@@ -120,7 +120,14 @@ export function readHerdHost(status: HerdStatus): HerdHostView {
   const runtime = runtimeStore.get();
   const pair = computersStore.get().credential;
   const name = runtime.herdHost || (pair ? computerTitle(pair) : "") || t("settings.currentComputer");
-  if (status.tone !== "live") return { name, line: status.text, tone: status.tone };
+  if (status.tone !== "live") {
+    // Connected but the state cannot be confirmed, or Herdr is off: the title
+    // opens the panel whose first entry retries, so the line says so where the
+    // eye already is. While offline or reconnecting the phone is already retrying.
+    const connected = liveSession()?.isConnected() === true;
+    const retry = networkOnline() && (status.tone === "off" || (status.tone === "warn" && connected));
+    return { name, line: retry ? `${status.text} · ${t("host.retryShort")}` : status.text, tone: status.tone };
+  }
   const connection = connectionStore.get();
   const path = settingsNetworkPath({
     sessionTransport: connection.sessionTransport,
@@ -215,7 +222,6 @@ export function herdActionPorts(): HerdActionPorts {
     openBoard: () => {
       void openBoard();
     },
-    shareTitle,
     openPaneMenu: openListPaneMenu,
     openWorkspaceMenu: openListWorkspaceMenu,
     openHostMenu: () => openHostMenu(readHerdHost(readHerdInput(attention).status)),

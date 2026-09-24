@@ -1,6 +1,7 @@
 import { LayoutDashboard, MessageSquare, Settings } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { t } from "../../lib/i18n";
+import { prefersReducedMotion } from "../../shared/ui/dom/motion";
 import { needsDaemonUpdate, subscribeDaemonUpdates } from "../../features/settings/daemon-update";
 import { openSettings } from "../../features/settings/actions";
 import { setSettingsSection } from "../../features/settings/settings-section";
@@ -25,7 +26,8 @@ export function switchTab(target: TabId): void {
   const from = currentScreen();
   const fromTab: TabId = from === "board" ? "board" : from === "settings" ? "settings" : "sessions";
   if (fromTab === target) {
-    if (target === "sessions") document.querySelector(".herd-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
+    // The phone list scrolls the window; a second tap on its tab returns to the top.
+    if (target === "sessions") window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
     return;
   }
   if (from === "board") leaveBoardForTab();

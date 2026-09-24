@@ -1,78 +1,128 @@
 /* --- Per-row actions -------------------------------------------------------------- */
 
 /*
-  Long-press actions live in the pane's flex column, not over the buffer, so
-  quoting a row never hides the terminal content it came from.
+  The terminal and everything that floats over it share one positioned box, so
+  the row bubble and the selection hint never take a line away from the buffer.
 */
-.row-bar {
-  flex: 0 0 auto;
-  padding: 10px 12px;
-  background: var(--surface);
-  border-top: 1px solid var(--line-strong);
-  animation: sheet-up var(--dur-2) var(--ease);
-}
-
-.row-quote {
-  margin: 0;
-  font: 400 0.76rem var(--mono);
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.row-actions {
+.term-stage {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
   display: flex;
-  gap: 8px;
-  margin-top: 9px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  flex-direction: column;
 }
 
-.row-actions::-webkit-scrollbar { display: none; }
+/* Wrapper only for `inert` while selecting; the dock lays out as before. */
+.dock-slot { display: contents; }
+
+/*
+  Anchored to the picked row by placeRowBubble (top + data-side). Centered and
+  capped so a desktop-wide buffer does not get a bar stretched edge to edge.
+*/
+.row-bubble {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: min(calc(100% - 20px), 26rem);
+  display: flex;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  animation: row-bubble-in var(--dur-2) var(--ease);
+}
+
+.row-bubble[data-side="below"] { animation-name: row-bubble-in-below; }
+
+.row-bubble[data-offscreen] { visibility: hidden; }
 
 .row-act {
-  flex: 0 0 auto;
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 44px;
-  max-width: 15rem;
-  padding: 0 14px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 11px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  background: transparent;
   color: var(--ink);
-  font-size: var(--text-body);
+  font-size: var(--text-secondary);
   font-weight: 560;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.row-act:active { background: #232c38; }
+.row-act + .row-act::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--line);
+}
 
-.row-act-ghost { color: var(--muted); background: transparent; }
+.row-act:active { background: var(--surface); }
+
+@keyframes row-bubble-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+}
+
+@keyframes row-bubble-in-below {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+}
 
 /* --- Select mode ----------------------------------------------------------------- */
 
-.select-bar {
-  flex: 0 0 auto;
+/* Floats at the top of the buffer: entering selection must not move a line. */
+.select-hint {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  max-width: calc(100% - 20px);
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
-  background: var(--dock-bg);
-  border-top: 1px solid var(--line);
+  gap: 10px;
+  padding: 4px 4px 4px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 99px;
+  box-shadow: var(--shadow-2);
+  animation: row-bubble-in-below var(--dur-2) var(--ease);
 }
 
-.select-hint {
-  flex: 1 1 12rem;
-  margin: 0;
+.select-hint-label {
+  min-width: 0;
   font-size: var(--text-secondary);
-  line-height: 1.45;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.select-hint-label b { color: var(--ink); font-weight: 640; }
 
+.select-done {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-secondary);
+  font-weight: 640;
+}
+
+.select-done:active { background: var(--accent-deep); }
+
+@media (prefers-reduced-motion: reduce) {
+  .row-bubble,
+  .select-hint { animation: none; }
+}

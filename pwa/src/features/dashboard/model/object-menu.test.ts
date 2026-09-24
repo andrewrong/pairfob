@@ -84,13 +84,14 @@ describe("workspace object menu model", () => {
     expect(workspaceMenuModel({ agent: agent("p2", { workspaceId: "" }), createTab: true })).toBeNull();
   });
 
-  test("the heading menu is rename and close, with new tab first when advertised", () => {
+  test("the heading menu opens the board, renames and closes, with new tab first when advertised", () => {
     expect(kinds(workspaceMenuModel({ agent: agent("p2"), createTab: false })!.items))
-      .toEqual(["renameWorkspace", "closeWorkspace"]);
+      .toEqual(["openBoard", "renameWorkspace", "closeWorkspace"]);
     const advertised = workspaceMenuModel({ agent: agent("p2"), createTab: true })!;
-    expect(kinds(advertised.items)).toEqual(["newTabInWorkspace", "renameWorkspace", "closeWorkspace"]);
+    expect(kinds(advertised.items)).toEqual(["newTabInWorkspace", "openBoard", "renameWorkspace", "closeWorkspace"]);
     expect(advertised.items[0].label).toBe(t("menu.newTabInWorkspace"));
-    expect(advertised.items[2].danger).toBe(true);
+    expect(advertised.items[1].label).toBe(t("menu.openInBoard"));
+    expect(advertised.items[3].danger).toBe(true);
     expect(advertised.title).toBe("Two");
     expect(advertised.facts).toEqual([]);
   });

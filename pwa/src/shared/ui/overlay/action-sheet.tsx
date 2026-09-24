@@ -58,7 +58,7 @@ export function SheetFrame<T>({ modal, title, children, className = "", subtitle
     <form ref={modal.form} method="dialog" onSubmit={event => event.preventDefault()}>
       <SheetNavContext value={nav}>
         <SheetContent title={top?.title ?? title} subtitle={top ? undefined : subtitle} titleId={modal.titleId}
-          onDismiss={modal.dismiss} onBack={top ? nav.pop : undefined} bodyRef={body}
+          onDismiss={modal.dismiss} onBack={top ? nav.pop : undefined} backLabel={top ? pages.at(-2)?.title ?? title : undefined} bodyRef={body}
           expand={expandable ? { expanded, toggle: () => setExpanded(value => !value) } : undefined}>
           {page}
         </SheetContent>

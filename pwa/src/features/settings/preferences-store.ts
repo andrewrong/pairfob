@@ -27,6 +27,7 @@ export const KEYS_EXPANDED_KEY = "pairfob:keysExpanded";
 export const QUICK_COMMANDS_KEY = "pairfob:quickCommands";
 export const PAD_KIND_KEY = "pairfob:padKind";
 export const DEFAULT_COMPOSE_LIVE_KEY = "pairfob:defaultComposeLive";
+export const COMPOSE_ENTER_SENDS_KEY = "pairfob:composeEnterSends";
 export const PANE_COMPOSE_LIVE_KEY = "pairfob:paneComposeLive";
 export const LIST_GROUP_KEY = "pairfob:listGroup";
 export const PANE_TOUCHED_KEY = "pairfob:paneTouched";
@@ -72,6 +73,11 @@ export type PreferencesRecord = {
   defaultComposeLive: boolean;
   /** Per-pane live/compose choice, scoped by the connected daemon in storage. */
   paneComposeLive: Record<string, boolean>;
+  /**
+   * Phone keyboard Return sends the draft (the old behaviour) instead of adding
+   * a line. Off by default: soft keyboards have no Shift+Enter.
+   */
+  composeEnterSends: boolean;
 };
 
 /** Guarded storage read for call-time loaders (a session opening, not an import). */
@@ -141,6 +147,10 @@ export function loadDefaultComposeLive(read: StoredValueReader = readStorage): b
   return read(DEFAULT_COMPOSE_LIVE_KEY) === "1";
 }
 
+export function loadComposeEnterSends(read: StoredValueReader = readStorage): boolean {
+  return read(COMPOSE_ENTER_SENDS_KEY) === "1";
+}
+
 export function loadDefaultTermMode(read: StoredValueReader = readStorage): TermMode {
   return parseTermMode(read(DEFAULT_TERM_MODE_KEY));
 }
@@ -205,6 +215,7 @@ export function initialPreferences(): PreferencesRecord {
     paneTermModes: {},
     defaultComposeLive: false,
     paneComposeLive: {},
+    composeEnterSends: false,
   };
 }
 
@@ -229,6 +240,7 @@ export function hydratePreferences(environment: DomainEnvironment): void {
     record.listGroup = loadListGroup(stored);
     record.defaultTermMode = loadDefaultTermMode(stored);
     record.defaultComposeLive = loadDefaultComposeLive(stored);
+    record.composeEnterSends = loadComposeEnterSends(stored);
   });
 }
 
@@ -497,6 +509,20 @@ export function setDefaultComposeLive(live: boolean): void {
       record.defaultComposeLive = live;
     });
     saveDefaultComposeLive();
+  });
+}
+
+export function composeEnterSends(): boolean {
+  return read().composeEnterSends;
+}
+
+export function setComposeEnterSends(sends: boolean): void {
+  if (read().composeEnterSends === sends) return;
+  batch(() => {
+    write((record) => {
+      record.composeEnterSends = sends;
+    });
+    writeStorage(COMPOSE_ENTER_SENDS_KEY, sends ? "1" : "0");
   });
 }
 

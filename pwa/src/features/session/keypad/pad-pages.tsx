@@ -1,14 +1,23 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { t } from "../../../lib/i18n";
 import { PadChromeButton } from "../compose-focus";
 import { clearModifiers } from "./keypad";
 import { PAD_HOLD_EVENT } from "./key-press";
 
-/** Fixed two-row pages. Keep this component mounted to remember each mode's page. */
-export function PadPages({ items, kind, label, columns = 4, className = "", footer }: {
-  items: ReactNode[]; kind: string; label: string; columns?: 4 | 7; className?: string; footer?: ReactNode;
+/** Page per pad kind. Hold it above the pad body when keys and commands render different trees. */
+export type PageMemory = [Record<string, number>, Dispatch<SetStateAction<Record<string, number>>>];
+
+/**
+ * Fixed two-row pages. Keep this component mounted to remember each mode's page.
+ * The pagination row carries the pad's own chrome: `leading` on the left,
+ * the dots in the middle and `trailing` (which may name the page) on the right.
+ */
+export function PadPages({ items, kind, label, columns = 4, className = "", leading, trailing, header, memory }: {
+  items: ReactNode[]; kind: string; label: string; columns?: 4 | 7; className?: string;
+  leading?: ReactNode; trailing?: ReactNode | ((page: number) => ReactNode); header?: ReactNode; memory?: PageMemory;
 }) {
-  const [positions, setPositions] = useState<Record<string, number>>({});
+  const own = useState<Record<string, number>>({});
+  const [positions, setPositions] = memory ?? own;
   const pageSize = columns * 2;
   const count = Math.max(1, Math.ceil(items.length / pageSize));
   const page = Math.min(positions[kind] ?? 0, count - 1);
@@ -40,7 +49,9 @@ export function PadPages({ items, kind, label, columns = 4, className = "", foot
     let start: { id: number; x: number; y: number; holding: boolean } | null = null;
     const down = (event: PointerEvent) => {
       suppressClick.current = false;
-      if (event.pointerType !== "touch" || !event.isPrimary) { start = null; return; }
+      // A command being dragged in edit mode owns its gesture; it is not a page swipe.
+      const dragging = event.target instanceof Element && event.target.closest("[data-pad-drag]");
+      if (event.pointerType !== "touch" || !event.isPrimary || dragging) { start = null; return; }
       start = { id: event.pointerId, x: event.clientX, y: event.clientY, holding: false };
     };
     const move = (event: PointerEvent) => {
@@ -90,17 +101,21 @@ export function PadPages({ items, kind, label, columns = 4, className = "", foot
     };
   }, [page, kind]);
   return <div className="pad-pages">
+    {header}
     <div ref={ref} className={`pad-page ${className}`} data-columns={columns} role="group" aria-label={label}>
       {items.slice(page * pageSize, (page + 1) * pageSize)}
     </div>
-    <div className="pad-pagination" role="group" aria-label={t("keys.pages")}>
-      {Array.from({ length: count }, (_, index) => <PadChromeButton
-        key={index} className="pad-page-dot" type="button"
-        aria-label={t("keys.page", { page: index + 1, total: count })}
-        aria-current={index === page ? "page" : undefined}
-        onClick={() => selectRef.current(index)}
-      ><span /></PadChromeButton>)}
-      {footer}
+    <div className="pad-pagination">
+      <div className="pad-pagination-start">{leading}</div>
+      <div className="pad-dots" role="group" aria-label={t("keys.pages")}>
+        {Array.from({ length: count }, (_, index) => <PadChromeButton
+          key={index} className="pad-page-dot" type="button" data-pad-dot={index}
+          aria-label={t("keys.page", { page: index + 1, total: count })}
+          aria-current={index === page ? "page" : undefined}
+          onClick={() => selectRef.current(index)}
+        ><span /></PadChromeButton>)}
+      </div>
+      <div className="pad-pagination-end">{typeof trailing === "function" ? trailing(page) : trailing}</div>
     </div>
   </div>;
 }

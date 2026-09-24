@@ -63,12 +63,19 @@ function SessionPaneView({ includeBack, handlers, scroll, parts = defaultParts }
     <SessionChrome selected={selected} includeBack={includeBack} handlers={handlers} />
     {!selected ? <p className="empty-sub">{t("err.paneGone")}</p> : <>
       <AppNotice />
-      <Terminal model={shown.current} />
-      <div className="session-extras"><RowBar model={shown.current} /></div>
-      {session.termSelect ? <div className="select-bar">
-        <p className="select-hint">{t("term.selectHint")}</p>
-        <Button className="btn btn-small" onClick={() => toggleTermSelect(false)}>{t("term.done")}</Button>
-      </div> : <Dock includeBack={includeBack} />}
+      <div className="term-stage">
+        <Terminal model={shown.current} />
+        <RowBar model={shown.current} />
+        {session.termSelect ? <div className="select-hint" role="status">
+          <span className="select-hint-label"><b>{t("rowbar.selecting")}</b> · {t("rowbar.selectingHint")}</span>
+          <Button className="select-done" onClick={() => toggleTermSelect(false)}>{t("rowbar.done")}</Button>
+        </div> : null}
+      </div>
+      {/* The dock keeps its place while selecting so the buffer does not jump under the
+          finger; it is inert until selection ends. */}
+      <div className="dock-slot" inert={session.termSelect || undefined}>
+        <Dock includeBack={includeBack} />
+      </div>
     </>}
   </div>;
 }

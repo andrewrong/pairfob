@@ -52,7 +52,11 @@ export type OpenPanePorts = {
   currentScreen(): string;
   isFullTerminal(): boolean;
   findAgent(paneId: string): { paneId: string } | undefined;
-  commitView(): void;
+  /**
+   * Commit the destination. A shared list → pane transition resolves once its
+   * deferred commit ran; every other navigation commits synchronously.
+   */
+  commitView(): void | Promise<void>;
   refreshPane(): Promise<void>;
 };
 
@@ -122,7 +126,8 @@ export async function openPaneWithOwner(paneId: string, ports: OpenPanePorts): P
   // during the batch (a different pane/screen/daemon) ends the transition.
   const navigation = { scope, incarnation, isCurrent };
   if (!isCurrent()) return null;
-  ports.commitView();
+  const committed = ports.commitView();
+  if (committed) await committed;
   if (!isCurrent()) return null;
   await ports.refreshPane();
   return isCurrent() ? navigation : null;

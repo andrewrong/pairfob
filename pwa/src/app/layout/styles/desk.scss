@@ -38,6 +38,10 @@
 .rail .herd-list .herd-group:first-child .section-title,
 .rail .herd-list .herd-group:first-child .group-head { margin-top: 8px; }
 
+/* Pointer targets in the narrow rail: smaller heading tools leave the
+   workspace name room on the heading's single line. */
+.rail .group-head .group-tool { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+
 .rail .empty-sub { margin: 4px 2px 0; }
 
 .rail .herd-group-body { border-radius: var(--r-md); }

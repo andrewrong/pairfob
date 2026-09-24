@@ -1,23 +1,21 @@
 import { useSyncExternalStore } from "react";
 import { useSession } from "../hooks";
-import { resolveCopy, t } from "../../../lib/i18n";
+import { t } from "../../../lib/i18n";
+import { useDashboard } from "../../dashboard/hooks";
+import { agentFromDashboardSnapshot } from "../agents";
 import { setFullTerminalDocumentMode } from "./full-terminal-state";
 import { getFullTerminalView, subscribeFullTerminalView } from "./full-terminal-view";
 import type { FullTerminalControlsOptions } from "./full-terminal-compose";
 import type { RemoteScroll } from "./full-terminal-scroll";
 import { FullTerminalPad } from "./full-terminal-pad";
 import { FullTerminalHost } from "./full-terminal-host";
-import { BackButton, Button } from "../../../shared/ui/primitives";
-import { SessionActions } from "../guided/session-chrome";
+import { SessionIdentity } from "../guided/session-chrome";
 import type { FullTerminalViewSnapshot } from "./full-terminal-view";
 
 export type FullTerminalScreenProps = {
   onBack: () => void;
-  /** The title opens the session switcher, as it does in the other two modes. */
-  onSwitch: () => void;
   onWorkspace: () => void;
   onMenu: () => void;
-  onStop: () => void;
   onRetry: () => void;
   scroll: RemoteScroll;
   pageLines: () => number;
@@ -29,6 +27,7 @@ export type FullTerminalScreenProps = {
  * Complete-terminal shell for the session root.
  *
  * DOM: `.pane-root.full-terminal-root[data-pane-id] > header.chrome.full-terminal-chrome`
+ * (the shared `SessionIdentity`, so the header matches the list card and the other two modes)
  * then `.full-terminal-host` (state, scroll rail, pan/canvas) then `.full-terminal-pad`.
  * Persist one React root; do not remount the canvas per snapshot. Engine attach
  * runs after commit. `finishSessionPaint` is not used here.
@@ -41,30 +40,19 @@ export function FullTerminalScreen(props: FullTerminalScreenProps) {
   return <FullTerminalBody key={view.owner} view={view} {...props} />;
 }
 
-function FullTerminalBody({ view, onBack, onSwitch, onWorkspace, onMenu, onStop, onRetry, scroll, pageLines, controls, engineActive }: FullTerminalScreenProps & { view: FullTerminalViewSnapshot }) {
+function FullTerminalBody({ view, onBack, onWorkspace, onMenu, onRetry, scroll, pageLines, controls, engineActive }: FullTerminalScreenProps & { view: FullTerminalViewSnapshot }) {
   // The fallback follows the session domain's frozen snapshot: the terminal
   // shell is active exactly while the session domain says the complete
   // terminal is mounted.
   const session = useSession();
   const active = engineActive ?? session.fullTerminal;
-  const aria = view.detail
-    ? t("chrome.switchAriaMeta", { title: view.title, line: resolveCopy(view.detail) })
-    : t("chrome.switchAria", { title: view.title });
+  const selected = agentFromDashboardSnapshot(useDashboard(), view.paneId);
+  // Connection progress and failures belong to the state layer over the
+  // terminal; the header only says whose terminal this is.
   return (
     <div className="pane-root full-terminal-root" data-pane-id={view.paneId} data-terminal-owner={view.owner} data-react-full-terminal="">
-      <header className="chrome full-terminal-chrome">
-        <BackButton onBack={onBack} label={t("chrome.backList")} />
-        <Button className="full-terminal-heading" aria-haspopup="dialog" aria-label={aria} title={aria} onClick={onSwitch}>
-          <strong className="full-terminal-title">{view.title}</strong>
-          <span className="full-terminal-status">{resolveCopy(view.detail)}</span>
-        </Button>
-        <SessionActions
-          onWorkspace={onWorkspace}
-          onMenu={onMenu}
-          onStop={onStop}
-          working={view.working}
-        />
-      </header>
+      <SessionIdentity agent={selected} fallbackTitle={view.title || t("title.terminal")} includeBack
+        handlers={{ onBack, onWorkspace, onMenu }} className="full-terminal-chrome" />
       <FullTerminalHost
         paneId={view.paneId}
         active={active}

@@ -172,12 +172,16 @@ describe("react complete-terminal shell", () => {
     expect([...root.children].map((el) => el.className.split(" ")[0])).toEqual(["chrome", "full-terminal-host", "full-terminal-pad"]);
     expect(host?.contains(root.querySelector(".full-terminal-scroll")!)).toBeTrue();
     expect(host?.querySelector(".full-terminal-pan > .full-terminal-canvas")).toBeTruthy();
-    expect(chrome?.querySelector(".full-terminal-title")).toBeTruthy();
-    expect(chrome?.querySelector(".full-terminal-status")?.textContent).toBe(resolveCopy(getFullTerminalView().detail));
+    // The shared session identity: same title and status word as the list card.
+    expect(chrome?.querySelector(".chrome-name")?.textContent).toBeTruthy();
+    expect(chrome?.querySelector(".chrome-avatar .agent-avatar")).toBeTruthy();
+    expect(chrome?.querySelector(".chrome-status")?.textContent).toBe(t("status.working"));
     expect(chrome?.querySelector(".icon-workspace")).toBeTruthy();
     expect(chrome?.querySelector(".icon-more")).toBeTruthy();
     expect(getFullTerminalView().working).toBeTrue();
-    expect(chrome?.querySelector(".icon-stop")).toBeTruthy();
+    // Stopping lives on the send button now; the header never grows a stop target.
+    expect(chrome?.querySelector(".icon-stop")).toBeNull();
+    expect(app.querySelector(".full-terminal-state-detail")?.textContent).toBe(resolveCopy(getFullTerminalView().detail));
     expect(app.querySelector(".full-terminal-state")?.getAttribute("role")).toBe("status");
     await waitUntil(() => Boolean(app.querySelector(".xterm")), "xterm");
     // Fully settle the terminal open (live stage) before asserting the mounted
@@ -287,24 +291,22 @@ describe("react complete-terminal shell", () => {
     expect(layer.getAttribute("aria-live")).toBe("assertive");
     expect(layer.querySelector<HTMLButtonElement>(".full-terminal-state-retry")?.hidden).toBeFalse();
     expect(getFullTerminalView().retry).toBeTrue();
-    expect(app.querySelector(".full-terminal-status")?.textContent).toBe(resolveCopy(getFullTerminalView().detail));
+    // Connection progress and failures are the state layer's to announce.
+    expect(layer.querySelector(".full-terminal-state-detail")?.textContent).toBe(resolveCopy(getFullTerminalView().detail));
   });
 
   test("FullTerminalScreen is the route component", () => {
     // Isolated component boundary: a private fixture root renders only the
     // shell with explicit ports; it never uses the App screen bridge.
     let isolated: Root | null = null;
-    let switched = 0;
     const container = document.createElement("div");
     document.body.append(container);
     act(() => {
       isolated = createRoot(container);
       isolated.render(createElement(FullTerminalScreen, {
         onBack: () => undefined,
-        onSwitch: () => { switched++; },
         onWorkspace: () => undefined,
         onMenu: () => undefined,
-        onStop: () => undefined,
         onRetry: () => undefined,
         scroll: () => undefined,
         pageLines: () => 23,
@@ -314,15 +316,12 @@ describe("react complete-terminal shell", () => {
     });
     expect(container.querySelector(".full-terminal-root")).toBeTruthy();
     expect(container.querySelector("[data-react-full-terminal]")).toBeTruthy();
-    // The title opens the session switcher, as in the other two modes, and
-    // keeps the title/status structure the rest of the shell reads.
-    const heading = container.querySelector<HTMLButtonElement>("button.full-terminal-heading");
+    // The same display-only identity as the other two modes: not a button.
+    const heading = container.querySelector<HTMLElement>(".full-terminal-chrome .chrome-title");
     expect(heading).toBeTruthy();
-    expect(heading!.getAttribute("aria-haspopup")).toBe("dialog");
-    expect(heading!.querySelector(".full-terminal-title")).toBeTruthy();
-    expect(heading!.querySelector(".full-terminal-status")).toBeTruthy();
-    act(() => heading!.click());
-    expect(switched).toBe(1);
+    expect(heading!.tagName).toBe("DIV");
+    expect(heading!.querySelector(".chrome-name")?.textContent).toBeTruthy();
+    expect(container.querySelector(".full-terminal-chrome button.full-terminal-heading")).toBeNull();
     act(() => isolated?.unmount());
     container.remove();
   });

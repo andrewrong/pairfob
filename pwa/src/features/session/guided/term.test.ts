@@ -117,18 +117,18 @@ afterEach(() => {
 });
 
 describe("terminal rows stay faithful to the live TUI", () => {
-  test("the tap handler focuses input and never interprets terminal text", () => {
+  test("the tap handler reports rows and never interprets terminal text", () => {
     const tap = body("bindTap");
-    expect(tap).toContain("focusCompose()");
+    expect(tap).toContain("onRow(rowIndex(event.target))");
     expect(tap).toContain("HOLD_MS");
     expect(tap).not.toContain("answerPrompt");
     expect(tap).not.toContain("prompt-select");
   });
 
-  test("a short tap types; a long press opens the row bar", () => {
+  test("a short tap picks a row; a long press is reported as a hold", () => {
     const tap = body("bindTap");
-    expect(tap).toContain("focusCompose()");
-    expect(tap).toContain("onRow(index)");
+    expect(tap).not.toContain("focusCompose()");
+    expect(tap).toContain("gestures?.onHold?.(index, startX, startY)");
     expect(tap).toContain('"scroll"');
     expect(tap).toContain("panned");
   });

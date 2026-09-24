@@ -126,7 +126,7 @@ test("workspace grouping moves parent management to the workspace menu", async (
   expect(labels()).not.toContain(t("op.closeWorkspace"));
   await act(async () => { closeTestDialogs(); await pause(); });
   act(() => openListWorkspaceMenu(targetCard()));
-  expect(labels()).toEqual([t("menu.renameWorkspace"), t("op.closeWorkspace")]);
+  expect(labels()).toEqual([t("menu.openInBoard"), t("menu.renameWorkspace"), t("op.closeWorkspace")]);
 });
 
 test("new-tab capability gates both card and workspace entry without offering split", async () => {

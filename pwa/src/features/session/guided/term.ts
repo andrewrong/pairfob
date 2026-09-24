@@ -8,7 +8,6 @@ import { commitView } from "../../../app/host";
 import { clampTermFont, saveTermFont, setTermFontPx, setTermWrap, termFontPx, termLineHeightPx, termWrap } from "../../settings/preferences-store";
 import { appRoot } from "../../../app/dom-root";
 import { haptic } from "../../../lib/dom";
-import { focusCompose } from "./compose";
 
 import { guidedScrollController } from "./guided-scroll";
 import { pageLineCount } from "../full-terminal/full-terminal-scroll";
@@ -197,15 +196,36 @@ function rowIndex(target: EventTarget | null): number {
   return Number.isFinite(index) ? index : -1;
 }
 
+export type TermGestures = {
+  /** A long press anywhere on the buffer. */
+  onHold?: (index: number, x: number, y: number) => void;
+  /** The reader started moving the buffer by hand (not a follow-output scroll). */
+  onPan?: () => void;
+};
+
+function softKeyboardOpen(doc: Document): boolean {
+  return doc.documentElement.dataset.kb === "open";
+}
+
+/** Blur whatever holds focus so the soft keyboard goes down; the dock stays as it is. */
+function dismissKeyboard(doc: Document): void {
+  const active = doc.activeElement;
+  if (active instanceof HTMLElement && active !== doc.body) active.blur();
+}
+
 /**
- * Short tap focuses terminal input. Long-press opens the copy/quote bar. A
- * drag is a pan, not a tap. Terminal rows never invent controls from text.
+ * A short tap on a row reports it (the floating row actions); a tap on blank
+ * space reports -1. While the soft keyboard is up, the first tap only puts it
+ * away: the reader is reaching for the output, not for a row. Long-press is
+ * reported separately, and a drag is a pan, not a tap. Terminal rows never
+ * invent controls from text.
  */
-export function bindTap(term: HTMLElement, onRow: (index: number) => void): () => void {
+export function bindTap(term: HTMLElement, onRow: (index: number) => void, gestures?: TermGestures): () => void {
   let startX = 0;
   let startY = 0;
   let armed = false;
   let panned = false;
+  let keyboardAtDown = false;
   let hold: number | null = null;
   let retired = false;
   const clearHold = () => {
@@ -217,10 +237,17 @@ export function bindTap(term: HTMLElement, onRow: (index: number) => void): () =
     armed = false;
     clearHold();
   };
+  const pan = () => {
+    const wasArmed = armed;
+    panned = true;
+    cancel();
+    if (wasArmed) gestures?.onPan?.();
+  };
   const onDown = (event: PointerEvent) => {
     if (retired || !event.isPrimary || termSelect() || isPageZoomed(term.ownerDocument)) return;
     armed = true;
     panned = false;
+    keyboardAtDown = softKeyboardOpen(term.ownerDocument);
     startX = event.clientX;
     startY = event.clientY;
     const index = rowIndex(event.target);
@@ -228,21 +255,27 @@ export function bindTap(term: HTMLElement, onRow: (index: number) => void): () =
     hold = window.setTimeout(() => {
       hold = null;
       armed = false;
-      if (retired || panned || index < 0) return;
+      if (retired || panned) return;
       haptic(8);
-      onRow(index);
+      gestures?.onHold?.(index, startX, startY);
     }, HOLD_MS);
   };
   const onMove = (event: PointerEvent) => {
     if (retired || !armed) return;
-    if (Math.abs(event.clientX - startX) > TAP_SLOP_PX || Math.abs(event.clientY - startY) > TAP_SLOP_PX) {
-      panned = true;
-      cancel();
-    }
+    if (Math.abs(event.clientX - startX) > TAP_SLOP_PX || Math.abs(event.clientY - startY) > TAP_SLOP_PX) pan();
   };
+  // Output that follows the bottom scrolls too; only a scroll under a finger
+  // (or the browser taking the gesture over) is the reader moving the buffer.
   const onScroll = () => {
-    panned = true;
-    cancel();
+    if (armed) pan();
+    else panned = true;
+  };
+  const onBrowserPan = () => {
+    if (retired) return;
+    if (armed) pan();
+  };
+  const onWheel = () => {
+    if (!retired) gestures?.onPan?.();
   };
   const onUp = (event: PointerEvent) => {
     const wasArmed = armed;
@@ -252,8 +285,12 @@ export function bindTap(term: HTMLElement, onRow: (index: number) => void): () =
     if (retired || !wasArmed || !shortTap || moved || termSelect()) return;
     if (Math.abs(event.clientX - startX) > TAP_SLOP_PX || Math.abs(event.clientY - startY) > TAP_SLOP_PX) return;
     if (!window.getSelection()?.isCollapsed) return;
+    if (keyboardAtDown) {
+      dismissKeyboard(term.ownerDocument);
+      return;
+    }
     haptic(4);
-    focusCompose();
+    onRow(rowIndex(event.target));
   };
   const onContextMenu = (event: Event) => {
     if (termSelect()) return;
@@ -262,8 +299,9 @@ export function bindTap(term: HTMLElement, onRow: (index: number) => void): () =
   term.addEventListener("pointerdown", onDown, { passive: true });
   term.addEventListener("pointermove", onMove, { passive: true });
   term.addEventListener("scroll", onScroll, { passive: true });
+  term.addEventListener("wheel", onWheel, { passive: true });
   term.addEventListener("pointerup", onUp, { passive: true });
-  term.addEventListener("pointercancel", cancel);
+  term.addEventListener("pointercancel", onBrowserPan);
   term.addEventListener("contextmenu", onContextMenu);
   return () => {
     retired = true;
@@ -271,10 +309,63 @@ export function bindTap(term: HTMLElement, onRow: (index: number) => void): () =
     term.removeEventListener("pointerdown", onDown);
     term.removeEventListener("pointermove", onMove);
     term.removeEventListener("scroll", onScroll);
+    term.removeEventListener("wheel", onWheel);
     term.removeEventListener("pointerup", onUp);
-    term.removeEventListener("pointercancel", cancel);
+    term.removeEventListener("pointercancel", onBrowserPan);
     term.removeEventListener("contextmenu", onContextMenu);
   };
+}
+
+/** The word under a point, or the whole row when there is no point or the engine cannot say. */
+function selectionStart(term: HTMLElement, index: number, point: { x: number; y: number } | null): Range | null {
+  const doc = term.ownerDocument;
+  const caret = point ? doc.caretRangeFromPoint?.(point.x, point.y) ?? null : null;
+  const node = caret?.startContainer;
+  if (caret && node instanceof Text && term.contains(node)) {
+    const text = node.data;
+    let start = Math.min(caret.startOffset, text.length);
+    let end = start;
+    while (start > 0 && /\S/.test(text[start - 1])) start -= 1;
+    while (end < text.length && /\S/.test(text[end])) end += 1;
+    if (end > start) {
+      const range = doc.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, end);
+      return range;
+    }
+  }
+  const row = index >= 0 ? term.querySelector<HTMLElement>(`.term-line[data-row="${index}"]`) : null;
+  if (!row?.textContent?.trim()) return null;
+  const range = doc.createRange();
+  range.selectNodeContents(row);
+  return range;
+}
+
+function enterSelection(index: number, point: { x: number; y: number } | null): void {
+  const doc = termElement()?.ownerDocument ?? document;
+  if (softKeyboardOpen(doc)) dismissKeyboard(doc);
+  toggleTermSelect(true);
+  const term = termElement();
+  const selection = window.getSelection();
+  if (!term || !selection) return;
+  const range = selectionStart(term, index, point);
+  if (!range) return;
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+/**
+ * Long-press goes straight into native selection: switch the buffer to
+ * selectable text and start the selection where the finger is, so the system
+ * handles appear without a second long-press.
+ */
+export function selectFromHold(index: number, x: number, y: number): void {
+  enterSelection(index, { x, y });
+}
+
+/** "Select…" on a row: the same mode, starting from the whole row. */
+export function selectTermRow(index: number): void {
+  enterSelection(index, null);
 }
 
 /**

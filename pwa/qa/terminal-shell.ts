@@ -63,10 +63,8 @@ export function renderTerminalShell(error: boolean): void {
   shellRoot.render(
     createElement(FullTerminalScreen, {
       onBack: action("back"),
-      onSwitch: action("switch"),
       onWorkspace: action("workspace"),
       onMenu: action("menu"),
-      onStop: action("stop"),
       onRetry: action("retry"),
       scroll: (...args) => { record("lifecycle", "terminalShell.scroll", args); },
       pageLines: () => 23,

@@ -1,8 +1,6 @@
 import { encodeLiveKey } from "../keypad/live-key";
 import { appRoot } from "../../../app/dom-root";
 import {
-  COMPOSE_MAX_PX,
-  COMPOSE_MIN_PX,
   composeDraft,
   composeFocused,
   composeIME,
@@ -20,7 +18,7 @@ import { haptic } from "../../../lib/dom";
 import { messageOf } from "../../../lib/notices";
 import { currentDaemonId, liveSession } from "../../computers/catalog-store";
 import { currentScreen } from "../../../app/navigation-store";
-import { isAgentChat, isFullTerminal, livePaneHash, openPaneId } from "../session-store";
+import { isAgentChat, isFullTerminal, livePaneHash, openPaneId, paneFollow } from "../session-store";
 import { currentViewIncarnation } from "../drafts/compose-drafts";
 import { type ComposeDraftScope, type ComposeInputMode } from "../../../lib/compose-draft-scope";
 import { guardedReply } from "../../../lib/guarded";
@@ -37,6 +35,9 @@ import { composeDraftMode } from "../model";
 import { predictText } from "./echo";
 import { flushKeys, queueKey } from "./keys";
 import { LiveInputPump } from "./live-input";
+import { fitComposeHeight } from "../compose-size";
+import { returnAddsNewline, withQuickCommand, withSlashCommand } from "../compose-keys";
+import { acceptComposePaste, attachmentMessage, markSentAttachments, requestSend } from "./send-gate";
 
 const SPECIAL_KEYS: Record<string, string> = {
   Enter: "enter",
@@ -72,9 +73,14 @@ export function focusCompose(): void {
   field.setSelectionRange(caret, caret);
 }
 
+/**
+ * Grow the field with its draft. The terminal above shrinks by the same amount,
+ * so a reader following the tail stays on the tail.
+ */
 export function sizeCompose(field: HTMLTextAreaElement): void {
-  field.style.height = "auto";
-  field.style.height = `${Math.min(Math.max(field.scrollHeight, COMPOSE_MIN_PX), COMPOSE_MAX_PX)}px`;
+  if (!fitComposeHeight(field) || !paneFollow()) return;
+  const term = appRoot().querySelector<HTMLElement>(".term");
+  if (term) term.scrollTop = term.scrollHeight;
 }
 
 export function preserveCompose(): boolean {
@@ -403,6 +409,46 @@ export function insertCompose(text: string): void {
   focusComposeField(field);
 }
 
+function placeInField(next: string, caret: number): void {
+  setComposeDraft(next);
+  const field = composeField();
+  if (!field) return;
+  field.value = next;
+  sizeCompose(field);
+  syncSendButton();
+  focusComposeField(field);
+  field.setSelectionRange(caret, caret);
+  haptic(4);
+}
+
+/**
+ * Contract for the command pad (session page v2). A slash command goes to the
+ * start of the draft and keeps what was written after it — write the goal,
+ * then tap /goal — and an existing leading slash command is replaced. Never
+ * sends Enter.
+ */
+export function insertSlashCommand(token: string): void {
+  if (composeLive()) {
+    typeLive(token);
+    return;
+  }
+  const next = fitOperationPrompt(withSlashCommand(composeDraft(), token)).text;
+  placeInField(next, next.length);
+}
+
+/** Contract for the command pad: a saved command goes in at the caret; an empty draft is filled. */
+export function insertQuickCommand(text: string): void {
+  if (composeLive()) {
+    typeLive(text);
+    return;
+  }
+  const field = composeField();
+  const draft = field?.value ?? composeDraft();
+  const { next, caret } = withQuickCommand(draft, field?.selectionStart ?? draft.length, field?.selectionEnd ?? draft.length, text);
+  const fitted = fitOperationPrompt(next).text;
+  placeInField(fitted, Math.min(fitted.length, caret));
+}
+
 /** Replace the draft with a slash token. Does not send Enter. */
 export function setComposeText(text: string): void {
   if (composeLive()) {
@@ -431,18 +477,22 @@ const RETRYABLE_GUARDED_READ = new Set(["backpressure", "daemon_replaced", "disc
 async function guardedSubmit(
   session: LiveSession,
   paneId: string,
-  text: string,
+  message: { text: string; draft: string; attachments: boolean },
   noticeScope: NoticeScope,
   incarnation: number,
 ): Promise<"sent" | "stalled" | "cancelled"> {
   const isActive = () => liveSession() === session && currentViewIncarnation() === incarnation
     && currentScreen() === "pane" && openPaneId() === paneId && noticeScopeIsCurrent(noticeScope);
   return guardedReply({
-    text,
+    text: message.text,
     isActive,
     sendText: async (value) => {
       await session.sendText(paneId, value);
-      if (isActive() && composeDraft() === value) clearComposeDraft();
+      if (!isActive()) return;
+      // The text is in the terminal now: the draft and the attached paths it
+      // carried must not be offered again, whether or not Enter follows.
+      if (composeDraft() === message.draft) clearComposeDraft();
+      if (message.attachments) markSentAttachments();
     },
     // Matching the daemon's bounds makes this hash a proof of the exact screen
     // it will check immediately before sending Enter.
@@ -463,18 +513,36 @@ async function submitLiveEnter(): Promise<void> {
   queueKey("enter");
 }
 
+/**
+ * Send the draft with its ready attachments. Uploads still running make the
+ * send wait (see send-gate); an empty message is a deliberate bare Enter.
+ */
 export async function submitTyped(allowBareEnter = false): Promise<void> {
+  await requestSend((paths) => submitMessage(paths, allowBareEnter));
+}
+
+async function submitMessage(paths: readonly string[], allowBareEnter: boolean): Promise<void> {
   if (composeLive()) {
-    if (!allowBareEnter) return;
-    await submitLiveEnter();
-    return;
+    if (!paths.length) {
+      if (allowBareEnter) await submitLiveEnter();
+      return;
+    }
+    // Paths cannot be typed live (their newlines would be Enter presses):
+    // the message goes through the composed path instead.
+    await setComposeLive(false);
+    if (composeLive()) return;
   }
   const session = liveSession();
   if (!session || !openPaneId() || submitBusy) return;
   const paneId = openPaneId();
-  const text = composeDraft();
+  const draft = composeDraft();
+  const text = attachmentMessage(draft, paths);
   if (!text.trim()) {
     if (allowBareEnter) queueKey("enter");
+    return;
+  }
+  if (fitOperationPrompt(text).truncated) {
+    showError(t("compose2.tooLong"));
     return;
   }
   submitBusy = true;
@@ -484,7 +552,7 @@ export async function submitTyped(allowBareEnter = false): Promise<void> {
   const ownsSubmit = () => liveSession() === session && currentViewIncarnation() === incarnation && noticeScopeIsCurrent(noticeScope);
   try {
     await flushKeys();
-    const outcome = await guardedSubmit(session, paneId, text, noticeScope, incarnation);
+    const outcome = await guardedSubmit(session, paneId, { text, draft, attachments: paths.length > 0 }, noticeScope, incarnation);
     if (!ownsSubmit()) return;
     if (outcome === "cancelled") {
       clearNoticeForScope(noticeScope);
@@ -628,8 +696,13 @@ export function bindTermField(input: HTMLTextAreaElement): () => void {
       if (document.activeElement !== composeField()) setComposeFocused(false);
     }, 0);
   };
-  const onKeyDown = (event: KeyboardEvent) => handlePaneKey(event, true);
+  const onKeyDown = (event: KeyboardEvent) => {
+    // The phone field lets Return add a line; live input keeps Enter for the PTY.
+    if (!composeLive() && returnAddsNewline(event, input.id === "compose-text-mobile")) return;
+    handlePaneKey(event, true);
+  };
   input.addEventListener("input", onInput);
+  input.addEventListener("paste", acceptComposePaste);
   input.addEventListener("compositionstart", onCompositionStart);
   input.addEventListener("compositionend", onCompositionEnd);
   input.addEventListener("focus", onFocus);
@@ -643,5 +716,6 @@ export function bindTermField(input: HTMLTextAreaElement): () => void {
     input.removeEventListener("focus", onFocus);
     input.removeEventListener("blur", onBlur);
     input.removeEventListener("keydown", onKeyDown);
+    input.removeEventListener("paste", acceptComposePaste);
   };
 }

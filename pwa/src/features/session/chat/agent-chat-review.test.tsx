@@ -23,6 +23,7 @@ import { setScreen } from "../../../app/navigation-store";
 import { bindSessionOwnerFromLive } from "../bind-live";
 import { AgentChatPane } from "./agent-chat";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
+import { COMPOSE_ENTER_SENDS_KEY, setComposeEnterSends } from "../../settings/preferences-store";
 
 const handlers = { onBack() {}, onWorkspace() {}, onMenu() {}, onSwitch() {} };
 const page = (text: string): AgentTracePage => ({ items: [
@@ -236,6 +237,20 @@ test("a retired trace request cannot overwrite the new pane or release its activ
 });
 
 test("IME text and selection survive notice/chrome publications and Enter does not submit early", async () => {
+  // Keyboard Enter submits only where Return sends: an external keyboard or the
+  // "Return sends" preference (a phone's Return adds a line by default).
+  const enterSendsRaw = localStorage.getItem(COMPOSE_ENTER_SENDS_KEY);
+  setComposeEnterSends(true);
+  try {
+    await imeEnterCase();
+  } finally {
+    setComposeEnterSends(false);
+    if (enterSendsRaw === null) localStorage.removeItem(COMPOSE_ENTER_SENDS_KEY);
+    else localStorage.setItem(COMPOSE_ENTER_SENDS_KEY, enterSendsRaw);
+  }
+});
+
+async function imeEnterCase(): Promise<void> {
   const submitted: string[] = [];
   const pending = deferred<unknown>();
   setSession({ promptAgent: (input: { text: string }) => { submitted.push(input.text); return pending.promise; } });
@@ -269,7 +284,7 @@ test("IME text and selection survive notice/chrome publications and Enter does n
   expect(submitted).toEqual(["Confirmed text"]);
   await act(async () => { pending.resolve({ outcome: "applied" }); await Promise.resolve(); });
   await drain();
-});
+}
 
 test("the detached composer releases every input/composition/key listener", () => {
   let submits = 0;
@@ -403,4 +418,48 @@ test("unreadable Pi transcript keeps a terminal exit after one successful send a
   expect(stream().textContent).toContain("Recovered answer");
   expect(stream().querySelector(".agent-open-terminal")).toBeNull();
   expect(sends).toBe(1);
+});
+
+test("ready attachments ride with the prompt and leave the tray only once it went", async () => {
+  const { connectSendAttachments, resetSendGate } = await import("../guided/send-gate");
+  const { submitAgentMessage } = await import("./agent-compose");
+  const submitted: string[] = [];
+  let fail = true;
+  let marked = 0;
+  setSession({
+    promptAgent: async (input: { text: string }) => {
+      submitted.push(input.text);
+      if (fail) throw new ProtocolError("rejected", "busy");
+      return { outcome: "applied" };
+    },
+  });
+  act(mount);
+  // After mount, so the chrome's own connection of the real tray is replaced.
+  connectSendAttachments({
+    state: () => ({ readyPaths: ["/w/a.png", "/w/b.png"], pending: 0, blocked: 0 }),
+    subscribe: () => () => undefined,
+    markSent: () => { marked++; },
+    retryBlocked: () => undefined,
+    dropBlocked: () => undefined,
+    acceptPaste: () => false,
+  });
+  try {
+    act(() => { setComposeDraft("compare these"); field().value = "compare these"; });
+    await act(async () => { await submitAgentMessage(); });
+    await drain();
+    expect(submitted).toEqual(["compare these\n\n/w/a.png\n/w/b.png"]);
+    // A failed prompt puts back what the reader wrote, never the paths.
+    expect(composeDraft()).toBe("compare these");
+    expect(field().value).toBe("compare these");
+    expect(marked).toBe(0);
+
+    fail = false;
+    await act(async () => { await submitAgentMessage(); });
+    await drain();
+    expect(submitted.at(-1)).toBe("compare these\n\n/w/a.png\n/w/b.png");
+    expect(composeDraft()).toBe("");
+    expect(marked).toBe(1);
+  } finally {
+    resetSendGate();
+  }
 });

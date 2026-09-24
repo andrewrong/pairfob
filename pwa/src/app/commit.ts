@@ -1,7 +1,7 @@
 import { flushSync } from "react-dom";
 import { syncFrameLayout } from "./frame";
 import { prepareFrame } from "./frame-prepare";
-import type { CommitOptions } from "./host";
+import { commitsHeld, type CommitOptions } from "./host";
 import { refreshLayout } from "./layout-store";
 import { applyShell, type ShellLayout } from "./shell";
 import { publishPendingDomains } from "./domain-publication";
@@ -25,7 +25,10 @@ import { takeTransition, withSynchronousTransition } from "./transition";
  * scrolled and focused right after the paint. The declared transition for that
  * synchronous path is the arrival-only CSS fallback (shared with the ordinary
  * adapter), never a native ViewTransition: native capture defers its update
- * callback, which the synchronous controller boundary does not promise. An
+ * callback, which the synchronous controller boundary does not promise. The one
+ * navigation that does want native capture — list ↔ pane — goes through the
+ * asynchronous `navigateWithTransition` adapter, which holds this pipeline
+ * (`holdCommits`) until its update callback commits. An
  * ordinary update — a poll, an echo, a settings value — lets React schedule the
  * render.
  *
@@ -109,6 +112,9 @@ export function commitApp(options: CommitOptions = {}): void {
   // Cancel a coalesced request: this commit is the one it asked for.
   scheduled = false;
   scheduledToken += 1;
+  // A deferred navigation is waiting for its old-page capture; its holder
+  // commits everything staged the moment the capture is done.
+  if (commitsHeld()) return;
   if (committing) return;
   if (notifying) {
     recommit = true;

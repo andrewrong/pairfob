@@ -13,6 +13,10 @@ const { clearModifiers, pressModifier, releaseModifier } = await import("../keyp
 const { FullTerminalPad } = await import("./full-terminal-pad");
 const padSource = await Bun.file(new URL("./full-terminal-pad.tsx", import.meta.url)).text();
 
+function kindOption(label: "按键" | "命令"): HTMLButtonElement {
+  return [...appRoot().querySelectorAll<HTMLButtonElement>(".pad-kind-option")].find((el) => el.textContent === label)!;
+}
+
 function keyboard() {
   let open = false;
   return {
@@ -81,9 +85,11 @@ describe("React full-terminal pad", () => {
     expect(appRoot().querySelector("textarea") === input).toBeTrue();
     expect(document.activeElement === input).toBeTrue();
     expect([input.selectionStart, input.selectionEnd]).toEqual([1, 3]);
-    expect(appRoot().textContent).toContain("Ctrl+C");
-    expect(appRoot().textContent).toContain("Opt");
-    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("切换到命令");
+    expect(appRoot().querySelector('[aria-label="Ctrl+C"]')).toBeTruthy();
+    expect(appRoot().querySelector('[aria-label="Alt / Option"]')?.textContent).toBe("Alt");
+    expect(appRoot().textContent).not.toContain("Opt");
+    expect(appRoot().textContent).not.toContain("换行");
+    expect(kindOption("按键").getAttribute("aria-pressed")).toBe("true");
   });
 
   test("expanded commands fill compose in batch and send text without Enter in live", async () => {
@@ -93,10 +99,9 @@ describe("React full-terminal pad", () => {
     const sent: Array<[string, boolean]> = [];
     const options = { sendKey: () => undefined, sendCompose: (text: string, enter: boolean) => { sent.push([text, enter]); return true; }, keyboard: keyboard(), desk: false };
     renderReact(createElement(FullTerminalPad, { options }));
-    const commandMode = appRoot().querySelector<HTMLButtonElement>(".pad-mode")!;
-    await act(() => { commandMode.click(); });
+    await act(() => { kindOption("命令").click(); });
     expect(padKind()).toBe("slash");
-    expect(appRoot().querySelector(".pad-mode")?.textContent).toBe("命令");
+    expect(kindOption("命令").getAttribute("aria-pressed")).toBe("true");
     expect([...appRoot().querySelectorAll(".slash-cmd")].map((el) => el.textContent)).toEqual(SLASH_COMMANDS.map((c) => c.label));
     await act(() => { (appRoot().querySelector('[aria-label="插入 /goal，接着填目标"]') as HTMLButtonElement).click(); });
     expect(composeDraft()).toBe("/goal ");
@@ -139,7 +144,7 @@ describe("React full-terminal pad", () => {
 });
 
 
-test("Opt then arrow reaches the full terminal as one complete chord", async () => {
+test("Alt then arrow reaches the full terminal as one complete chord", async () => {
   const sent: string[] = [];
   paint(key => sent.push(key));
   await act(async () => {
@@ -156,10 +161,10 @@ test("second key page sends literal choices without Enter and editing chords int
   await act(() => { paint(key => sent.push(key)); });
   await act(() => { (appRoot().querySelectorAll<HTMLButtonElement>(".pad-page-dot")[1])!.click(); });
   expect(appRoot().querySelectorAll(".pad-page .key")).toHaveLength(14);
-  for (const name of ["Shift+Tab", "Ctrl+W", "Alt+B", "1", "Y", "N"]) {
+  for (const name of ["Ctrl+Y", "Alt+B", "1", "Y", "N", "空格"]) {
     await act(() => { appRoot().querySelector<HTMLButtonElement>(`[aria-label="${name}"]`)!.click(); });
   }
-  expect(sent).toEqual(["shift+tab", "ctrl+w", "alt+b", "1", "y", "n"]);
+  expect(sent).toEqual(["ctrl+y", "alt+b", "1", "y", "n", "space"]);
 });
 
 test("custom prompts fill and focus a draft in both input modes without transmitting", async () => {
@@ -180,7 +185,8 @@ test("custom prompts fill and focus a draft in both input modes without transmit
     expect(document.activeElement).toBe(field);
     await act(() => { setQuickCommands([{ id: "custom", label: "Custom", text: "Next draft", pinned: true }]); });
     await act(() => { appRoot().querySelector<HTMLButtonElement>(".quick-cmd")!.click(); });
-    expect(field.value).toBe("Next draft");
+    // A saved command goes in at the caret; it never replaces the draft.
+    expect(field.value).toBe("Review this change Next draft");
     expect(sent).toEqual([]);
   } finally { resetPreferences(); localStorage.removeItem("pairfob:quickCommands"); }
 });

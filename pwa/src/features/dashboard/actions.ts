@@ -21,8 +21,6 @@ export type HerdActionPorts = {
   /** `groupIds` is the order the clicked list was rendered from. */
   toggleGroup(groupId: string, groupIds: string[]): void;
   openBoard(): void;
-  /** Hand the outgoing card title to the view transition that opens the pane. */
-  shareTitle(element: HTMLElement | null): void;
   /** Object menus read the record when the press lands, so the page owns them. */
   openPaneMenu(agent: AgentCard): void;
   openWorkspaceMenu(agent: AgentCard): void;
@@ -39,6 +37,7 @@ export type HerdActionPorts = {
 };
 
 export type HerdActions = {
+  /** `title` is inside the tapped card: the card grows into the pane from there. */
   openPaneFromCard(paneId: string, title: HTMLElement | null): void;
   openPaneMenu(agent: AgentCard): void;
   openWorkspaceMenu(agent: AgentCard | undefined): void;
@@ -50,7 +49,8 @@ export type HerdActions = {
   runEmptyAction(kind: EmptySessionAction): void;
   openHostMenu(): void;
   openGroupModeMenu(): void;
-  openAttention(paneId: string): void;
+  /** `source` is the tapped ticket, which grows into the pane like a card. */
+  openAttention(paneId: string, source?: HTMLElement | null): void;
   /** Open the group and scroll to its next waiting / unread row. The screen owns this. */
   revealAttention(groupId: string, kind: "blocked" | "done"): void;
   createInWorkspace(agent: AgentCard | undefined): void;
@@ -63,8 +63,7 @@ export type HerdActions = {
 export function createHerdActions(ports: HerdActionPorts): HerdActions {
   return {
     openPaneFromCard(paneId, title) {
-      ports.shareTitle(title);
-      void openPane(paneId);
+      void openPane(paneId, title);
     },
     openPaneMenu(agent) {
       if (!ports.canOpenMenu()) return;
@@ -95,8 +94,8 @@ export function createHerdActions(ports: HerdActionPorts): HerdActions {
     openGroupModeMenu() {
       ports.openGroupModeMenu();
     },
-    openAttention(paneId) {
-      void openPane(paneId);
+    openAttention(paneId, source) {
+      void openPane(paneId, source);
     },
     revealAttention() {
       // Replaced by the screen, which owns the fold and the scroll.

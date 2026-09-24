@@ -158,22 +158,24 @@ describe("guided pane no longer overlays earlier output", () => {
   });
 });
 
-describe("interrupt while unverifiable", () => {
-  test("a working pane hides Stop after a disconnect or failed GetConfig", () => {
+describe("status while unverifiable", () => {
+  test("a working pane's header stops claiming work after a disconnect or failed GetConfig", () => {
     bootGuided();
     act(() => { publishGuidedPane("working"); commitView(); });
-    expect(app.querySelector(".icon-stop")).not.toBeNull();
+    expect(app.querySelector(".chrome-status")?.textContent).toBe("工作中");
+    // Stopping lives on the send button; the header never has a stop target.
+    expect(app.querySelector(".chrome .icon-stop")).toBeNull();
 
     act(() => { attachLiveSession({ ...live(), isConnected: () => false } as LiveSession); commitView(); });
-    expect(app.querySelector(".icon-stop")).toBeNull();
-    expect(app.querySelector(".chrome-meta-text")?.textContent).toContain("未知");
+    expect(app.querySelector(".chrome-status")?.textContent).toContain("未知");
+    expect(app.querySelector(".chrome .agent-avatar-status.is-unknown")).not.toBeNull();
 
     act(() => {
       attachLiveSession(live());
       applyRuntimeIdentity({ herdHost: runtimeIdentity().herdHost, runtimeKind: "" });
       commitView();
     });
-    expect(app.querySelector(".icon-stop")).toBeNull();
+    expect(app.querySelector(".chrome-status")?.textContent).toContain("未知");
   });
 });
 

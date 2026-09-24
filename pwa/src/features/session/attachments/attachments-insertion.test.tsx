@@ -17,11 +17,11 @@ import { resetComposeDrafts } from "../drafts/compose-drafts";
 import { SessionCompose } from "../guided/session-compose";
 import {
   addPickedFiles,
-  insertPaths,
   setAttachmentTransferPort,
   settleTransferQueue,
   startUpload,
 } from "./attachments-controller";
+import { insertPaths } from "./attachments-insertion";
 import { resetAttachmentQueues, attachmentScopeKey, queueSnapshot } from "./attachments-store";
 import type {
   AttachmentTransferOptions,

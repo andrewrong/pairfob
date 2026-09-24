@@ -1,4 +1,4 @@
-import { Check, Star } from "lucide-react";
+import { Check, ChevronLeft, Star } from "lucide-react";
 import { useState } from "react";
 import { t } from "../../lib/i18n";
 import { AgentAvatar, Button } from "../../shared/ui/primitives";
@@ -72,6 +72,24 @@ export function AgentKindPicker({ kinds, memory, selected, onPick, onPinsChange 
       {others.length ? <h3 className="create-label">{t("create.otherGroup")}</h3> : null}
       {others.map(row)}
       <p className="kind-note">{t("create.pickerNote")}</p>
+    </div>
+  );
+}
+
+/**
+ * The full list in place of a create form, with its own way back. The form
+ * stays mounted in its owner's state, so everything already chosen is kept.
+ */
+export function AgentKindPickerPanel({ onBack, ...picker }: Parameters<typeof AgentKindPicker>[0] & { onBack: () => void }) {
+  return (
+    <div className="create-sheet-body is-picking">
+      <div className="create-picker-head">
+        <Button className="icon-btn" aria-label={t("sheet.back")} onClick={onBack}>
+          <ChevronLeft size={22} aria-hidden="true" />
+        </Button>
+        <h3 className="create-picker-title">{t("create.pickerTitle")}</h3>
+      </div>
+      <AgentKindPicker {...picker} />
     </div>
   );
 }

@@ -84,7 +84,7 @@ import { disposeFullTerminal, handleFullTerminalEvent, leaveFullTerminal, leaveF
 import { preloadFullTerminalXterm } from "../session/full-terminal/full-terminal-loader";
 import { resolvedPaneTermMode } from "../session/term-mode";
 import { guidedScrollController } from "../session/guided/guided-scroll";
-import { nextTransition, queuedKind, transitionFor } from "../../app/transition";
+import { navigateWithTransition, nextTransition, queuedKind, transitionFor } from "../../app/transition";
 
 export { retireAgentTraceRefreshes };
 
@@ -328,12 +328,17 @@ export async function refreshHerdConfig(): Promise<boolean> {
 
 export type { PaneNavigation };
 
-export async function openPane(paneId: string): Promise<void> {
-  await openPaneWithOwner(paneId);
+/**
+ * Open a pane. `source` is the list card or "needs you" ticket that was tapped:
+ * only then does the card grow into the pane; every other entry (a new session,
+ * the board, a notification) keeps its ordinary transition.
+ */
+export async function openPane(paneId: string, source?: HTMLElement | null): Promise<void> {
+  await openPaneWithOwner(paneId, source);
 }
 
 /** A completed navigation owns further UI only until another route/session/view wins. */
-export async function openPaneWithOwner(paneId: string): Promise<PaneNavigation | null> {
+export async function openPaneWithOwner(paneId: string, source?: HTMLElement | null): Promise<PaneNavigation | null> {
   return openOwnedPane(paneId, {
     currentLive: liveSession,
     currentIncarnation: currentViewIncarnation,
@@ -350,7 +355,7 @@ export async function openPaneWithOwner(paneId: string): Promise<PaneNavigation 
     currentScreen,
     isFullTerminal,
     findAgent: (id) => dashboardStore.get().agents.find((item) => item.paneId === id),
-    commitView,
+    commitView: source ? () => navigateWithTransition(commitView, { direction: "open", paneId, source }) : commitView,
     refreshPane,
   });
 }

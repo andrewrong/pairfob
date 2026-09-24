@@ -267,9 +267,21 @@ function newItem(meta: IncomingMeta, localId: string): AttachmentItem {
     cancelIntent: false,
   };
   if (kind !== "image") return base;
-  // New images default to smart compression + photo intent; originalBytes is
-  // the source size until a prepare result swaps in a (smaller) upload file.
-  return { ...base, compressionMode: "smart", imageIntent: "photo", originalBytes: meta.size };
+  // Quality defaults by type: camera photos (JPEG, HEIC) start on smart
+  // compression, everything else (PNG screenshots, diagrams) on the original.
+  // originalBytes is the source size until a prepare result swaps in a
+  // (smaller) upload file.
+  const mode = defaultCompressionMode(meta);
+  return { ...base, compressionMode: mode, imageIntent: "photo", originalBytes: meta.size };
+}
+
+const HEIC = /\.hei[cf]$/iu;
+
+/** Photos compress by default; screenshots and other images keep their bytes. */
+export function defaultCompressionMode(meta: IncomingMeta): "smart" | "original" {
+  if (isPhotoOrigin(meta)) return "smart";
+  if (meta.mime === "image/heic" || meta.mime === "image/heif" || HEIC.test(meta.name)) return "smart";
+  return "original";
 }
 
 /** Add reviewed files to a pane queue and hold their browser objects. */
@@ -566,6 +578,93 @@ export function setImageIntent(key: string, localId: string, intent: AttachmentI
 
 export function markInserted(key: string, localId: string): void {
   patchItem(key, localId, { inserted: true });
+}
+
+export function clearInserted(key: string, localId: string): void {
+  patchItem(key, localId, { inserted: false });
+}
+
+/** Tray order is path order on send: move one row to `index` (clamped). */
+export function moveAttachment(key: string, localId: string, index: number): void {
+  withQueue(key, (queue) => {
+    const from = queue.items.findIndex((item) => item.localId === localId);
+    if (from < 0) return;
+    const items = [...queue.items];
+    const [moved] = items.splice(from, 1);
+    const to = Math.max(0, Math.min(items.length, Math.floor(index)));
+    if (to === from) return;
+    items.splice(to, 0, moved);
+    replaceItems(queue, items);
+  });
+}
+
+/** The reader chose to continue restored rows: they now behave like fresh picks. */
+export function clearRestored(key: string, localId: string): void {
+  patchItem(key, localId, { restored: false });
+}
+
+/**
+ * Give a finished (committed or cancelled) row a new local id, in place, as a
+ * fresh queued source. Its old id already has a journal tombstone, so a second
+ * upload under that id could never be persisted for recovery. The runtime
+ * entry moves with the row: the editable source, photo provenance, the
+ * prepared cache and a finished thumbnail survive; any checkpoint must already
+ * be gone. Returns the new id, or null when the row cannot be reissued.
+ */
+export function reissueAttachment(key: string, localId: string): string | null {
+  const item = findItem(key, localId);
+  const entry = runtime.get(runtimeId(key, localId));
+  if (!item || !entry || entry.checkpoint) return null;
+  if (item.status !== "committed" && item.status !== "cancelled") return null;
+  const nextId = `att_${crypto.randomUUID()}`;
+  const thumbPending = item.kind === "image" && !entry.objectUrl;
+  entry.thumbAbort?.abort();
+  entry.thumbAbort = null;
+  entry.abort = null;
+  entry.generation += 1;
+  runtime.delete(runtimeId(key, localId));
+  runtime.set(runtimeId(key, nextId), entry);
+  const ids = runtimeKeys.get(key);
+  ids?.delete(localId);
+  ids?.add(nextId);
+  withQueue(key, (queue) => {
+    replaceItems(queue, queue.items.map((row) => row.localId !== localId ? row : {
+      ...row,
+      localId: nextId,
+      status: "queued" as const,
+      acknowledged: 0,
+      errorText: "",
+      recoverable: false,
+      path: "",
+      inserted: false,
+      cancelIntent: false,
+      restored: false,
+      scheduled: false,
+      transferPhase: undefined,
+      stageTimings: undefined,
+      transferTransport: undefined,
+      speedBps: undefined,
+      etaSeconds: undefined,
+      waiting: false,
+      compressing: false,
+    }));
+  });
+  if (thumbPending) beginThumbnail(key, nextId);
+  return nextId;
+}
+
+/**
+ * Switch one image between smart compression and the original bytes. The
+ * "text & detail" intent only ever kept the original, so choosing a quality
+ * also settles the intent on photo (original mode already skips the codec).
+ * Same guards as setPreference: the row must be safely idle with no remote
+ * handle; a finished row is reissued first by the caller.
+ */
+export function setUploadQuality(key: string, localId: string, quality: "smart" | "original"): boolean {
+  const item = findItem(key, localId);
+  if (!item || item.kind !== "image") return false;
+  if ((item.imageIntent ?? "photo") !== "photo" && !setImageIntent(key, localId, "photo")) return false;
+  return setPreference(key, localId, quality);
 }
 
 export function removeAttachment(key: string, localId: string): void {

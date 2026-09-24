@@ -6,9 +6,7 @@ import { followTrace, setTraceFollow } from "./trace-store";
 import { computersStore } from "../../computers/catalog-store";
 import { useChat, useSession } from "../hooks";
 import { useDashboard } from "../../dashboard/hooks";
-import { agentStatusLabel, chromeName } from "../../../lib/dashboard";
 import { t } from "../../../lib/i18n";
-import { canInterruptAgent } from "../../connection/runtime-status";
 import { loadToolDetail, toolDetailView } from "./agent-chat-detail";
 import { chatDockNotice, copyAgentReply, currentAgentTraceOwnerKey, emptySpec, jumpToLatest, leaveAgentChat,
   patchAgentChat, refreshAgentTrace, rememberAgentViewport, restoreAgentViewport, streamSig, visibleItems,
@@ -21,29 +19,13 @@ import { sessionOwner } from "../identity";
 import { subscribeVisibleNotice, visibleNotice } from "../../../app/notices-store";
 import { AgentCompose } from "./agent-compose";
 import { AgentStream } from "./agent-stream";
-import { BackButton, Button, Feedback } from "../../../shared/ui/primitives";
-import { SessionActions, useStatusUnverifiable } from "../guided/session-chrome";
+import { Button, Feedback } from "../../../shared/ui/primitives";
+import { SessionIdentity } from "../guided/session-chrome";
 
 function AgentChatChrome({ includeBack, handlers }: { includeBack: boolean; handlers: SessionHandlers }) {
   const sessionSnap = useSession();
   const selected = agentFromDashboardSnapshot(useDashboard(), sessionSnap.paneId);
-  const stale = useStatusUnverifiable();
-  const title = selected ? chromeName(selected) : t("mode.agent");
-  const line = selected ? (stale ? t("status.unverifiable") : agentStatusLabel(selected)) : "";
-  const aria = selected ? (line ? t("chrome.switchAriaMeta", { title, line }) : t("chrome.switchAria", { title })) : undefined;
-  return <header className="chrome">
-    {includeBack && <BackButton onBack={handlers.onBack} label={t("chrome.backList")} />}
-    <Button className="chrome-title" onClick={handlers.onSwitch} title={selected ? [title, line].filter(Boolean).join(" · ") : undefined} aria-label={aria}>
-      <span className="chrome-name">{title}</span>
-      {selected && <span className="chrome-meta"><span className={`agent-dot agent-${stale ? "unknown" : selected.status}`} /><span className="chrome-meta-text">{line}</span></span>}
-    </Button>
-    <SessionActions onWorkspace={handlers.onWorkspace} onMenu={handlers.onMenu}
-      working={canInterruptAgent(selected?.status ?? "")} onStop={() => {
-        const session = computersStore.get().live;
-        const paneId = sessionSnap.paneId;
-        if (session && paneId) void session.sendKeys(paneId, ["esc"], { intent: "pad" }).then(() => refreshAgentTrace());
-      }} />
-  </header>;
+  return <SessionIdentity agent={selected} fallbackTitle={t("mode.agent")} includeBack={includeBack} handlers={handlers} />;
 }
 
 type AgentChatProps = { includeBack: boolean; handlers: SessionHandlers };

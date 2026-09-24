@@ -689,5 +689,6 @@ export async function removeItem(scope: AttachmentScope, localId: string): Promi
 // --- Image editing -----------------------------------------------------------------
 export { editImage } from "./attachments-edit";
 
-// --- Draft insertion ---------------------------------------------------------------
-export { insertPaths } from "./attachments-insertion";
+// Draft insertion lives in attachments-insertion.ts and is imported from there
+// directly: it reaches the guided compose controller, which itself imports the
+// send contract, so the controller must not re-export it (import cycle).

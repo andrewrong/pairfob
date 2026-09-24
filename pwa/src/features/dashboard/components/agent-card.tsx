@@ -14,9 +14,11 @@ const TRAILING_WIDTH = 144;
 /**
  * One session row.
  *
- * A tap opens the pane and a hold (or right-click) opens the object menu. On a
- * touch screen a left swipe reveals pin / more, and a right swipe marks an
- * unread completion as read; every swipe action is also in the menu.
+ * A tap opens the pane and the row grows into it (`app/transition` names the
+ * row's avatar and title for that one navigation). A hold (or right-click)
+ * opens the object menu. On a touch screen a left swipe reveals pin / more, and
+ * a right swipe marks an unread completion as read; every swipe action is also
+ * in the menu.
  */
 export function AgentCard({ card, actions }: { card: HerdCardView; actions: HerdActions }) {
   const title = useRef<HTMLSpanElement>(null);
@@ -63,11 +65,7 @@ export function AgentCard({ card, actions }: { card: HerdCardView; actions: Herd
         <AgentAvatar kind={card.kind === "agent" ? card.agentKind : ""}
           status={card.kind === "agent" ? card.statusTone : undefined} />
         <span className="card-copy">
-          <span
-            className="card-title"
-            ref={title}
-            style={card.sharesTransition ? { viewTransitionName: "pane-title" } : undefined}
-          >
+          <span className="card-title" ref={title}>
             {card.pinned ? <>
               <Pin className="pin-mark" size={12} aria-hidden="true" />
               <span className="sr-only">{card.pinnedLabel}</span>

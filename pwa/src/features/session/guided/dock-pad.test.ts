@@ -25,6 +25,10 @@ function paintDock(): void {
   renderReact(createElement(SessionDock, { includeBack: true }));
 }
 
+function kindOption(label: "按键" | "命令"): HTMLButtonElement {
+  return [...appRoot().querySelectorAll<HTMLButtonElement>(".pad-kind-option")].find((el) => el.textContent === label)!;
+}
+
 function paintPad(): void {
   renderReact(createElement(SessionKeyPad));
 }
@@ -127,9 +131,9 @@ describe("session pad morphs", () => {
       };
       await tap(appRoot().querySelector(".key-more")!);
       expect(keysExpanded()).toBe(true);
-      await tap(appRoot().querySelector<HTMLButtonElement>(".pad-mode")!);
+      await tap(kindOption("命令"));
       expect(appRoot().querySelector(".slash-pad")).toBeTruthy();
-      await tap(appRoot().querySelector<HTMLButtonElement>(".pad-mode")!);
+      await tap(kindOption("按键"));
       expect(appRoot().querySelector(".key-mod")).toBeTruthy();
       await tap(appRoot().querySelector(".key-more")!);
       expect(keysExpanded()).toBe(false);
@@ -154,20 +158,26 @@ describe("session pad morphs", () => {
   test("collapsed pad keeps only the TUI survival row", async () => {
     setKeysExpanded(false);
     await act(() => { paintPad(); });
-    expect(appRoot().querySelector(".pad-mode")).toBeNull();
+    expect(appRoot().querySelector(".pad-kind")).toBeNull();
     expect(appRoot().querySelector(".slash-pad")).toBeNull();
     expect(appRoot().querySelector('[aria-label="终端快捷键"]')).toBeTruthy();
+    expect(appRoot().querySelectorAll('[aria-label="终端快捷键"] > .key')).toHaveLength(7);
   });
 
   test("expanded keys still expose Tab, Enter and modifiers", async () => {
     setKeysExpanded(true);
     setPadKind("keys");
     await act(() => { paintPad(); });
-    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("切换到命令");
+    expect(kindOption("按键").getAttribute("aria-pressed")).toBe("true");
+    expect(kindOption("命令").getAttribute("aria-pressed")).toBe("false");
     expect(appRoot().querySelector(".slash-pad")).toBeNull();
     expect(appRoot().textContent).toContain("Tab");
     expect(appRoot().textContent).toContain("Ctrl");
-    expect(appRoot().textContent).toContain("换行");
+    expect(appRoot().textContent).not.toContain("换行");
+    expect(appRoot().querySelector('[aria-label="Alt / Option"]')?.textContent).toBe("Alt");
+    // A chord reads as one full name even though it is drawn on two lines.
+    expect(appRoot().querySelector('[aria-label="Ctrl+C"] small')?.textContent).toBe("Ctrl");
+    expect(appRoot().querySelector(".pad-page-name")?.textContent).toBe("控制");
   });
 
   test("expanded command morph fills compose chips and not SendKeys", async () => {
@@ -179,6 +189,30 @@ describe("session pad morphs", () => {
     const chips = [...appRoot().querySelectorAll(".slash-cmd")].map((el) => el.textContent);
     expect(chips).toEqual(SLASH_COMMANDS.map((command) => command.label));
     expect(appRoot().textContent).not.toContain("Tab");
-    expect(appRoot().querySelector(".pad-mode")?.textContent).toBe("命令");
+    expect(kindOption("命令").getAttribute("aria-pressed")).toBe("true");
+    expect(appRoot().querySelector(".pad-pagination-end")?.textContent).toBe("编辑");
   });
+});
+test("while the soft keyboard is up only the primary row renders; ⋯ puts the keyboard away first", async () => {
+  setKeysExpanded(true);
+  setPadKind("keys");
+  const field = document.createElement("textarea");
+  appRoot().after(field);
+  const root = document.documentElement;
+  try {
+    await act(() => { paintPad(); });
+    expect(appRoot().querySelector(".pad-pages")).toBeTruthy();
+    await act(async () => { field.focus(); root.dataset.kb = "open"; await Promise.resolve(); });
+    expect(appRoot().querySelector(".pad-pages")).toBeNull();
+    expect(appRoot().querySelectorAll('[aria-label="终端快捷键"] > .key')).toHaveLength(7);
+    expect(keysExpanded()).toBe(true);
+    await act(() => { appRoot().querySelector<HTMLButtonElement>(".key-more")!.click(); });
+    expect(document.activeElement === field).toBeFalse();
+    expect(keysExpanded()).toBe(true);
+    await act(async () => { root.dataset.kb = "closed"; await Promise.resolve(); });
+    expect(appRoot().querySelector(".pad-pages")).toBeTruthy();
+  } finally {
+    delete root.dataset.kb;
+    field.remove();
+  }
 });

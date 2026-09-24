@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-const CJK = /[\u4e00-\u9fff]/;
+const CJK = /[一-鿿]/;
+const siteRoot = fileURLToPath(new URL("..", import.meta.url));
 const source = await Bun.file(new URL("../home-i18n.js", import.meta.url)).text();
 const html = await Bun.file(new URL("../index.html", import.meta.url)).text();
 
@@ -13,7 +16,38 @@ function table(name: "zh" | "en"): Record<string, string> {
 }
 
 function normalize(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
+  return value.replace(/<br\s*\/?>/g, "<br />").replace(/\s+/g, " ").trim();
+}
+
+/** The inner HTML of every element carrying data-i18n, nested markup included. */
+function i18nFallbacks(doc: string): Array<{ key: string; inner: string }> {
+  const out: Array<{ key: string; inner: string }> = [];
+  const open = /<([a-z][a-z0-9]*)\b[^>]*\sdata-i18n="([^"]+)"[^>]*>/g;
+  let match: RegExpExecArray | null;
+  while ((match = open.exec(doc))) {
+    const [tag, name, key] = [match[0], match[1], match[2]];
+    const same = new RegExp(`<${name}\\b[^>]*>|</${name}>`, "g");
+    same.lastIndex = match.index + tag.length;
+    let depth = 1;
+    let end = -1;
+    let step: RegExpExecArray | null;
+    while ((step = same.exec(doc))) {
+      depth += step[0].startsWith("</") ? -1 : 1;
+      if (depth === 0) {
+        end = step.index;
+        break;
+      }
+    }
+    if (end < 0) throw new Error(`unclosed <${name}> for ${key}`);
+    out.push({ key, inner: doc.slice(match.index + tag.length, end) });
+  }
+  return out;
+}
+
+function usedKeys(doc: string): string[] {
+  const keys = new Set<string>();
+  for (const m of doc.matchAll(/data-i18n(?:-aria|-alt)?="([^"]+)"/g)) keys.add(m[1]);
+  return [...keys];
 }
 
 describe("homepage i18n", () => {
@@ -22,6 +56,11 @@ describe("homepage i18n", () => {
 
   test("zh and en share the same keys", () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(zh).sort());
+  });
+
+  test("every key the page uses exists in both tables", () => {
+    const missing = usedKeys(html).filter((key) => !(key in en) || !(key in zh));
+    expect(missing).toEqual([]);
   });
 
   test("English copy has no leftover Chinese", () => {
@@ -37,46 +76,55 @@ describe("homepage i18n", () => {
     expect(CJK.test(withoutSwitcher)).toBe(false);
   });
 
+  test("static HTML fallbacks match English copy", () => {
+    const drift: string[] = [];
+    for (const { key, inner } of i18nFallbacks(html)) {
+      const expected = en[key];
+      if (expected === undefined) drift.push(`${key} missing from en`);
+      else if (normalize(inner) !== normalize(expected)) drift.push(key);
+    }
+    expect(drift).toEqual([]);
+  });
+
   test("homepage copy does not mention Markdown rendering", () => {
     expect(source.toLowerCase()).not.toContain("markdown");
     expect(html.toLowerCase()).not.toContain("markdown");
   });
 
   test("computer visitors are not sent to /pair as the primary action", () => {
-    expect(html).toContain('class="bar-cta cta-desk" href="#start"');
-    expect(html).toContain('class="btn btn-primary cta-desk" href="#start"');
-    expect(html).toContain('class="bar-cta cta-phone" href="/pair"');
-    expect(html).not.toMatch(/class="bar-cta"(?! cta-phone)[^>]*href="\/pair"/);
+    expect(html).toContain('class="btn btn-dark bar-cta cta-desk" href="#how"');
+    expect(html).toContain('class="btn btn-dark cta-desk" href="#how"');
+    expect(html).toContain('class="btn btn-dark bar-cta cta-phone" href="/pair"');
+    expect(html).not.toMatch(/class="[^"]*bar-cta(?![^"]*cta-phone)[^"]*"[^>]*href="\/pair"/);
     expect(html).toContain('class="copy cta-desk" data-copy="https://pairfob.com/pair"');
     expect(html).toContain("Don't open it on this computer.");
     expect(html).not.toMatch(/<a[^>]*href="\/pair"[^>]*>https:\/\/pairfob.com\/pair/);
-    expect(zh["cta.phone.hint"]).toContain("不要在这台电脑");
-    expect(en["cta.computer"]).toBe("Start on this computer");
-    expect(zh["cta.computer"]).toBe("在这台电脑上开始");
+    expect(zh["s3.hint"]).toContain("不要在这台电脑");
+    expect(en["cta.start"]).toBe("Get started");
+    expect(zh["cta.start"]).toBe("开始使用");
   });
 
-  test("phone visitors get a same-tab /pair button in the how-to and pair bands", () => {
-    expect(html).toContain('class="step-open cta-phone"');
-    expect(html).toMatch(/class="step-open cta-phone"[\s\S]*?href="\/pair"/);
-    expect(html).toContain('class="pair-open cta-phone"');
-    expect(html).toMatch(/class="pair-open cta-phone"[\s\S]*?href="\/pair"/);
-    expect(html).toContain('class="step-host-note cta-phone"');
-    expect(html).toContain('data-i18n="start.s3.phone"');
-    expect(en["start.s3.phone"]).toContain("this phone");
-    expect(zh["start.s3note.phone"]).toContain("点进去");
-    expect(zh["start.hostnote"]).toContain("电脑终端");
+  test("phone visitors get a same-tab /pair button in the hero, how-to and closing bands", () => {
+    expect(html).toMatch(/class="btn btn-dark cta-phone" href="\/pair"/);
+    expect(html).toMatch(/class="step-open cta-phone"><a class="btn btn-dark" href="\/pair"/);
+    expect(html).toMatch(/class="cta-phone close-open"><a class="btn btn-dark" href="\/pair"/);
+    expect(html).not.toMatch(/href="\/pair"[^>]*target="_blank"/);
+    expect(html).toContain('class="step-host-note" data-i18n="how.p"');
+    expect(zh["how.p"]).toContain("电脑终端");
+    expect(en["how.p"]).toContain("terminal on the computer");
   });
 
   test("homepage exposes a GitHub issue channel", () => {
-    expect(html).toContain("https://github.com/arronKler/pairfob/issues/new");
-    expect(html).toContain('data-i18n="nav.feedback"');
-    expect(html).toContain('class="faq-feedback"');
-    expect(html).toContain('data-i18n="faq.feedback"');
+    const issues = "https://github.com/arronKler/pairfob/issues/new";
+    expect(html).toContain(issues);
+    expect(html).toMatch(/href="https:\/\/github.com\/arronKler\/pairfob\/issues\/new"[^>]*data-i18n="nav.feedback"/);
+    expect(html).toContain('class="faq-feedback" data-i18n="faq.feedback"');
+    expect(zh["faq.feedback"]).toContain(issues);
+    expect(en["faq.feedback"]).toContain(issues);
     expect(zh["nav.feedback"]).toBe("反馈");
     expect(en["nav.feedback"]).toBe("Feedback");
     expect(zh["faq.feedback"]).toContain("GitHub");
     expect(en["faq.feedback"]).toContain("GitHub");
-    expect(en["faq.feedback.b"]).toBe("Report an issue");
   });
 
   test("homepage header links to the public GitHub repository", () => {
@@ -96,26 +144,40 @@ describe("homepage i18n", () => {
     expect(zh["faq.a6"]).not.toContain("官方实例");
     expect(en["foot.blurb"]).not.toContain("official instance");
     expect(zh["foot.blurb"]).not.toContain("官方实例");
-    expect(en["hero.lede2"]).not.toContain("screenshot");
-    expect(zh["hero.lede2"]).not.toContain("截图");
+    expect(en["hero.sub"]).not.toContain("screenshot");
+    expect(zh["hero.sub"]).not.toContain("截图");
     expect(en.description).toContain("phone surface for Herdr");
     expect(zh.description).toContain("Herdr 的手机端");
     expect(html).toContain(en.description);
   });
 
-  test("static HTML fallbacks match English copy", () => {
-    const re = /data-i18n(?:-html)?="([^"]+)"(?:\s+data-i18n-html)?>([\s\S]*?)<\/[^>]+>/g;
-    const drift: string[] = [];
-    let match: RegExpExecArray | null;
-    while ((match = re.exec(html))) {
-      const key = match[1];
-      const expected = en[key];
-      if (expected === undefined) {
-        drift.push(`${key} missing from en`);
-        continue;
-      }
-      if (normalize(match[2]) !== normalize(expected)) drift.push(key);
+  test("the security band leads with P2P and keeps the relay as the fallback", () => {
+    expect(html.indexOf('class="route route-p2p"')).toBeLessThan(html.indexOf('class="route route-relay"'));
+    expect(en["safe.p"]).toContain("never passes through pairfob.com");
+    expect(zh["safe.p"]).toContain("不经过 pairfob.com");
+    // security.md: finding a direct path asks Cloudflare's lookup service once.
+    expect(en["safe.fine"]).toContain("Cloudflare");
+    expect(zh["safe.fine"]).toContain("Cloudflare");
+  });
+});
+
+describe("homepage assets and CSP", () => {
+  test("every product still exists for both locales", () => {
+    const missing: string[] = [];
+    for (const m of html.matchAll(/<img[^>]*\ssrc="([^"]+)"[^>]*\sdata-src-zh="([^"]+)"/g)) {
+      const [en, zh] = [m[1], m[2]];
+      if (!en.startsWith("/img/home/en/") || !zh.startsWith("/img/home/zh/")) missing.push(`${en} | ${zh}`);
+      for (const path of [en, zh]) if (!existsSync(siteRoot + path.slice(1))) missing.push(path);
     }
-    expect(drift).toEqual([]);
+    expect(missing).toEqual([]);
+    expect(html.match(/data-src-zh=/g)?.length ?? 0).toBeGreaterThanOrEqual(8);
+  });
+
+  test("markup stays inside the site CSP (no inline script or style)", () => {
+    expect(html).not.toMatch(/\sstyle="/);
+    expect(html).not.toMatch(/<style[\s>]/);
+    const inline = [...html.matchAll(/<script(?![^>]*\ssrc=)([^>]*)>/g)].map((m) => m[1].trim());
+    expect(inline).toEqual(['type="application/ld+json"']);
+    expect(html).not.toMatch(/\son[a-z]+="/);
   });
 });

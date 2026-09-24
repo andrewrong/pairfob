@@ -1,33 +1,81 @@
-/* Tokens, reset, page chrome and the editorial section scaffolding every band
-   reuses. Device mockups live in device.css; each band has its own file. */
+/* Tokens, reset, the top bar, buttons, the shared section scaffold, the closing
+   call to action and the footer. Device mockups live in device.css; each band
+   has its own file. The page is light first; product surfaces (terminal, PWA)
+   stay dark in both themes and use the --d-* tokens. */
 
 :root {
-  --void: #07090d;
-  --bg: #0a0c10;
-  --surface: #12161d;
-  --surface-2: #1a2029;
-  --ink: #e9edf3;
-  --muted: #9aa5b4;
-  /* 4.84:1 on --void. #6d7887 measured 4.45:1 and missed AA for body copy. */
-  --faint: #737e8d;
-  --line: rgba(233, 237, 243, 0.08);
-  --line-strong: rgba(233, 237, 243, 0.16);
-  --accent: #6ea8fe;
-  --accent-deep: #3d7bfd;
-  --accent-ink: #081018;
-  --ok: #46d68c;
-  --warn: #ffb224;
-  --font:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB",
-    "Noto Sans SC", system-ui, "Segoe UI", sans-serif;
-  --display:
-    "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
-    "Noto Sans SC", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light dark;
+  --page: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --ink: #0b0e13;
+  --ink-2: #2a313c;
+  /* 5.9:1 on --page. */
+  --muted: #505967;
+  /* 4.77:1 on --page, 5.15:1 on --surface. */
+  --faint: #656e7c;
+  --line: rgba(11, 14, 19, 0.09);
+  --line-strong: rgba(11, 14, 19, 0.16);
+  /* 5.0:1 on --page. */
+  --blue: #2563d9;
+  --blue-wash: rgba(47, 111, 236, 0.09);
+  /* 5.1:1 on the attention tag wash. */
+  --amber: #935a00;
+  --green: #16884d;
+  --btn: #0b0e13;
+  --btn-ink: #ffffff;
+  --glow: rgba(47, 111, 236, 0.16);
+  --shadow-device: 0 50px 80px -40px rgba(11, 14, 19, 0.55), 0 18px 30px -18px rgba(11, 14, 19, 0.35);
+  --band: #0b0e13;
+  --band-2: #12161d;
+  --band-ink: #e9edf3;
+  --band-muted: #9aa5b4;
+  --band-line: rgba(233, 237, 243, 0.1);
+
+  --d-bg: #0a0c10;
+  --d-term: #0b0e13;
+  --d-dock: #0d1117;
+  --d-surface: #12161d;
+  --d-surface-2: #1a2029;
+  --d-ink: #e9edf3;
+  --d-term-ink: #dfe5ee;
+  --d-muted: #9aa5b4;
+  --d-faint: #737e8d;
+  --d-accent: #6ea8fe;
+  --d-accent-ink: #081018;
+  --d-warn: #ffb224;
+  --d-ok: #46d68c;
+  --d-line: rgba(233, 237, 243, 0.09);
+
+  --sans: "Geist", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --max: 1120px;
-  --gutter: clamp(20px, 5vw, 48px);
-  --band-gap: clamp(28px, 5vw, 56px);
+  --max: 1200px;
+  --gutter: clamp(16px, 4.5vw, 48px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #07090d;
+    --surface: #10141a;
+    --surface-2: #181d25;
+    --ink: #e9edf3;
+    --ink-2: #c9d1dc;
+    --muted: #9aa5b4;
+    --faint: #737e8d;
+    --line: rgba(233, 237, 243, 0.08);
+    --line-strong: rgba(233, 237, 243, 0.16);
+    --blue: #6ea8fe;
+    --blue-wash: rgba(110, 168, 254, 0.12);
+    --amber: #ffb224;
+    --green: #46d68c;
+    --btn: #e9edf3;
+    --btn-ink: #0b0e13;
+    --glow: rgba(61, 123, 253, 0.22);
+    --shadow-device: 0 50px 80px -40px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(233, 237, 243, 0.06);
+    --band: #0d1117;
+    --band-2: #151a22;
+  }
 }
 
 * {
@@ -42,29 +90,18 @@
 
 html {
   scroll-behavior: smooth;
-  color-scheme: dark;
 }
 
-html,
 body {
   margin: 0;
-  background: var(--void);
+  background: var(--page);
   color: var(--ink);
-  font-family: var(--font);
+  font: 16px/1.6 var(--sans);
   -webkit-font-smoothing: antialiased;
 }
 
 main {
   overflow-x: clip;
-}
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
-::selection {
-  background: rgba(110, 168, 254, 0.32);
 }
 
 a {
@@ -77,12 +114,46 @@ button {
   color: inherit;
   background: none;
   border: 0;
+  padding: 0;
   cursor: pointer;
 }
 
-code,
-pre {
+img {
+  max-width: 100%;
+  display: block;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2 {
+  text-wrap: balance;
+}
+
+code {
   font-family: var(--mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+::selection {
+  background: rgba(47, 111, 236, 0.25);
+}
+
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
 
 .skip {
@@ -90,61 +161,72 @@ pre {
   left: 12px;
   top: -48px;
   z-index: 40;
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
+  background: var(--btn);
+  color: var(--btn-ink);
 }
 
 .skip:focus {
   top: 12px;
 }
 
-.wordmark {
-  font-family: var(--display);
-  font-weight: 700;
-  letter-spacing: -0.04em;
+.wrap {
+  max-width: var(--max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.nw {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Progress fill shared by the hero beats and the feature tour. */
+@keyframes fill {
+  to {
+    width: 100%;
+  }
 }
 
 /* ---------- top bar ---------- */
-
 .site-bar {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 30;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, var(--page) 82%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.bar-in {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 64px;
-  padding: 0 var(--gutter);
-  background: color-mix(in srgb, var(--void) 82%, transparent);
-  backdrop-filter: blur(18px);
-  border-bottom: 1px solid transparent;
+  gap: 32px;
+  height: 64px;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.02em;
 }
 
-.mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-}
-
-.brand .wordmark {
-  font-size: 1.1rem;
+.brand .mark {
+  width: 28px;
+  height: 28px;
 }
 
 .site-nav {
   display: flex;
   gap: 26px;
+  font-size: 14.5px;
   color: var(--muted);
-  font-size: 0.9rem;
 }
 
 .site-nav a:hover {
@@ -152,320 +234,291 @@ pre {
 }
 
 .bar-end {
+  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .bar-lang {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface-2);
 }
 
 .lang-btn {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
   color: var(--muted);
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-  white-space: nowrap;
-  cursor: pointer;
 }
 
-.bar-lang [aria-current="page"] {
+.lang-btn[aria-current="page"] {
+  background: var(--surface);
   color: var(--ink);
-}
-
-.bar-lang a:hover,
-.lang-btn:hover {
-  color: var(--ink);
-}
-
-/* The static document is English, so only a visitor being switched to Chinese
-   would otherwise see the English copy flash before home-i18n.js swaps it.
-   Keyed on the target language, not on English: hiding text that is already
-   correct just blanks the page for every English visitor. lang is set in the
-   head by prepareMarketing(), well before this can paint. */
-html[lang="zh-CN"]:not([data-i18n-ready]) [data-i18n] {
-  visibility: hidden;
-}
-
-.bar-doc,
-.bar-feedback,
-.bar-github {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  color: var(--muted);
-  font-size: 0.9rem;
-  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(11, 14, 19, 0.12);
 }
 
 .bar-github {
-  justify-content: center;
-  width: 38px;
-  flex-shrink: 0;
-}
-
-.bar-github svg {
+  display: inline-flex;
   width: 20px;
   height: 20px;
-}
-
-.bar-doc:hover,
-.bar-feedback:hover,
-.bar-github:hover {
-  color: var(--ink);
+  color: var(--ink-2);
 }
 
 /* ---------- buttons ---------- */
-
-.bar-cta,
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 22px;
   border-radius: 999px;
-  font-weight: 650;
-  transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease);
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  transition: transform 0.2s var(--ease), opacity 0.2s;
 }
 
-.bar-cta,
-.btn-primary {
-  background: var(--accent);
-  color: var(--accent-ink);
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-dark {
+  background: var(--btn);
+  color: var(--btn-ink);
+}
+
+.btn-dark:hover {
+  opacity: 0.88;
+}
+
+.btn-line {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+}
+
+.btn-line:hover {
+  border-color: var(--ink);
 }
 
 .bar-cta {
-  min-height: 38px;
-  padding: 0 15px;
-  font-size: 0.86rem;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 14px;
 }
 
-.btn {
-  min-height: 52px;
-  padding: 0 26px;
-  font-size: 1.02rem;
-}
-
-.btn-ghost {
-  border: 1px solid var(--line-strong);
-  color: var(--ink);
-}
-
-.bar-cta:hover,
-.btn-primary:hover {
-  background: #8bbbff;
-}
-
-/* Wide screens are the computer: install here. Narrow screens are the other
-   device: open the PWA. Both CTAs stay in the DOM; only visibility swaps.
-   Anchors keep inline-flex so hero / header buttons do not collapse to inline. */
+/* Computer visitors install first; phone visitors open the PWA. Both CTAs stay
+   in the DOM and only visibility swaps. */
 .cta-phone {
-  display: none;
+  display: none !important;
 }
 
 @media (max-width: 720px) {
   .cta-desk {
-    display: none;
+    display: none !important;
   }
 
-  a.cta-phone {
-    display: inline-flex;
+  a.cta-phone,
+  .btn.cta-phone {
+    display: inline-flex !important;
   }
 
   p.cta-phone,
-  h3.cta-phone,
   div.cta-phone {
-    display: block;
+    display: block !important;
   }
 }
 
-.btn-ghost:hover {
-  border-color: var(--accent);
+/* ---------- section scaffold: every section answers one visitor question ---------- */
+.sec {
+  padding-block: clamp(64px, 7.5vw, 112px);
 }
 
-/* ---------- section scaffolding ---------- */
-
-.band {
-  max-width: calc(var(--max) + var(--gutter) * 2);
-  margin-inline: auto;
-  padding: clamp(56px, 7vw, 92px) var(--gutter);
-  scroll-margin-top: 64px;
-}
-
-/* Four identically built bands in a row read as one long page. Tinting the
-   alternates gives the scroll somewhere to breathe. */
-.band-tint {
-  position: relative;
-  max-width: none;
-  padding-inline: max(var(--gutter), calc(50vw - var(--max) / 2));
-  background: var(--bg);
+.sec-alt {
+  background: var(--surface);
   border-block: 1px solid var(--line);
 }
 
-.band-head {
+.sec-head {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  align-items: start;
-  gap: 18px clamp(32px, 6vw, 72px);
-  margin-bottom: var(--band-gap);
+  gap: 16px;
+  max-width: 860px;
+  margin-bottom: clamp(40px, 5vw, 64px);
 }
 
-.eyebrow {
-  grid-column: 1 / -1;
-  display: flex;
+.sec-head-center {
+  max-width: 920px;
+  margin-inline: auto;
+  justify-items: center;
+  text-align: center;
+}
+
+.ask {
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
-  margin: 0 0 clamp(20px, 3vw, 34px);
-  color: var(--faint);
-  font: 500 0.74rem/1 var(--mono);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.eyebrow b {
-  color: var(--accent);
+  gap: 10px;
+  font-size: 14px;
   font-weight: 600;
 }
 
-.eyebrow::after {
+.ask::before {
   content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--line-strong), transparent);
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
 }
 
-.band h2,
-.hero-copy h1 {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 700;
-  letter-spacing: -0.022em;
-  line-height: 1.12;
-  text-wrap: pretty;
+.sec-head h2 {
+  font-size: clamp(32px, 4.2vw, 54px);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
 }
 
-.band h2 {
-  font-size: clamp(1.75rem, 3.5vw, 2.7rem);
-}
-
-.band-lede {
-  margin: 0;
-  padding-top: 0.55em;
+.sec-head p {
+  font-size: 18px;
   color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.75;
-  text-wrap: pretty;
+  max-width: 36em;
+}
+
+/* Declared after `.sec-head p` on purpose: same element, and the kicker keeps its colour. */
+.sec-head .ask {
+  font-size: 14px;
+  color: var(--blue);
+}
+
+/* ---------- closing call to action ---------- */
+.close {
+  padding-block: clamp(64px, 8vw, 112px);
+  text-align: center;
+  border-top: 1px solid var(--line);
+  background: radial-gradient(700px 320px at 50% 100%, var(--glow), transparent 70%);
+}
+
+.close h2 {
+  font-size: clamp(34px, 5vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+.close p {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.close .cmd {
+  margin: 32px auto 0;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 18px;
+  border-radius: 16px;
+  background: var(--d-term);
+  text-align: left;
+  box-shadow: var(--shadow-device);
+}
+
+.close .cmd code {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  color: var(--d-ink);
+  font-size: 14px;
+}
+
+.close .cmd code::-webkit-scrollbar {
+  display: none;
+}
+
+.close .cmd .copy {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.close .then {
+  font-size: 15px;
+}
+
+.close .then b {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.close .close-open {
+  margin-top: 20px;
 }
 
 /* ---------- footer ---------- */
-
 .foot {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 22px clamp(24px, 5vw, 64px);
-  max-width: calc(var(--max) + var(--gutter) * 2);
-  margin-inline: auto;
-  padding: clamp(34px, 4vw, 48px) var(--gutter) 56px;
   border-top: 1px solid var(--line);
+  padding-block: 28px calc(28px + env(safe-area-inset-bottom, 0px));
+  font-size: 13.5px;
   color: var(--faint);
-  font-size: 0.86rem;
 }
 
-.foot p {
-  margin: 0;
-}
-
-.foot-brand {
-  max-width: 26rem;
-}
-
-.foot .wordmark {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--ink);
-  font-size: 1rem;
+.foot-in {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  align-items: center;
 }
 
 .foot-nav {
+  margin-left: auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 22px;
+  gap: 8px 22px;
 }
 
 .foot-nav a:hover {
   color: var(--ink);
 }
 
-@media (max-width: 860px) {
-  .band-head {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-  }
-
-  .band-lede {
-    padding-top: 0;
-    max-width: 34rem;
-  }
-}
-
-@media (max-width: 640px) {
-  /* Two columns squeeze the brand line into a vertical sliver on a phone. */
-  .foot {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .foot-brand {
-    max-width: none;
-  }
-}
-
-@media (max-width: 720px) {
-  .site-bar {
-    gap: 10px;
-  }
-
-  .bar-end {
-    gap: 6px;
-  }
-
+@media (max-width: 1040px) {
   .site-nav {
     display: none;
   }
-
-  /* Feedback stays in the FAQ and footer. The GitHub mark is the compact
-     public-repo entry once the how-to nav is gone. */
-  .bar-feedback {
-    display: none;
-  }
-
-  .bar-github {
-    width: 32px;
-  }
-
-  .bar-cta {
-    padding: 0 12px;
-  }
-
-  .band h2 br,
-  .hero-copy h1 br {
-    display: none;
-  }
 }
 
-@media (min-width: 721px) {
-  .bar-doc {
+@media (max-width: 760px) {
+  .bar-end {
+    gap: 10px;
+  }
+
+  .bar-end .bar-github {
     display: none;
+  }
+
+  .sec-head h2 {
+    font-size: 28px;
+  }
+
+  /* Keep-together phrases are wider than a phone in English. */
+  .nw {
+    white-space: normal;
+  }
+
+  .foot-nav {
+    margin-left: 0;
   }
 }
 

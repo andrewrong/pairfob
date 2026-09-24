@@ -1,3 +1,8 @@
+import { enComposeV2 } from "./i18n-compose-v2";
+import { enKeypadV2 } from "./i18n-keypad-v2";
+import { enChromeV2 } from "./i18n-chrome-v2";
+import { enPaneMenuV2 } from "./i18n-pane-menu-v2";
+import { enRowbarV2 } from "./i18n-rowbar-v2";
 import { enAgentInfo } from "./i18n-en-agent-info";
 import { enBoardMenu } from "./i18n-board-menu";
 import { enDialogs } from "./i18n-dialogs";
@@ -6,6 +11,11 @@ import { enWorkspace } from "./i18n-en-workspace.ts";
 import type { zh } from "./i18n-zh.ts";
 
 export const en: { [K in keyof typeof zh]: string } = {
+  ...enComposeV2,
+  ...enKeypadV2,
+  ...enChromeV2,
+  ...enPaneMenuV2,
+  ...enRowbarV2,
   ...enWorkspace,
   ...enShell,
   ...enAgentInfo,
@@ -276,9 +286,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   "home.pendingCountAria": "Locate the next session needing you, {count} waiting",
   "home.doneCount": "{count} newly done",
   "home.doneCountAria": "Locate the next newly finished session, {count} waiting",
-  "home.switcherEmpty": "No other sessions yet.",
-  "home.switcherEmptyTitle": "This is the only session",
-  "home.switcherTitle": "Switch session",
   "pane.menuTitle": "Session actions",
   "pane.sectionMode": "Mode",
   "cancel": "Cancel",
@@ -330,7 +337,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "settings.mode": "Mode",
   "settings.modeNote": "Auto chooses when a session opens: Terminal on P2P with WebGL2 unless Save-Data is on; otherwise Control. Control is phone-friendly, Terminal is a real PTY, and Chat messages the agent. A switch inside a session is remembered only for that session.",
   "settings.input": "Input",
-  "settings.inputNote": "Set the input default for new sessions. Compose waits for Enter; Live types as you go. A switch inside a session affects only that session.",
+  "settings.inputNote": "Set the input default for new sessions. Compose sends when you tap Send; Live types as you go. A switch inside a session affects only that session.",
   "settings.notifications": "Notifications",
   "settings.pushComputerOff": "The computer has not enabled Pairfob notifications yet.",
   "settings.pushOn": "This phone is notified when an agent needs you or finishes.",
@@ -542,7 +549,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "compose.batch": "Compose",
   "compose.send": "Send",
   "compose.enter": "Enter",
-  "compose.batchPh": "Compose · Enter when done",
+  "compose.batchPh": "Compose · tap Send when done",
   "compose.livePh": "Live · types into the terminal",
   "compose.pendingPh": "Waiting for echo · {text}",
   "compose.pendingStatus": "{n} characters accepted locally, waiting for terminal echo",
@@ -614,21 +621,16 @@ export const en: { [K in keyof typeof zh]: string } = {
   "pane.colsShort": "{cols} cols",
   "pane.panColsAria": "Keep {cols} columns; pan sideways",
   "pane.inputAria": "Terminal input mode",
-  "pane.composeAria": "Compose, then Enter",
+  "pane.composeAria": "Compose, then tap Send",
   "pane.liveAria": "Live, types into the terminal",
   "pane.thisCell": "This pane",
   "pane.splitUnsupported": "This is a split on the computer. This Herdr cannot zoom the pane yet.",
-  "pane.interrupt": "Interrupt the current task",
-  "pane.interruptTitle": "Interrupt (Esc)",
 
   "trace.tool": "tool",
 
   "slash.goal": "Insert /goal, then the goal",
   "slash.loop": "Insert /loop, then the arguments",
   "slash.padKind": "Extra keypad mode",
-  "slash.commandsShort": "Cmds",
-  "slash.switchKeys": "Switch to keys",
-  "slash.switchCommands": "Switch to commands",
   "keys.pages": "Shortcut pages",
   "keys.page": "Page {page} of {total}",
   "slash.keys": "Keys",
@@ -636,16 +638,10 @@ export const en: { [K in keyof typeof zh]: string } = {
   "slash.agentCmds": "Common agent commands",
   "slash.insert": "Insert {label}",
 
-  "row.aria": "Actions for this line",
-  "row.copyLine": "Copy line",
   "row.copiedLine": "Copied this line.",
-  "row.copyPath": "Copy {path}",
   "row.copiedPath": "Copied the path.",
-  "row.quote": "Quote into the input",
 
   "keys.morePad": "More keys",
-  "keys.newline": "Newline",
-  "keys.newlineAria": "Insert a newline in the input",
   "keys.wheelUp": "Mouse wheel up",
   "keys.pageUp": "Page up",
   "keys.pageDown": "Page down",
@@ -655,12 +651,8 @@ export const en: { [K in keyof typeof zh]: string } = {
   "term.screenAria": "The terminal on the computer",
   "term.newOutput": "new output",
   "term.jumpLines": "{n} new lines",
-  "term.selectHint": "Select mode: long-press to highlight, then copy with the system menu.",
-  "term.done": "Done",
 
   "chrome.split": "Split",
-  "chrome.switchAria": "{title}, switch session",
-  "chrome.switchAriaMeta": "{title}, {line}, switch session",
   "chrome.backList": "Back to the session list",
 
   "desk.pickTitle": "Pick a session",
@@ -749,16 +741,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   "update.refresh": "Refresh update progress",
   "update.view": "View update",
   "update.later": "Remind me tomorrow",
-  "quick.manage": "Manage prompts",
-  "quick.help": "Saved on this device; tap to fill a draft. Up to 24 prompts, with 8 pinned on page one.",
-  "quick.label": "Button label",
-  "quick.text": "Prompt",
-  "quick.pin": "Pin to first page",
-  "quick.up": "Move up",
-  "quick.down": "Move down",
-  "quick.remove": "Delete",
-  "quick.add": "Add prompt",
-  "quick.save": "Save",
   "quick.reviewLabel": "Check changes",
   "quick.reviewText": "Review the current changes for potential issues and omissions. Do not change code yet.",
   "quick.testLabel": "Run tests",

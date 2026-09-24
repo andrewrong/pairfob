@@ -1,6 +1,6 @@
 import type { TabLayout } from "./layout";
 import { describe, expect, test } from "bun:test";
-import { agentDetailRows, agentMeta, agentStatusLabel, agentTitle, canPromptAgent, choosePane, chromeName, herdSignature, mapSnapshotAgents, paneFillCopy, statusLabel, tabIsSplit, visibleTabLabel } from "./dashboard.ts";
+import { agentDetailRows, agentMeta, agentStatusLabel, agentTitle, canPromptAgent, choosePane, chromeName, herdSignature, mapSnapshotAgents, paneFillCopy, statusLabel, tabIsSplit, terminalMeta, visibleTabLabel } from "./dashboard.ts";
 
 describe("dashboard mapping", () => {
   const snapshot = {
@@ -78,6 +78,25 @@ describe("dashboard mapping", () => {
     expect(statusLabel("unknown")).toBe("未知");
     expect(statusLabel("unknown")).not.toBe("");
     expect(statusLabel("unknown")).not.toBe(statusLabel("idle"));
+  });
+
+  test("a plain terminal reads as its command and where it runs, never a status", () => {
+    const [atRoot, inSub, labelled] = mapSnapshotAgents({
+      workspaces: [{ workspace_id: "w1", label: "pairfob", cwd: "/repo/pairfob" }],
+      tabs: [{ tab_id: "t1", workspace_id: "w1", label: "dev" }],
+      panes: [
+        { pane_id: "p1", workspace_id: "w1", tab_id: "t1", cwd: "/repo/pairfob", agent: "", terminal_title: "bun run dev" },
+        { pane_id: "p2", workspace_id: "w1", tab_id: "t1", cwd: "/repo/pairfob/internal/mux", agent: "", terminal_title: "zsh" },
+        { pane_id: "p3", workspace_id: "w1", tab_id: "t1", cwd: "/repo/pairfob", agent: "", label: "Release", terminal_title: "zsh" },
+      ],
+    });
+    // The command is already the title; the grouped list names the workspace in its heading.
+    expect(terminalMeta(atRoot, "space")).toBe("dev");
+    expect(terminalMeta(atRoot, "flat")).toBe("pairfob · dev");
+    // A subdirectory is shown relative to the workspace root.
+    expect(terminalMeta(inSub, "space")).toBe("zsh · internal/mux · dev");
+    // A named terminal still says what it runs.
+    expect(terminalMeta(labelled, "space")).toBe("zsh · dev");
   });
 
   test("space grouping puts the agent on the card instead of repeating the workspace", () => {

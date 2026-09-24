@@ -533,8 +533,8 @@ describe("UI accessibility guardrails", () => {
     expect(rule(".key")).toMatch(/min-width:\s*0/);
   });
 
-  test("row actions sit in the flex column, not over the buffer", () => {
-    expect(rule(".row-bar")).not.toMatch(/position:\s*absolute/);
-    expect(rule(".session-extras")).toMatch(/flex:\s*0 0 auto/);
+  test("row actions float over the buffer instead of pushing it", () => {
+    expect(rule(".row-bubble")).toMatch(/position:\s*absolute/);
+    expect(rule(".term-stage")).toMatch(/position:\s*relative/);
   });
 });

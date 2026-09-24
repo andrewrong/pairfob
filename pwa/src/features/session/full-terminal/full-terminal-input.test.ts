@@ -8,6 +8,8 @@ import { appRoot } from "../../../app/dom-root";
 import { composeDraft, setComposeLive } from "../compose-store";
 import { keysExpanded, padKind, setKeysExpanded, setPadKind } from "../../settings/preferences-store";
 
+const kindOption = (label: string) =>
+  [...appRoot().querySelectorAll<HTMLButtonElement>(".pad-kind-option")].find((el) => el.textContent === label)!;
 const { bindXtermKeyboard, encodeTerminalKey, httpUrlsInLine, notifyFullTerminalKeyboard, openTerminalLink, tapAsMouse } = await import("./full-terminal-input.ts");
 const { FullTerminalPad } = await import("./full-terminal-pad.tsx");
 
@@ -148,12 +150,12 @@ describe("complete-terminal pad chrome", () => {
     act(() => { (pad.querySelector('[aria-label="更多按键"]') as HTMLButtonElement).click(); });
     expect(keysExpanded()).toBe(true);
     const expanded = [...pad.querySelectorAll(".full-terminal-pad button")].map((el) => el.textContent);
-    expect(expanded).toContain("Ctrl+C");
-    expect(expanded).toContain("Opt");
+    expect(pad.querySelector('[aria-label="Ctrl+C"]') !== null).toBeTrue();
+    expect(expanded).toContain("Alt");
     expect(pad.textContent).toContain("Shift");
     expect(pad.textContent).toContain("Cmd");
-    expect(pad.textContent).toContain("Ctrl+A");
-    expect(pad.querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("切换到命令");
+    expect(pad.querySelector('[aria-label="Ctrl+W"]') !== null).toBeTrue();
+    expect(kindOption("按键").getAttribute("aria-pressed")).toBe("true");
     (pad.querySelector('[aria-label="上箭头"]') as HTMLButtonElement).dispatchEvent(
       new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0 }),
     );
@@ -173,14 +175,14 @@ describe("complete-terminal pad chrome", () => {
       },
     }));
     const pad = appRoot();
-    const commandMode = pad.querySelector<HTMLButtonElement>(".pad-mode");
-    act(() => { commandMode?.click(); });
+    act(() => { kindOption("命令").click(); });
     expect(padKind()).toBe("slash");
-    expect(pad.querySelector(".pad-mode")?.textContent).toBe("命令");
+    expect(kindOption("命令").getAttribute("aria-pressed")).toBe("true");
     act(() => { seedPadSnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] }); selectPadPane("shortcut-test"); });
     act(() => { (pad.querySelector('[aria-label="插入 /clear"]') as HTMLButtonElement).click(); });
-    expect(composeDraft()).toBe("/clear");
-    expect((pad.querySelector(".full-terminal-compose-input") as HTMLTextAreaElement).value).toBe("/clear");
+    // The command goes before the draft with one space after it (insertSlashCommand).
+    expect(composeDraft()).toBe("/clear ");
+    expect((pad.querySelector(".full-terminal-compose-input") as HTMLTextAreaElement).value).toBe("/clear ");
     act(() => { setKeysExpanded(false); setPadKind("keys"); });
   });
 

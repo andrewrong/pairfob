@@ -1,13 +1,14 @@
+import { Bell, BellOff, CircleHelp } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import type { ConnectionRecord } from "../../features/connection/connection-store";
-import { selectNetworkMode } from "../../features/settings/actions";
+import { enablePush, selectNetworkMode } from "../../features/settings/actions";
 import { applyLanguage } from "../../features/settings/language";
-import { setDefaultComposeLive, setDefaultTermMode } from "../../features/settings/preferences-store";
+import { setComposeEnterSends, setDefaultComposeLive, setDefaultTermMode } from "../../features/settings/preferences-store";
 import { langPref, langRevision, subscribeLang, t, type LangPref } from "../../lib/i18n";
 import { NETWORK_MODE_OPTIONS, type NetworkMode } from "../../lib/network-mode";
 import { TERM_MODE_OPTIONS, type TermMode } from "../../lib/terminal-mode";
 import { TERM_MODE_LABEL } from "../../lib/ui-model";
-import { MenuChoice, showActionSheet } from "../../shared/ui/overlay";
+import { MenuChoice, showActionSheet, showHelp, type HelpBlock } from "../../shared/ui/overlay";
 import { SegmentedControl, SegmentedOption } from "../../shared/ui/primitives";
 
 /**
@@ -85,6 +86,24 @@ export function openComposeSheet(currentLive: boolean): void {
   ), { subtitle: t("settings.inputNote") });
 }
 
+export function enterSendsLabel(sends: boolean): string {
+  return sends ? t("settings.enterSendsOn") : t("settings.enterSendsOff");
+}
+
+/** Phone keyboard Return: a new line (default) or send, as before session page v2. */
+export function openEnterSendsSheet(current: boolean): void {
+  showActionSheet(t("settings.enterSendsSheet"), (modal) => (
+    <>
+      {[false, true].map((sends) => (
+        <MenuChoice key={sends ? "send" : "newline"} modal={modal} selected={current === sends}
+          title={sends ? t("settings.enterSendsSend") : t("settings.enterSendsNewline")}
+          detail={sends ? t("settings.enterSendsSendDetail") : t("settings.enterSendsNewlineDetail")}
+          action={current === sends ? undefined : () => setComposeEnterSends(sends)} />
+      ))}
+    </>
+  ), { subtitle: t("settings.enterSendsNote") });
+}
+
 export function openLanguageSheet(): void {
   const current = langPref();
   showActionSheet(t("settings.langSheet"), (modal) => (
@@ -95,4 +114,35 @@ export function openLanguageSheet(): void {
       ))}
     </>
   ), { subtitle: t("settings.languageNote") });
+}
+
+export type NotificationState = { note: string; action: { label: string; disabled: boolean }; help?: () => HelpBlock[] };
+
+/** The overview row's value: the one fact that matters at a glance. */
+export function notificationValue(state: NotificationState): string {
+  return state.action.disabled ? state.action.label : t("settings.pushOffValue");
+}
+
+/**
+ * Behind the notifications row: what the state means, and the one step that
+ * applies — turn on here, or how to turn push on at the computer.
+ */
+export function openNotificationSheet(state: NotificationState): void {
+  const help = state.help;
+  showActionSheet(t("settings.notifications"), (modal) => (
+    <>
+      {/* The explanation can be a full sentence: it wraps here, not in a one-line subtitle. */}
+      <p className="set-sheet-note">{state.note}</p>
+      {!state.action.disabled ? (
+        <MenuChoice modal={modal} icon={<Bell size={18} aria-hidden="true" />} title={state.action.label}
+          action={() => void enablePush()} />
+      ) : help ? null : (
+        <MenuChoice modal={modal} icon={<BellOff size={18} aria-hidden="true" />} title={state.action.label} />
+      )}
+      {help ? (
+        <MenuChoice modal={modal} icon={<CircleHelp size={18} aria-hidden="true" />} title={t("settings.pushHowtoOpen")}
+          action={() => showHelp(t("settings.notifications"), help())} />
+      ) : null}
+    </>
+  ));
 }

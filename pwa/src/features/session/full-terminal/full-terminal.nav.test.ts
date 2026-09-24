@@ -319,7 +319,9 @@ describe("complete-terminal remembers its mode per pane", () => {
 
   test("swipe-back from complete-terminal returns to the list", async () => {
     bootFullTerminal();
-    act(() => goBackFromPane());
+    // Going back is async now (it may wait for the pane-close transition). An
+    // un-awaited act would stay open and swallow later tests' React updates.
+    await act(async () => { await goBackFromPane(); });
     await act(async () => { await leaveFullTerminal({ rememberGuided: false, paint: false }); });
     await act(async () => { await Promise.resolve(); });
     expect(currentScreen()).toBe("home");

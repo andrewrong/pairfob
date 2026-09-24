@@ -9,9 +9,9 @@ import { setKeysExpanded, setPadKind } from "../../settings/preferences-store";
 import { FullTerminalPad } from "../full-terminal/full-terminal-pad";
 import { PadPages } from "./pad-pages";
 import { EXPANDED_KEYS, clearModifiers, modifierIsActive } from "./keypad";
+import { keysExpanded } from "../../settings/preferences-store";
 import { setComposeDraft, composeDraft, setComposeLive } from "../compose-store";
 
-const originalKeyCount = EXPANDED_KEYS.length;
 
 beforeEach(async () => {
   await resetBoardTestDOM();
@@ -20,6 +20,7 @@ beforeEach(async () => {
   setKeysExpanded(true); setPadKind("keys"); setComposeLive(false);
 });
 afterEach(() => {
+  delete document.documentElement.dataset.kb;
   unmountReact(); clearModifiers(); setKeysExpanded(false); setPadKind("keys"); setComposeDraft(""); setComposeLive(false);
 });
 function paint() {
@@ -37,6 +38,9 @@ function pointer(target: Element, type: string, x: number, y = 0) {
     clientX: x, clientY: y, bubbles: true, cancelable: true,
   })); });
 }
+function kind(label: "按键" | "命令") {
+  return [...appRoot().querySelectorAll<HTMLButtonElement>(".pad-kind-option")].find(el => el.textContent === label)!;
+}
 function button(label: string) {
   return [...appRoot().querySelectorAll<HTMLButtonElement>("button")].find(el => el.textContent === label || el.getAttribute("aria-label") === label)!;
 }
@@ -49,8 +53,8 @@ test("swiping from a sending key changes page without sending; reverse swipe and
   pointer(tab, "pointermove", 40);
   pointer(tab, "pointerup", 40);
   expect(sent).toEqual([]);
-  expect(button("Shift+Tab")).toBeTruthy();
-  const nextKey = button("Shift+Tab");
+  expect(button("Ctrl+A")).toBeTruthy();
+  const nextKey = button("Ctrl+A");
   pointer(nextKey, "pointerdown", 40);
   pointer(nextKey, "pointermove", 100);
   pointer(nextKey, "pointerup", 100);
@@ -77,16 +81,18 @@ test("page dots and mode toggle retain each mode's position and the compose fiel
   paint();
   const input = appRoot().querySelector("textarea")!;
   act(() => { input.focus(); appRoot().querySelector<HTMLButtonElement>('[aria-label="第 2 页，共 2 页"]')!.click(); });
-  expect(button("Shift+Tab")).toBeTruthy();
-  act(() => { appRoot().querySelector<HTMLButtonElement>(".pad-mode")!.click(); });
+  expect(button("Ctrl+A")).toBeTruthy();
+  expect(appRoot().querySelector(".pad-page-name")?.textContent).toBe("选择与编辑");
+  act(() => { kind("命令").click(); });
   expect(button("/clear")).toBeTruthy();
-  act(() => { appRoot().querySelector<HTMLButtonElement>(".pad-mode")!.click(); });
-  expect(button("Shift+Tab")).toBeTruthy();
+  expect(kind("命令").getAttribute("aria-pressed")).toBe("true");
+  act(() => { kind("按键").click(); });
+  expect(button("Ctrl+A")).toBeTruthy();
   expect(appRoot().querySelector("textarea")).toBe(input);
   expect(document.activeElement).toBe(input);
   act(() => { appRoot().querySelector<HTMLButtonElement>(".key-more")!.click(); });
   expect(appRoot().querySelector(".pad-pages")).toBeNull();
-  expect(appRoot().querySelector(".pad-mode")).toBeNull();
+  expect(appRoot().querySelector(".pad-kind")).toBeNull();
 });
 
 test("swiping a command suppresses its generated click, but the next deliberate click works", () => {
@@ -103,7 +109,7 @@ test("swiping a command suppresses its generated click, but the next deliberate 
   pointer(firstCommand, "pointerdown", 0);
   pointer(firstCommand, "pointerup", 0);
   act(() => { firstCommand.click(); });
-  expect(composeDraft()).toBe("/clear");
+  expect(composeDraft()).toBe("/clear ");
 });
 
 test("additional shortcuts automatically create more pages with accessible navigation", () => {
@@ -127,6 +133,7 @@ test("modifiers stay together and still form chords with the fixed arrow row", (
 
 test("a touch hold repeats, stops on movement, and does not become a page swipe", async () => {
   const sent = paint();
+  act(() => { appRoot().querySelector<HTMLButtonElement>('[aria-label="第 2 页，共 2 页"]')!.click(); });
   const key = button("Ctrl+A");
   pointer(key, "pointerdown", 100);
   expect(sent).toEqual([]);
@@ -148,28 +155,36 @@ test("a touch hold repeats, stops on movement, and does not become a page swipe"
 test("keys fit fourteen per page while commands keep four columns", () => {
   paint();
   expect(appRoot().querySelector(".pad-page")?.getAttribute("data-columns")).toBe("7");
-  expect(appRoot().querySelectorAll(".pad-page .key")).toHaveLength(originalKeyCount + 1);
+  expect(appRoot().querySelectorAll(".pad-page .key")).toHaveLength(EXPANDED_KEYS.length);
+  expect(EXPANDED_KEYS).toHaveLength(14);
   expect(appRoot().querySelectorAll(".pad-page-dot")).toHaveLength(2);
-  act(() => { appRoot().querySelector<HTMLButtonElement>(".pad-mode")!.click(); });
+  expect(appRoot().querySelector(".pad-page-name")?.textContent).toBe("控制");
+  // The primary row keeps seven cells: six keys and the pad toggle.
+  expect(appRoot().querySelectorAll('[aria-label="终端快捷键"] > *')).toHaveLength(7);
+  act(() => { kind("命令").click(); });
   expect(appRoot().querySelector(".pad-page")?.getAttribute("data-columns")).toBe("4");
   expect(appRoot().querySelectorAll(".slash-cmd")).toHaveLength(8);
 });
 
-test("full terminal first page keeps newline available and inserts at the draft selection", () => {
-  const sent = paint();
-  const field = appRoot().querySelector<HTMLTextAreaElement>("textarea")!;
-  act(() => {
-    field.value = "hello world";
-    field.dispatchEvent(new (field.ownerDocument.defaultView!).Event("input", { bubbles: true }));
-    field.setSelectionRange(5, 6);
-    button("换行").click();
-  });
-  expect(field.value).toBe("hello\nworld");
-  expect(composeDraft()).toBe("hello\nworld");
-  expect(field.selectionStart).toBe(6);
-  expect(document.activeElement).toBe(field);
-  expect(sent).toEqual([]);
-  act(() => { setComposeLive(true); });
-  act(() => { button("换行").click(); });
-  expect(sent).toEqual(["enter"]);
+test("the newline key is gone: Return in the field is the newline now", () => {
+  paint();
+  expect(button("换行")).toBeUndefined();
+  expect(appRoot().querySelector('[aria-label="在输入框里插入换行"]')).toBeNull();
+});
+
+test("the soft keyboard and the pad are never shown together", async () => {
+  paint();
+  const root = document.documentElement;
+  const input = appRoot().querySelector("textarea")!;
+  // Mutation observers deliver on a microtask; the async act flushes the re-render.
+  await act(async () => { input.focus(); root.dataset.kb = "open"; await Promise.resolve(); });
+  expect(appRoot().querySelector(".pad-pages")).toBeNull();
+  expect(keysExpanded()).toBe(true);
+  const more = appRoot().querySelector<HTMLButtonElement>(".key-more")!;
+  expect(more.getAttribute("aria-expanded")).toBe("false");
+  act(() => { more.click(); });
+  expect(document.activeElement === input).toBe(false);
+  expect(keysExpanded()).toBe(true);
+  await act(async () => { root.dataset.kb = "closed"; await Promise.resolve(); });
+  expect(appRoot().querySelector(".pad-pages")).toBeTruthy();
 });

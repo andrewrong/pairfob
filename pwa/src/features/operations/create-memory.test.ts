@@ -58,10 +58,11 @@ describe("create memory", () => {
 
   test("the grid shows pinned kinds first, then by use, and only advertised kinds", () => {
     const memory = { pinned: ["gemini", "retired"], uses: { codex: 9, claude: 3, amp: 1 }, lastUsed: {}, recents: [], dirs: [] };
-    const advertised = ["claude", "codex", "gemini", "amp", "goose", "kimi"];
-    expect(favoriteKinds(advertised, memory)).toEqual(["gemini", "codex", "claude", "amp"]);
+    const advertised = ["claude", "codex", "gemini", "amp", "goose", "kimi", "qwen", "pi"];
+    // Six slots: with the terminal and "all" the grid fills two rows of four.
+    expect(favoriteKinds(advertised, memory)).toEqual(["gemini", "codex", "claude", "amp", "goose", "kimi"]);
     // A kind chosen from the full list takes the last slot.
-    expect(favoriteKinds(advertised, memory, "kimi")).toEqual(["gemini", "codex", "claude", "kimi"]);
+    expect(favoriteKinds(advertised, memory, "pi")).toEqual(["gemini", "codex", "claude", "amp", "goose", "pi"]);
     // A kind the computer no longer offers never appears, pinned or not.
     expect(favoriteKinds(["claude"], memory, "retired")).toEqual(["claude"]);
   });

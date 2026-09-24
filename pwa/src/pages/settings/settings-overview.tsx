@@ -3,7 +3,7 @@ import { openComputers } from "../../features/computers/actions";
 import type { HerdStatus } from "../../features/connection/herd-status";
 import { revokeSelf } from "../../features/operations/controller";
 import { DaemonUpdate } from "../../features/settings/daemon-update-view";
-import { enablePush } from "../../features/settings/actions";
+import { exportConnectionDiagnostics } from "../../features/settings/connection-diagnostics";
 import { setSettingsSection } from "../../features/settings/settings-section";
 import { t } from "../../lib/i18n";
 import type { TermMode } from "../../lib/terminal-mode";
@@ -11,7 +11,7 @@ import { TERM_MODE_LABEL } from "../../lib/ui-model";
 import type { HelpBlock } from "../../shared/ui/overlay";
 import { Button, SetHeading, SetNavRow, StatusDot } from "../../shared/ui/primitives";
 import { AgentQuotaSummary } from "../../pages/quota/quota-summary";
-import { composeLabel, languageLabel, openComposeSheet, openLanguageSheet, openTermModeSheet } from "./settings-controls";
+import { composeLabel, enterSendsLabel, languageLabel, notificationValue, openComposeSheet, openEnterSendsSheet, openLanguageSheet, openNotificationSheet, openTermModeSheet } from "./settings-controls";
 
 export type SettingsOverviewInput = {
   computerName: string;
@@ -22,6 +22,7 @@ export type SettingsOverviewInput = {
   deviceCount: number;
   defaultTermMode: TermMode;
   defaultComposeLive: boolean;
+  composeEnterSends: boolean;
   pushNote: string;
   pushAction: { label: string; disabled: boolean };
   notifyHelp?: () => HelpBlock[];
@@ -33,6 +34,7 @@ export type SettingsOverviewInput = {
  * its current value. Explanations live on the sheets and sub-pages, not here.
  */
 export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
+  const notification = { note: input.pushNote, action: input.pushAction, help: input.notifyHelp };
   return (
     <>
       <div className="set-card">
@@ -55,19 +57,18 @@ export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
           onClick={() => openTermModeSheet(input.defaultTermMode)} />
         <SetNavRow label={t("settings.input")} value={composeLabel(input.defaultComposeLive)}
           onClick={() => openComposeSheet(input.defaultComposeLive)} />
-      </div>
-      <SetHeading text={t("settings.notifications")} help={input.notifyHelp} />
-      <div className="set-card">
-        <div className="set-row set-row-stack">
-          <p className="set-note">{input.pushNote}</p>
-          <Button className="btn btn-small" onClick={() => void enablePush()} disabled={input.pushAction.disabled}>{input.pushAction.label}</Button>
-        </div>
+        <SetNavRow label={t("settings.enterSends")} value={enterSendsLabel(input.composeEnterSends)}
+          onClick={() => openEnterSendsSheet(input.composeEnterSends)} />
       </div>
       <SetHeading text={t("settings.phoneSection")} />
       <div className="set-card">
+        <SetNavRow label={t("settings.notifications")} value={notificationValue(notification)}
+          onClick={() => openNotificationSheet(notification)} />
         <SetNavRow label={t("settings.language")} value={languageLabel()} onClick={openLanguageSheet} />
         <SetNavRow label={t("settings.devices")} value={t("settings.countUnit", { n: String(input.deviceCount) })}
           onClick={() => setSettingsSection("devices")} />
+        {/* The scope note ("this tab · last 24 hours") sits on the connection page; here it would not fit. */}
+        <SetNavRow label={t("settings.exportConnectionDiagnostics")} value="" onClick={exportConnectionDiagnostics} />
       </div>
       <SetHeading text={t("settings.danger")} />
       <div className="set-card">

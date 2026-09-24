@@ -29,7 +29,7 @@ fi
 # must remain absent from its build output. index.html is the one intentional
 # overlap: the original PWA shell is copied to /pair after the site replaces /.
 reserved_pwa_paths=(
-  css doc dl home-i18n.js install.sh lang.js og-en.png og.png
+  css doc dl home-i18n.js home-motion.js img install.sh lang.js og-en.png og.png
   pair pair.html pair-shell.asset robots.txt site.js sitemap.xml zh zh-shell.asset
 )
 for path in "${reserved_pwa_paths[@]}"; do
@@ -65,7 +65,11 @@ cp "$SITE/index.html" "$DEST/zh-shell.asset"
 cp "$SITE/site.js" "$DEST/site.js"
 cp "$SITE/lang.js" "$DEST/lang.js"
 cp "$SITE/home-i18n.js" "$DEST/home-i18n.js"
+cp "$SITE/home-motion.js" "$DEST/home-motion.js"
 cp "$SITE/css/"*.css "$DEST/css/"
+# Product stills rendered from the PWA QA fixtures by scripts/site-shots.ts.
+mkdir -p "$DEST/img"
+cp -R "$SITE/img/home" "$DEST/img/home"
 cp "$SITE/icon.svg" "$DEST/icon.svg"
 # og*.html and og.css are the sources for the cards (scripts/build-og.sh) and are
 # not shipped; only the rendered PNGs are.

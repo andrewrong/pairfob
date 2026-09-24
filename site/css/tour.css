@@ -1,0 +1,396 @@
+/* "What does it do for you?": the feature tour over real PWA screens, the
+   tablet (landscape) band, and the "not this, but that" comparison. */
+
+/* One tablist. On wide screens its two columns open a gap the phone sits in. */
+.tour {
+  position: relative;
+  --phone-w: 300px;
+  --tour-gap: calc(var(--phone-w) + clamp(48px, 6vw, 96px));
+}
+
+.tour-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-height: calc(var(--phone-w) * 2.36);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: repeat(3, auto);
+  grid-auto-flow: column;
+  align-content: center;
+  column-gap: var(--tour-gap);
+  row-gap: 14px;
+}
+
+.tour-item {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-content: start;
+  gap: 4px 16px;
+  padding: 20px 22px 22px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  overflow: hidden;
+  transition: background 0.25s, border-color 0.25s;
+}
+
+.tour-item:hover {
+  background: var(--page);
+}
+
+.tour-item .ic {
+  grid-row: span 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--muted);
+  transition: background 0.25s, color 0.25s;
+}
+
+.tour-item .ic svg {
+  width: 21px;
+  height: 21px;
+}
+
+.tour-item b {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-2);
+}
+
+.tour-item > span {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.tour-item[aria-selected="true"] {
+  background: var(--page);
+  border-color: var(--line);
+  box-shadow: 0 18px 40px -28px rgba(11, 14, 19, 0.35);
+}
+
+.tour-item[aria-selected="true"] .ic {
+  background: var(--blue);
+  color: #fff;
+}
+
+.tour-item[aria-selected="true"] b {
+  color: var(--ink);
+}
+
+.tour-item .bar {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 0;
+  height: 2px;
+}
+
+.tour-item[aria-selected="true"] .bar::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--blue);
+}
+
+.tour.playing .tour-item[aria-selected="true"] .bar::after {
+  animation: fill 5s linear forwards;
+}
+
+.tour.held .tour-item[aria-selected="true"] .bar::after {
+  animation-play-state: paused;
+}
+
+.tag-attn {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 178, 36, 0.18);
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0;
+}
+
+.tour-phone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: var(--phone-w);
+}
+
+.tour-phone .phone-screen {
+  height: auto;
+}
+
+.tour-phone .shot {
+  position: relative;
+  flex: none;
+  aspect-ratio: 390 / 844;
+}
+
+.tour-phone .shot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  opacity: 0;
+  transition: opacity 0.45s var(--ease);
+}
+
+.tour-phone .shot img.on {
+  opacity: 1;
+}
+
+.tour-foot {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
+}
+
+.tour-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.tour-toggle:hover {
+  border-color: var(--ink);
+}
+
+.tour-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tour-toggle .i-play,
+.tour-toggle[aria-pressed="true"] .i-pause {
+  display: none;
+}
+
+.tour-toggle[aria-pressed="true"] .i-play {
+  display: block;
+}
+
+.no-motion .tour-toggle {
+  display: none;
+}
+
+/* ---------- tablet band ---------- */
+.wide {
+  margin-top: clamp(64px, 8vw, 104px);
+  padding-top: clamp(48px, 6vw, 72px);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 36px;
+}
+
+.wide-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 40px;
+}
+
+.wide h3 {
+  font-size: clamp(26px, 2.8vw, 36px);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.wide-head p {
+  max-width: 30em;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.extras {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px 28px;
+}
+
+.extras div {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 2px 12px;
+}
+
+.extras i {
+  grid-row: span 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--blue);
+}
+
+.extras i svg {
+  width: 17px;
+  height: 17px;
+}
+
+.extras b {
+  font-size: 15px;
+}
+
+.extras span {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.fine {
+  margin-top: 28px;
+  font-size: 14px;
+  color: var(--faint);
+}
+
+/* ---------- not this, but that ---------- */
+.vs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.vs li {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 22px 24px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.vs .not {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.vs .not i {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 12px;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.vs s {
+  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
+.vs b {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+}
+
+@media (max-width: 1040px) {
+  .tour {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 40px;
+    align-items: center;
+    --phone-w: 280px;
+  }
+
+  .tour-list {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-flow: row;
+    min-height: 0;
+    row-gap: 8px;
+  }
+
+  .tour-item {
+    padding: 14px 18px 16px;
+  }
+
+  .tour-phone {
+    position: static;
+    translate: none;
+  }
+
+  .extras {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .tour {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .tour-phone {
+    order: -1;
+    justify-self: center;
+    width: min(290px, 100%);
+  }
+
+  .tour-list {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 80%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 10px;
+    padding-bottom: 6px;
+  }
+
+  .tour-item {
+    scroll-snap-align: start;
+    background: var(--page);
+    border-color: var(--line);
+  }
+
+  .wide-head {
+    display: grid;
+  }
+
+  .extras,
+  .vs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

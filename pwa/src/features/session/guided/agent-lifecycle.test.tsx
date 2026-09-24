@@ -16,7 +16,7 @@ import type { SessionHandlers } from "./view";
 
 const restorer = new WorkspaceSnapshotRestorer();
 const noop = () => {};
-const handlers: SessionHandlers = { onBack: noop, onMenu: noop, onSwitch: noop, onWorkspace: noop };
+const handlers: SessionHandlers = { onBack: noop, onMenu: noop, onWorkspace: noop };
 
 beforeEach(async () => {
   await resetBoardTestDOM();
@@ -43,11 +43,11 @@ afterEach(() => {
 
 test("session chrome separates launch, readiness and actual task states", () => {
   for (const phase of [
-    { status: "working", pending: true, ready: false, label: "status.starting", dot: "idle", stop: false },
-    { status: "done", pending: true, ready: false, label: "status.starting", dot: "idle", stop: false },
-    { status: "idle", pending: false, ready: true, label: "status.ready", dot: "idle", stop: false },
-    { status: "working", pending: false, ready: true, label: "status.working", dot: "working", stop: true },
-    { status: "done", pending: false, ready: true, label: "status.done", dot: "done", stop: false },
+    { status: "working", pending: true, ready: false, label: "status.starting", dot: "idle" },
+    { status: "done", pending: true, ready: false, label: "status.starting", dot: "idle" },
+    { status: "idle", pending: false, ready: true, label: "status.ready", dot: "idle" },
+    { status: "working", pending: false, ready: true, label: "status.working", dot: "working" },
+    { status: "done", pending: false, ready: true, label: "status.done", dot: "done" },
   ] as const) {
     act(() => applySnapshot({
       workspaces: [{ workspace_id: "w", label: "project", cwd: "/repo/project" }],
@@ -55,8 +55,9 @@ test("session chrome separates launch, readiness and actual task states", () => 
         launch_pending: phase.pending, interactive_ready: phase.ready }],
     }));
     renderReact(<SessionChrome selected={selectedAgent()} includeBack={true} handlers={handlers} />);
-    expect(appRoot().querySelector(".chrome-meta-text")?.textContent).toContain(t(phase.label));
-    expect(appRoot().querySelector(`.agent-dot.agent-${phase.dot}`)).not.toBeNull();
-    expect(Boolean(appRoot().querySelector(".icon-stop"))).toBe(phase.stop);
+    expect(appRoot().querySelector(".chrome-status")?.textContent).toBe(t(phase.label));
+    expect(appRoot().querySelector(`.agent-avatar-status.is-${phase.dot}`)).not.toBeNull();
+    // Stop is the send button's; the header has none in any phase.
+    expect(appRoot().querySelector(".icon-stop")).toBeNull();
   }
 });

@@ -70,21 +70,11 @@
   .pane-root.settling { transition: transform var(--dur-2) linear; }
 }
 
-/* Prompt panel and row action bar share this slot below the buffer. */
-.session-extras {
-  flex: 0 0 auto;
-  max-height: 60dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.session-extras:empty { display: none; }
-
 /*
   Three zones, never a bag of shrinking siblings: back | identity | actions.
   Trailing controls stay a fixed cluster so a long pane name ellipsizes instead
-  of crushing the interrupt / menu targets.
+  of crushing the workspace / menu targets. The identity is the list card's own
+  projection and is display-only: no press state, no chevron.
 */
 .chrome {
   position: relative;
@@ -107,15 +97,37 @@
   min-height: 44px;
   overflow: hidden;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 2px 4px;
-  border-radius: 10px;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
   text-align: left;
 }
 
-.chrome-title:active { background: var(--surface-2); }
+.chrome-avatar {
+  flex: none;
+  display: grid;
+}
+
+.chrome-avatar .agent-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.chrome-avatar .agent-avatar-status {
+  width: 11px;
+  height: 11px;
+  border-width: 2px;
+  border-color: #0b0e13;
+}
+
+.chrome-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
 .chrome-name {
   min-width: 0;
@@ -131,18 +143,71 @@
 .chrome-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
   min-width: 0;
   font-size: var(--text-caption);
   line-height: 1.2;
   color: var(--muted);
+  white-space: nowrap;
 }
+
+/* A flex item drops its edge spaces, so the separator carries its own gap. */
+.chrome-meta-sep { flex: none; padding: 0 0.35em; }
+
+/* Same words and tones as the list card's status. */
+.chrome-status { flex: none; font-weight: 650; }
+.chrome-status.is-blocked { color: var(--warn); }
+.chrome-status.is-working { color: var(--accent); }
+.chrome-status.is-done { color: var(--ok); }
 
 .chrome-meta-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Other sessions waiting on the reader: an amber count on the way back. */
+.chrome-back {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+
+.chrome-back-badge {
+  position: absolute;
+  top: 5px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--warn);
+  color: #1b1405;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/*
+  Keyboard up: the terminal needs every row, so the header folds to one 44px
+  line. The status stays on screen as the avatar's corner dot.
+*/
+html[data-kb="open"] .chrome {
+  min-height: 44px;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: 0;
+}
+
+html[data-kb="open"] .chrome-title { min-height: 44px; gap: 8px; }
+html[data-kb="open"] .chrome-meta { display: none; }
+
+html[data-kb="open"] .chrome-avatar .agent-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
 }
 
 .chrome-actions {
@@ -174,14 +239,6 @@
 .icon-btn:active { background: var(--surface-2); }
 
 .icon-btn:disabled { opacity: 0.4; }
-
-.icon-stop {
-  color: var(--warn);
-  font-size: 0;
-  line-height: 0;
-}
-
-.icon-stop:active { background: var(--surface-2); }
 
 .back {
   min-height: 44px;

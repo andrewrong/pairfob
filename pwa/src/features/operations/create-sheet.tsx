@@ -1,12 +1,13 @@
-import { ChevronLeft, MoreHorizontal, Pencil, Plus } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Pencil, Plus } from "lucide-react";
+import { useRef, useState } from "react";
 import { t } from "../../lib/i18n";
 import { OPERATION_INPUT_LIMITS } from "../../lib/operations";
 import { SheetFrame } from "../../shared/ui/overlay/action-sheet";
 import { presentModal, type ModalController } from "../../shared/ui/overlay/modal";
 import { AgentAvatar, Button } from "../../shared/ui/primitives";
-import { AgentKindPicker } from "./agent-kind-picker";
-import { favoriteKinds, type CreateMemory } from "./create-memory";
+import { AgentKindGrid, kindName } from "./agent-kind-grid";
+import { AgentKindPickerPanel } from "./agent-kind-picker";
+import type { CreateMemory } from "./create-memory";
 
 export const NEW_WORKSPACE = "pairfob:new-workspace";
 
@@ -32,10 +33,6 @@ export type CreateRequest =
   | { kind: "conversation"; cwd: string; agentKind: string; label: string }
   | { kind: "worktree"; cwd: string; branch: string; base: string; label: string };
 
-function kindName(kind: string): string {
-  return kind || t("create.terminal");
-}
-
 function CreateSheetBody({ modal, input }: { modal: ModalController<CreateRequest>; input: CreateSheetInput }) {
   const canNew = input.canCreateWorkspace;
   const firstWorkspace = input.canCreateTab ? input.workspaces[0]?.id : undefined;
@@ -58,7 +55,6 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   // Start on the chosen place, not on whichever chip happens to come first.
   const initialWhere = useRef(where).current;
   const worktree = isNew && start === "worktree";
-  const favorites = useMemo(() => favoriteKinds(input.kinds, memory, kind), [input.kinds, memory, kind]);
   const workspace = input.workspaces.find((item) => item.id === where);
   const path = otherPath !== null ? otherPath.trim() : dir;
   const openHere = isNew && !worktree ? input.workspaces.find((item) => item.path && item.path === path) : undefined;
@@ -93,18 +89,8 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   };
 
   if (picking) {
-    return (
-      <div className="create-sheet-body is-picking">
-        <div className="create-picker-head">
-          <Button className="icon-btn" aria-label={t("sheet.back")} onClick={() => setPicking(false)}>
-            <ChevronLeft size={22} aria-hidden="true" />
-          </Button>
-          <h3 className="create-picker-title">{t("create.pickerTitle")}</h3>
-        </div>
-        <AgentKindPicker kinds={input.kinds} memory={memory} selected={kind}
-          onPick={(next) => { setKind(next); setPicking(false); }} onPinsChange={setMemory} />
-      </div>
-    );
+    return <AgentKindPickerPanel kinds={input.kinds} memory={memory} selected={kind} onBack={() => setPicking(false)}
+      onPick={(next) => { setKind(next); setPicking(false); }} onPinsChange={setMemory} />;
   }
 
   const recents = memory.recents.filter((combo) => input.canCreateTab && input.workspaces.some((space) => space.id === combo.workspaceId)
@@ -206,28 +192,8 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
 
       <h3 className="create-label">{t("create.what")}</h3>
       {worktree ? <p className="create-hint">{t("create.worktreeTerminal")}</p> : (
-        <div className="create-kinds" role="radiogroup" aria-label={t("create.what")}>
-          {favorites.map((item) => (
-            <Button key={item} className={`create-kind${kind === item ? " on" : ""}`} role="radio" aria-checked={kind === item}
-              onClick={() => setKind(item)}>
-              <AgentAvatar kind={item} />
-              <span className="create-kind-name">{item}</span>
-              <span className="create-kind-sub">{item === input.lastKind ? t("create.lastUsed") : memory.pinned.includes(item) ? t("create.pinnedTag") : " "}</span>
-            </Button>
-          ))}
-          <Button className={`create-kind${kind === "" ? " on" : ""}`} role="radio" aria-checked={kind === ""} onClick={() => setKind("")}>
-            <AgentAvatar kind="" />
-            <span className="create-kind-name">{t("create.terminal")}</span>
-            <span className="create-kind-sub">{t("create.terminalSub")}</span>
-          </Button>
-          {input.kinds.length > favorites.length ? (
-            <Button className="create-kind is-all" aria-expanded={false} onClick={() => setPicking(true)}>
-              <span className="agent-avatar is-md is-more" aria-hidden="true"><MoreHorizontal size={20} /></span>
-              <span className="create-kind-name">{t("create.all", { n: String(input.kinds.length) })}</span>
-              <span className="create-kind-sub">{t("create.allSub")}</span>
-            </Button>
-          ) : null}
-        </div>
+        <AgentKindGrid kinds={input.kinds} memory={memory} selected={kind} lastKind={input.lastKind}
+          onSelect={setKind} onShowAll={() => setPicking(true)} />
       )}
       {!input.kinds.length && !worktree ? <p className="create-hint">{t("create.noKinds")}</p> : null}
 

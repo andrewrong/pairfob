@@ -20,7 +20,7 @@ import { releaseBoardScroll } from "../src/pages/board/pane-scroll";
 import { phase, setNetworkOnline } from "../src/features/connection/connection-store";
 import { currentScreen } from "../src/app/navigation-store";
 import { isAgentChat, isFullTerminal, paneFollow, termSelect } from "../src/features/session/session-store";
-import { scenes, resetFixtureBaseline, applyScene, afterScenePaint } from "./scenes";
+import { scenes, resetFixtureBaseline, applyScene, afterScenePaint, sceneSource } from "./scenes";
 import { createSession, type FixtureSession } from "./session";
 import { renderTerminalShell, disposeTerminalShell } from "./terminal-shell";
 import { calls, errors, record, settlePaint } from "./environment";
@@ -167,7 +167,7 @@ export async function createFixtureAPI(language: "zh" | "en", initialScene: stri
       if (isAppMounted()) unmountApp();
     }
     session.dispose();
-    session = createSession();
+    session = createSession(sceneSource(name));
     session.live.onEvent(handleFullTerminalEvent);
     currentScene = name;
     calls.length = 0;

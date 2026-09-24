@@ -14,17 +14,19 @@ function ExpandHandle({ expanded, toggle }: { expanded: boolean; toggle: () => v
 }
 
 /** The common sheet header, close target and scrollable body, without another wrapper. */
-export function SheetContent({ title, titleId, subtitle, onDismiss, onBack, expand, bodyRef, children }: {
+export function SheetContent({ title, titleId, subtitle, onDismiss, onBack, backLabel, expand, bodyRef, children }: {
   title: string; titleId: string; subtitle?: string; onDismiss: () => void; bodyRef: Ref<HTMLDivElement>; children: ReactNode;
   /** Present while a pushed page is showing. */
   onBack?: () => void;
+  /** The page Back returns to, named next to the chevron. */
+  backLabel?: string;
   expand?: { expanded: boolean; toggle: () => void };
 }) {
   return <>
     {expand ? <ExpandHandle {...expand} /> : <SheetHandle />}
     <div className={`sheet-head${onBack ? " has-back" : ""}`}>
-      {onBack && <Button className="icon-btn sheet-back" aria-label={t("sheet.back")} onClick={onBack}>
-        <ChevronLeft size={22} aria-hidden="true" /></Button>}
+      {onBack && <Button className={`icon-btn sheet-back${backLabel ? " has-label" : ""}`} aria-label={t("sheet.back")} onClick={onBack}>
+        <ChevronLeft size={22} aria-hidden="true" />{backLabel && <span className="sheet-back-label" aria-hidden="true">{backLabel}</span>}</Button>}
       {subtitle ? <div className="sheet-titles"><h2 id={titleId} className="modal-title">{title}</h2>
         <p className="sheet-subtitle">{subtitle}</p></div>
         : <h2 id={titleId} className="modal-title">{title}</h2>}

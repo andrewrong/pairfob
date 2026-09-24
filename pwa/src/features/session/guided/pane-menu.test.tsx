@@ -25,16 +25,15 @@ import {
   termCols,
   termFit,
   termWrap,
-  togglePanePin,
   type TermCols,
   type TermFit,
 } from "../../settings/preferences-store";
 import { type ListGroup } from "../../../lib/ranking";
 import { setNetworkOnline, setPhase } from "../../connection/connection-store";
-import { applyRuntimeIdentity, runtimeIdentity } from "../../connection/runtime-store";
 import { setScreen } from "../../../app/navigation-store";
 import { setComposeLive } from "../compose-store";
 import {
+  applyPaneRead,
   selectPane,
   setAgentChat,
   setFullTerminal,
@@ -45,7 +44,7 @@ import { dashboardStore, replaceAgentsFromSnapshot } from "../../dashboard/catal
 import { projectSnapshot } from "../../board/layout-store";
 import { attachLiveSession } from "../../computers/catalog-store";
 import { openPaneMenu } from "./pane-menu";
-import { openPaneSwitcher } from "./pane-switcher";
+import { ProtocolError } from "../../../lib/protocol/errors";
 
 const labels = () => [...document.querySelectorAll(".sheet-body button")].map((button) => button.textContent);
 const sections = () => [...document.querySelectorAll(".menu-section-title")].map((node) => node.textContent);
@@ -156,23 +155,62 @@ const tiles = () => [...document.querySelectorAll(".sheet-body .menu-tile")].map
 const sheetOpen = () => document.querySelector<HTMLDialogElement>("dialog.sheet")?.open === true;
 const byLabel = (label: string) => document.querySelector<HTMLButtonElement>(`.sheet-body button[aria-label="${label}"]`)!;
 
-test("guided menu leads with in-place settings, then frequent actions, pages and a separate danger zone", () => {
+test("the root names the pane, explains the mode, and ends with an inline close", () => {
   act(openPaneMenu);
   const dialog = document.querySelector<HTMLDialogElement>("dialog.sheet")!;
   expect(dialog.querySelector("h2")?.textContent).toBe(t("pane.menuTitle"));
-  expect(dialog.querySelector(".sheet-subtitle")?.textContent).toBe("First");
-  expect(dialog.classList.contains("is-expandable")).toBeTrue();
+  expect(dialog.classList.contains("is-expandable")).toBeFalse();
+  expect(dialog.querySelector(".pane-head b")?.textContent).toBe("First");
+  expect(byLabel(t("pm.copyPathAria", { path: "/one" }))).not.toBeNull();
   expect(radio(TERM_MODE_MENU.guided).getAttribute("aria-checked")).toBe("true");
   expect(radio(TERM_MODE_MENU.agent).disabled).toBeTrue();
+  expect(dialog.querySelector(".pane-mode-hint")?.textContent).toContain(t("pm.modeAgentOff"));
   expect(quick().textContent).toContain(t("menu.input"));
   expect(quick().querySelector(".menu-stepper-value")?.textContent).toBe(t("pane.fontPx", { n: 14 }));
   expect(quick().querySelector("[role=switch]")?.getAttribute("aria-label")).toBe(t("menu.wrap"));
-  expect(tiles()).toEqual([t("menu.copyScreen"), t("menu.selectText")]);
-  expect(rows()).toContain(t("pane.layoutPage"));
-  expect(rows()).toContain(t("menu.renamePane"));
+  expect(tiles()).toEqual([t("menu.copyScreen"), t("menu.renamePane")]);
+  expect(rows().some((row) => row?.startsWith(t("pm.layout")))).toBeTrue();
   expect(rows()).not.toContain(t("menu.worktree"));
-  expect(document.querySelector(".menu-danger-zone")?.textContent).toBe(t("op.closePane"));
+  expect(document.querySelector(".menu-danger-zone")?.textContent).toBe(t("pm.closePane"));
   expect(labels()).not.toContain(t("cancel"));
+});
+
+test("closing confirms inside the sheet, warns while running, and then closes the pane", async () => {
+  seedAgents([card("p1", { status: "working" })]);
+  const closed: string[] = [];
+  attachLiveSession({ isConnected: () => true, closePane: async (paneId: string) => { closed.push(paneId); throw new Error("stop"); } } as never);
+  act(openPaneMenu);
+  const zone = () => document.querySelector(".menu-danger-zone")!;
+  act(() => zone().querySelector<HTMLButtonElement>(".menu-row")!.click());
+  expect(sheetOpen()).toBeTrue();
+  expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);
+  expect(zone().querySelector(".pane-confirm-subject")?.textContent).toContain("First");
+  expect(zone().querySelector(".pane-confirm-warn")?.textContent).toBe(t("confirm.closeRunning"));
+  const [cancel, confirm] = [...zone().querySelectorAll<HTMLButtonElement>(".pane-confirm-actions button")];
+  act(() => cancel.click());
+  expect(zone().querySelector(".pane-confirm")).toBeNull();
+  act(() => zone().querySelector<HTMLButtonElement>(".menu-row")!.click());
+  await act(async () => { zone().querySelectorAll<HTMLButtonElement>(".pane-confirm-actions button")[1].click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(confirm).toBeDefined();
+  expect(sheetOpen()).toBeFalse();
+  expect(closed).toEqual(["p1"]);
+});
+
+test("copy screen reports the line count and keeps the sheet open", async () => {
+  const written: string[] = [];
+  const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { written.push(text); } } });
+  try {
+    act(() => applyPaneRead("one\ntwo\n\n", "h-copy"));
+    act(openPaneMenu);
+    await act(async () => { byLabel(t("menu.copyScreen")).click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(written).toEqual(["one\ntwo"]);
+    expect(document.querySelector(".pane-menu-status")?.textContent).toBe(t("pm.copiedLines", { n: "2" }));
+    expect(sheetOpen()).toBeTrue();
+  } finally {
+    if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+    else delete (navigator as { clipboard?: unknown }).clipboard;
+  }
 });
 
 test("text size, wrap and input apply in place and keep the sheet open", async () => {
@@ -210,31 +248,114 @@ test("agent chat omits terminal settings and screen actions while retaining pane
   setPaneTermMode("p1", "agent");
   act(openPaneMenu);
   expect(radio(TERM_MODE_MENU.agent).disabled).toBeFalse();
-  expect(quick().textContent).not.toContain(t("menu.input"));
-  expect(quick().querySelector(".menu-stepper")).toBeNull();
-  expect(tiles()).toEqual([]);
-  expect(document.querySelector(".menu-danger-zone")?.textContent).toBe(t("op.closePane"));
+  expect(document.querySelector(".pane-quick")).toBeNull();
+  expect(tiles()).toEqual([t("menu.renamePane")]);
+  expect(document.querySelector(".menu-danger-zone")?.textContent).toBe(t("pm.closePane"));
 });
 
-test("capabilities reveal tiles and pages; Worktree and split open inside the same sheet", () => {
-  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_tab: true, split_pane: true, list_worktrees: true,
-    create_worktree: true, open_worktree: true }, ["codex"]);
+const pageRow = (label: string) => [...document.querySelectorAll<HTMLButtonElement>(".sheet-body .menu-row")]
+  .find((row) => row.querySelector(".menu-row-label")?.textContent === label)!;
+
+test("new tab reuses the create grid, fixes the workspace, and keeps a failure on the page", async () => {
+  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_tab: true }, ["codex", "claude"]);
+  const calls: Array<Record<string, unknown>> = [];
+  attachLiveSession({ isConnected: () => true, createTab: async (input: Record<string, unknown>) => {
+    calls.push(input); throw new ProtocolError("invalid_argument", "no such kind");
+  } } as never);
   act(openPaneMenu);
   const dialog = document.querySelector<HTMLDialogElement>("dialog.sheet")!;
-  expect(tiles()).toEqual([t("menu.copyScreen"), t("menu.selectText"), t("menu.newTab"), t("menu.split")]);
-  const worktree = [...document.querySelectorAll<HTMLButtonElement>(".menu-row")].find((row) => row.textContent === t("menu.worktree"))!;
-  act(() => worktree.click());
-  expect(document.querySelector<HTMLDialogElement>("dialog.sheet")).toBe(dialog);
-  expect(dialog.querySelector("h2")?.textContent).toBe(t("menu.worktree"));
-  expect(rows()).toEqual([t("menu.worktrees"), t("menu.newWorktree"), t("menu.openWorktree")]);
+  act(() => byLabel(t("menu.newTab")).click());
+  expect(dialog.querySelector("h2")?.textContent).toBe(t("pm.newTabTitle"));
+  expect(dialog.querySelector(".sheet-back-label")?.textContent).toBe(t("pane.menuTitle"));
+  expect(dialog.querySelector(".pane-where b")?.textContent).toBe("One");
+  expect([...dialog.querySelectorAll(".create-kind-name")].map((node) => node.textContent)).toEqual(["codex", "claude", t("create.terminal")]);
+  act(() => [...dialog.querySelectorAll<HTMLButtonElement>(".create-kind")].find((node) => node.textContent?.includes("claude"))!.click());
+  expect(dialog.querySelector(".create-summary")?.textContent).toBe(t("create.summaryTab", { workspace: "One", kind: "claude" }));
+  await act(async () => { dialog.querySelector<HTMLButtonElement>(".pane-page-footer .create-submit")!.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(calls).toEqual([{ workspace_id: "w1", agent_kind: "claude" }]);
+  expect(sheetOpen()).toBeTrue();
+  expect(dialog.querySelector(".pane-page-note.is-error")?.textContent).toBeTruthy();
   act(() => dialog.querySelector<HTMLButtonElement>(".sheet-back")!.click());
+  expect(dialog.querySelector(".pane-head")).not.toBeNull();
+});
+
+test("offline pages say why and keep the primary action off", () => {
+  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, create_tab: true }, ["codex"]);
+  act(openPaneMenu);
+  act(() => byLabel(t("menu.newTab")).click());
+  act(() => setNetworkOnline(false));
+  try {
+    expect(document.querySelector<HTMLButtonElement>(".pane-page-footer .create-submit")!.disabled).toBeTrue();
+    expect(document.querySelector(".pane-page-footer .pane-page-note")?.textContent).toBe(t("boardMenu.offline"));
+  } finally { act(() => setNetworkOnline(true)); }
+});
+
+test("split picks its side on the preview and sends one split with the chosen kind", async () => {
+  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, split_pane: true }, ["codex"]);
+  const calls: Array<Record<string, unknown>> = [];
+  attachLiveSession({ isConnected: () => true, splitPane: async (input: Record<string, unknown>) => { calls.push(input); throw new Error("stop"); } } as never);
+  act(openPaneMenu);
+  const dialog = document.querySelector<HTMLDialogElement>("dialog.sheet")!;
   act(() => byLabel(t("menu.split")).click());
-  expect(dialog.querySelector("h2")?.textContent).toBe(t("form.split"));
-  const submit = dialog.querySelector<HTMLButtonElement>(".sheet-form-submit")!;
-  expect(submit.textContent).toBe(t("form.splitRight"));
-  act(() => dialog.querySelector<HTMLInputElement>('input[name="direction"][value="down"]')!.click());
-  expect(submit.textContent).toBe(t("form.splitDown"));
-  expect(dialog.querySelector('select[name="agent_kind"]')).not.toBeNull();
+  expect(dialog.querySelector("h2")?.textContent).toBe(t("pm.splitTitle"));
+  expect(dialog.querySelector(".pane-layout-cell.is-new")).not.toBeNull();
+  expect(dialog.querySelector(".create-summary")?.textContent).toBe(t("pm.splitSummaryRight", { kind: "codex" }));
+  act(() => byLabel(t("pm.splitDownAria")).click());
+  expect(byLabel(t("pm.splitDownAria")).getAttribute("aria-checked")).toBe("true");
+  expect(dialog.querySelector(".create-summary")?.textContent).toBe(t("pm.splitSummaryDown", { kind: "codex" }));
+  await act(async () => { dialog.querySelector<HTMLButtonElement>(".pane-page-footer .create-submit")!.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(calls).toEqual([{ pane_id: "p1", direction: "down", ratio: 0.5, agent_kind: "codex" }]);
+});
+
+test("rename edits in place: prefilled, clearable, Enter saves and blank restores the automatic name", async () => {
+  const calls: Array<[string, string | null]> = [];
+  attachLiveSession({ isConnected: () => true, renamePane: async (paneId: string, label: string | null) => { calls.push([paneId, label]); },
+    snapshot: async () => ({ workspaces: [{ workspace_id: "w1", label: "One", cwd: "/one" }], tabs: [{ tab_id: "t1", workspace_id: "w1", label: "main" }],
+      panes: [card("p1")] }) } as never);
+  act(openPaneMenu);
+  act(() => byLabel(t("menu.renamePane")).click());
+  const input = document.querySelector<HTMLInputElement>(".pane-rename input")!;
+  expect(input.value).toBe("First");
+  expect(document.querySelector(".pane-rename + .create-hint")?.textContent).toContain(t("pm.renameHint", { name: "" }).trim());
+  act(() => byLabel(t("pm.renameClear")).click());
+  expect(input.value).toBe("");
+  await act(async () => {
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  expect(calls).toEqual([["p1", null]]);
+  expect(sheetOpen()).toBeFalse();
+});
+
+test("Worktree lists in place, marks the current checkout, and opens a row with its own spinner", async () => {
+  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, list_worktrees: true, create_worktree: true, open_worktree: true }, ["codex"]);
+  let release!: () => void;
+  const opened: Array<Record<string, unknown>> = [];
+  attachLiveSession({ isConnected: () => true,
+    listWorktrees: () => new Promise((resolve) => { release = () => resolve({ worktrees: [
+      { path: "/one", branch: "main", label: null, is_bare: false, is_detached: false, is_prunable: false, is_linked_worktree: false, open_workspace_id: "w1" },
+      { path: "/one-wt/keys", branch: "feat/keys", label: null, is_bare: false, is_detached: false, is_prunable: false, is_linked_worktree: true, open_workspace_id: null },
+    ] }); }),
+    openWorktree: async (input: Record<string, unknown>) => { opened.push(input); throw new Error("stop"); } } as never);
+  act(openPaneMenu);
+  const dialog = document.querySelector<HTMLDialogElement>("dialog.sheet")!;
+  act(() => pageRow(t("menu.worktree")).click());
+  expect(dialog.querySelectorAll(".pane-wt.is-skeleton")).toHaveLength(3);
+  await act(async () => { release(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+  const rowsNow = [...dialog.querySelectorAll(".pane-wt-list > li")];
+  expect(rowsNow.map((row) => row.querySelector("b")?.textContent)).toEqual(["main", "feat/keys"]);
+  expect(rowsNow[0].querySelector(".pane-wt-tag")?.textContent).toBe(t("pm.wtCurrent"));
+  expect(rowsNow[0].querySelector("button")).toBeNull();
+  await act(async () => { rowsNow[1].querySelector<HTMLButtonElement>("button")!.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(opened).toEqual([{ workspace_id: "w1", path: "/one-wt/keys" }]);
+  expect(sheetOpen()).toBeTrue();
+  act(() => pageRow(t("pm.wtNew")).click());
+  expect(dialog.querySelector("h2")?.textContent).toBe(t("pm.wtNew"));
+  expect(dialog.querySelector(".sheet-back-label")?.textContent).toBe(t("menu.worktree"));
+  act(() => dialog.querySelector<HTMLButtonElement>(".sheet-back")!.click());
+  act(() => pageRow(t("pm.wtOpenBy")).click());
+  expect(dialog.querySelectorAll(".create-seg [role=radio]")).toHaveLength(2);
+  expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);
 });
 
 test("layout page previews the tab and keeps the daemon edge directions for each step", async () => {
@@ -249,10 +370,15 @@ test("layout page previews the tab and keeps the daemon edge directions for each
   attachLiveSession({ isConnected: () => true, resizePane: async (input: Record<string, unknown>) => { calls.push(input); throw new Error("stop"); },
     swapPane: async (input: Record<string, unknown>) => { calls.push(input); throw new Error("stop"); } } as never);
   act(openPaneMenu);
-  const layoutRow = [...document.querySelectorAll<HTMLButtonElement>(".menu-row")].find((row) => row.textContent === t("pane.layoutPage"))!;
-  act(() => layoutRow.click());
+  expect(pageRow(t("pm.layout")).querySelector(".pane-row-value")?.textContent).toBe(t("pm.layoutCells", { n: "2" }));
+  act(() => pageRow(t("pm.layout")).click());
   expect([...document.querySelectorAll(".pane-layout-cell")].map((cell) => cell.textContent)).toEqual([t("pane.thisCell"), "Second"]);
-  expect(document.querySelector(".pane-layout-resize .menu-stepper-value")?.textContent).toBe(t("layout.share", { n: 50 }));
+  expect(byLabel(t("board.paneAria", { title: "Second" }))).not.toBeNull();
+  const divider = document.querySelector<HTMLElement>(".pane-divider.is-v")!;
+  expect(divider.getAttribute("aria-valuenow")).toBe("50");
+  await act(async () => { divider.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+  expect(calls.at(-1)).toMatchObject({ pane_id: "p1", direction: "right", amount: 0.15 });
+  expect(document.querySelector(".pane-precise .pane-layout-resize .menu-stepper-value")?.textContent).toBe(t("layout.share", { n: 50 }));
   expect(byLabel(t("form.swapLeft")).disabled).toBeTrue();
   for (const [label, direction] of [["form.wider", "right"], ["form.narrower", "left"]] as const) {
     await act(async () => { byLabel(t(label)).click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
@@ -268,39 +394,14 @@ test("layout page previews the tab and keeps the daemon edge directions for each
   } finally { act(() => setNetworkOnline(true)); }
 });
 
-test("switcher keeps ranked cards, pinned marker, active state and contextual metadata", () => {
-  seedAgents([card("p1"), card("p2", { label: "Pinned", status: "working" })]);
-  togglePanePin("p2");
-  act(openPaneSwitcher);
-  const items = [...document.querySelectorAll(".switch-item")];
-  expect(items).toHaveLength(2);
-  expect(items[0].querySelector(".switch-name")?.textContent).toBe("Pinned");
-  expect(items[0].querySelector(".pin-mark")?.getAttribute("aria-hidden")).toBe("true");
-  expect(items[1].classList.contains("on")).toBeTrue();
-  expect(items[0].querySelector(".switch-meta")?.textContent).toContain(t("status.working"));
-});
-
-test("switcher states read like the header and turn unknown once contact is lost", () => {
-  const identity = runtimeIdentity();
-  act(() => applyRuntimeIdentity({ herdHost: identity.herdHost, runtimeKind: "herdr" }));
-  try {
-    seedAgents([card("p1")]);
-    act(openPaneSwitcher);
-    // An idle agent is "waiting for input" in the header and the list, not a bare "idle".
-    expect(document.querySelector(".switch-meta")?.textContent).toContain(t("status.waitingInput"));
-    act(() => closeTestDialogs());
-    act(() => setNetworkOnline(false));
-    act(openPaneSwitcher);
-    expect(document.querySelector(".switch-meta")?.textContent).toContain(t("status.unverifiable"));
-    expect(document.querySelector(".switch-item .agent-unknown")).not.toBeNull();
-  } finally {
-    act(() => { setNetworkOnline(true); applyRuntimeIdentity(identity); });
-  }
-});
-
-test("empty switcher retains its explanation and cancel action", () => {
-  seedAgents([]);
-  act(openPaneSwitcher);
-  expect(document.querySelector(".switch-list")?.textContent).toContain(t("home.switcherEmptyTitle"));
-  expect(labels()).toContain(t("cancel"));
+test("a single-cell tab shows the preview and says so", () => {
+  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, resize_pane: true }, []);
+  projectSnapshot({ workspaces: [{ workspace_id: "w1", label: "One", cwd: "/one" }], tabs: [{ tab_id: "t1", workspace_id: "w1", label: "main" }],
+    panes: [card("p1")], layouts: [{ workspace_id: "w1", tab_id: "t1", zoomed: false, area: { x: 0, y: 0, width: 100, height: 40 },
+      panes: [{ pane_id: "p1", focused: true, rect: { x: 0, y: 0, width: 100, height: 40 } }] }] } as never, dashboardStore.get().agents as never);
+  act(openPaneMenu);
+  act(() => pageRow(t("pm.layout")).click());
+  expect(document.querySelector(".pane-layout-single")?.textContent).toBe(t("pm.single"));
+  expect(document.querySelector(".pane-divider")).toBeNull();
+  expect(document.querySelector(".pane-precise")).toBeNull();
 });

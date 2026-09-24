@@ -24,7 +24,7 @@ function fn(name: string, next: string): string {
 }
 
 describe("complete-terminal chrome stays a distinct surface", () => {
-  test("chrome matches the other pane modes: stop, workspace, and more", async () => {
+  test("chrome matches the other pane modes: shared identity, workspace, and more", async () => {
     // Preparation (document mode, renderer reset, status, initial view) runs in
     // an explicit prep function before React renders the declarative route; it
     // must not create a screen, adopt, or call a root renderer.
@@ -38,8 +38,9 @@ describe("complete-terminal chrome stays a distinct surface", () => {
     expect(source).toContain("syncFullTerminalChrome");
     const reactShell = await Bun.file(new URL("./full-terminal-screen.tsx", import.meta.url)).text();
     expect(reactShell).toContain("full-terminal-chrome");
-    expect(reactShell).toContain("SessionActions");
-    expect(reactShell).toContain("working={view.working}");
+    // One header component for all three modes; stop is not a header action.
+    expect(reactShell).toContain("<SessionIdentity");
+    expect(reactShell).not.toContain("onStop");
     expect(reactShell).toContain("FullTerminalPad");
     // The terminal screen is composed declaratively, never injected.
     expect(reactShell).not.toContain("renderReactScreen");

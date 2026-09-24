@@ -32,11 +32,14 @@ afterEach(async () => {
   appRoot().replaceChildren();
 });
 
+const kindOption = (label: string) =>
+  [...appRoot().querySelectorAll<HTMLButtonElement>(".pad-kind-option")].find((el) => el.textContent === label)!;
+
 describe("React session dock", () => {
   test("collapsed pad keeps only the TUI survival row", async () => {
     setKeysExpanded(false);
     await act(() => { paint(); });
-    expect(appRoot().querySelector(".pad-mode")).toBeNull();
+    expect(appRoot().querySelector(".pad-kind")).toBeNull();
     expect(appRoot().querySelector(".slash-pad")).toBeNull();
     expect(appRoot().querySelector('[aria-label="终端快捷键"]')).toBeTruthy();
     expect(appRoot().querySelector(".dock-form textarea")).toBeTruthy();
@@ -46,11 +49,11 @@ describe("React session dock", () => {
     setKeysExpanded(true);
     setPadKind("keys");
     await act(() => { paint(); });
-    expect(appRoot().querySelector(".pad-mode")?.getAttribute("aria-label")).toBe("切换到命令");
+    expect(kindOption("按键").getAttribute("aria-pressed")).toBe("true");
     expect(appRoot().querySelector(".slash-pad")).toBeNull();
     expect(appRoot().textContent).toContain("Tab");
     expect(appRoot().textContent).toContain("Ctrl");
-    expect(appRoot().textContent).toContain("换行");
+    expect(appRoot().textContent).not.toContain("换行");
   });
 
   test("expanded command morph fills compose chips and not SendKeys", async () => {
@@ -62,7 +65,7 @@ describe("React session dock", () => {
     const chips = [...appRoot().querySelectorAll(".slash-cmd")].map((el) => el.textContent);
     expect(chips).toEqual(SLASH_COMMANDS.map((command) => command.label));
     expect(appRoot().querySelector(".keys-wrap")?.textContent).not.toContain("Tab");
-    expect(appRoot().querySelector(".pad-mode")?.textContent).toBe("命令");
+    expect(kindOption("命令").getAttribute("aria-pressed")).toBe("true");
   });
 
   test("expanding and switching pad modes preserves the same focused IME field and selection", async () => {
@@ -88,9 +91,9 @@ describe("React session dock", () => {
     };
     await tap(appRoot().querySelector(".key-more")!);
     expect(keysExpanded()).toBe(true);
-    await tap(appRoot().querySelector<HTMLButtonElement>(".pad-mode")!);
+    await tap(kindOption("命令"));
     expect(appRoot().querySelector(".slash-pad")).toBeTruthy();
-    await tap(appRoot().querySelector<HTMLButtonElement>(".pad-mode")!);
+    await tap(kindOption("按键"));
     expect(appRoot().querySelector(".key-mod")).toBeTruthy();
     await tap(appRoot().querySelector(".key-more")!);
     expect(keysExpanded()).toBe(false);

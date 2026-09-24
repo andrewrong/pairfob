@@ -20,11 +20,14 @@ import {
   worktreeScope,
   type CreateConversationInput,
   type CreateWorktreeInput,
+  type OpenWorktreeInput,
   type ListWorktreesInput,
   type CreateTabInput,
   type WorktreeDraft,
   type SplitDirection,
   type SplitPaneInput,
+  type WorktreeSummary,
+  parseWorktrees,
 } from "../../lib/operations";
 import { type GitLayer } from "../../lib/workspace";
 import {
@@ -51,10 +54,11 @@ import { landAfterDisconnect, openPane, openPaneWithOwner, refreshFromSession, r
 import { reconcileAmbiguousMutation } from "../connection/mutations";
 import { commitView } from "../../app/host";
 import { promptLockHeld } from "../session/drafts/state-drafts";
-import { captureNoticeScope, noticeScopeIsCurrent, showError, showStatus } from "../../app/notices-store";
+import { captureNoticeScope, noticeScopeIsCurrent, noticesStore, showError, showStatus } from "../../app/notices-store";
 import { markPaneSubmitted } from "../dashboard/catalog-store";
 import { messageOf } from "../../lib/notices";
 import { resetPaneView } from "../session/session-store";
+import { openWorktreeTargetError } from "./operation-form-model";
 import { disposeFullTerminal, leaveFullTerminalWithTransition } from "../session/full-terminal/full-terminal";
 import { dropQueuedKeys } from "../../features/session/guided/keys";
 import {
@@ -160,6 +164,29 @@ async function runHerdOperation<T>(
   await runOwnedOperation(pending, success, action, mutationPorts, options);
 }
 
+/**
+ * What an in-sheet form shows once its operation settles: done, or why not.
+ * An empty message means it never ran (offline, busy or superseded) and the
+ * form's own disabled reason already says so.
+ */
+export type SheetOutcome = { ok: true } | { ok: false; message: string };
+
+const NOT_RUN: SheetOutcome = { ok: false, message: "" };
+
+/**
+ * Run a notice-reporting operation for a form that stays open: `done` marks
+ * success from inside the operation's `after`; a failure is the error notice
+ * the runner raised meanwhile.
+ */
+async function sheetOutcome(run: (done: () => void) => Promise<void>): Promise<SheetOutcome> {
+  const before = noticesStore.get().notice;
+  let ok = false;
+  await run(() => { ok = true; });
+  if (ok) return { ok: true };
+  const notice = noticesStore.get().notice;
+  return { ok: false, message: notice && notice !== before && notice.tone === "error" ? notice.text : "" };
+}
+
 async function selectCreatedPane(result: { pane_id?: string; workspace_id?: string; tab_id?: string }, owner: OperationOwner): Promise<void> {
   const paneId = typeof result.pane_id === "string" && result.pane_id ? result.pane_id : "";
   // Refresh first so the switch below sees the new pane in the snapshot, then
@@ -227,19 +254,20 @@ export async function startNewConversation(prepared?: CreateConversationInput): 
 
 /** `prepared` is input a caller already collected in its own form (the pane sheet). */
 export async function createSelectedTab(agent: AgentCard | undefined = selectedAgent(),
-  prepared?: Omit<CreateTabInput, "workspace_id">): Promise<void> {
+  prepared?: Omit<CreateTabInput, "workspace_id">): Promise<SheetOutcome> {
   const session = liveSession();
-  if (!session || !agent?.workspaceId || !capabilityEnabled("create_tab")) return;
+  if (!session || !agent?.workspaceId || !capabilityEnabled("create_tab")) return NOT_RUN;
   const owner = operationOwner(session);
   const input = prepared ?? await askCreateTab([...advertisedAgentKinds()], agent.cwd);
-  if (!input || !ownsOperationView(owner) || !capabilityEnabled("create_tab")) return;
+  if (!input || !ownsOperationView(owner) || !capabilityEnabled("create_tab")) return NOT_RUN;
   const workspaceId = agent.workspaceId;
-  await runHerdOperation(
+  return sheetOutcome(done => runHerdOperation(
     t("op.creatingTab"),
     t("op.createdTab"),
     () => session.createTab({ workspace_id: workspaceId, ...input }),
-    { owner, capability: "create_tab", conflictMessage: t("err.createPaneConflict"), after: selectCreatedPane },
-  );
+    { owner, capability: "create_tab", conflictMessage: t("err.createPaneConflict"),
+      after: async (result, scope) => { await selectCreatedPane(result, scope); done(); } },
+  ));
 }
 
 export type PaneOperationOptions = {
@@ -258,14 +286,14 @@ function requirePaneTarget(agent: AgentCard, options: PaneOperationOptions): voi
   }
 }
 
-export async function splitSelectedPane(selected = selectedAgent(), options: PaneOperationOptions = {}): Promise<void> {
+export async function splitSelectedPane(selected = selectedAgent(), options: PaneOperationOptions = {}): Promise<SheetOutcome> {
   const session = liveSession();
-  if (!session || !selected || !capabilityEnabled("split_pane") || options.valid?.() === false) return;
+  if (!session || !selected || !capabilityEnabled("split_pane") || options.valid?.() === false) return NOT_RUN;
   const owner = operationOwner(session);
   const input = options.input ?? await askSplitPane([...advertisedAgentKinds()], selected.cwd,
     options.direction ? { direction: options.direction, title: agentTitle(selected) } : undefined);
-  if (!input || !ownsOperationView(owner) || !capabilityEnabled("split_pane")) return;
-  await runHerdOperation(
+  if (!input || !ownsOperationView(owner) || !capabilityEnabled("split_pane")) return NOT_RUN;
+  return sheetOutcome(done => runHerdOperation(
     t("op.creatingSplit"),
     t("op.createdSplit"),
     () => { requirePaneTarget(selected, options); return session.splitPane({ pane_id: selected.paneId, ...input }); },
@@ -276,8 +304,9 @@ export async function splitSelectedPane(selected = selectedAgent(), options: Pan
       if (options.valid) await refreshFromSession();
       else await selectCreatedPane(result, scope);
       if (ownsOperationView(scope) && options.valid?.() !== false && result.pane_id) options.created?.(result.pane_id);
+      done();
     } },
-  );
+  ));
 }
 
 export async function promptSelectedAgent(): Promise<void> {
@@ -344,9 +373,44 @@ export async function sendDiffNotesToAgent(path: string, layer: GitLayer): Promi
   }
 }
 
-function selectedWorktreeDefaults(): WorktreeDraft | null {
-  const selected = selectedAgent();
+function selectedWorktreeDefaults(selected: Pick<AgentCard, "workspaceId" | "cwd"> | undefined = selectedAgent()): WorktreeDraft | null {
   return selected ? worktreeScope(selected.workspaceId, selected.cwd) : null;
+}
+
+/** The pane sheet's Worktree list, read in place. Throws what the page shows. */
+export async function loadPaneWorktrees(agent: AgentCard): Promise<WorktreeSummary[]> {
+  const session = liveSession();
+  const scope = selectedWorktreeDefaults(agent);
+  if (!session || !scope || !capabilityEnabled("list_worktrees")) return [];
+  return parseWorktrees(await session.listWorktrees(scope));
+}
+
+/** Open a listed Worktree, or one named by path or branch, from the pane sheet. */
+export async function openPaneWorktree(agent: AgentCard, target: { path?: string; branch?: string; label?: string }): Promise<SheetOutcome> {
+  const session = liveSession();
+  const scope = selectedWorktreeDefaults(agent);
+  if (!session || !scope || !capabilityEnabled("open_worktree")) return NOT_RUN;
+  const path = target.path?.trim() || "";
+  const branch = target.branch?.trim() || "";
+  const invalid = openWorktreeTargetError(path, branch);
+  if (invalid) return { ok: false, message: invalid };
+  const input = { ...scope, ...(path ? { path } : { branch }), ...(target.label ? { label: target.label } : {}) } as OpenWorktreeInput;
+  return sheetOutcome(done => runHerdOperation(t("op.openingWorktree"), t("op.openedWorktree"), () => session.openWorktree(input), {
+    capability: "open_worktree", reconcileWorktrees: scope,
+    after: async (result, owner) => { await selectCreatedPane(result, owner); done(); },
+  }));
+}
+
+/** Start the background create job for the pane's repository; false when it could not start. */
+export function createPaneWorktree(agent: AgentCard, fields: { branch?: string; base?: string; label?: string; path?: string }): boolean {
+  const scope = selectedWorktreeDefaults(agent);
+  if (!scope) return false;
+  const input: CreateWorktreeInput = { ...scope };
+  for (const key of ["branch", "base", "label", "path"] as const) {
+    const text = fields[key]?.trim();
+    if (text) input[key] = text;
+  }
+  return createWorktreeFrom(input);
 }
 
 export async function listSelectedWorktrees(): Promise<void> {
@@ -401,14 +465,16 @@ export async function createSelectedWorktree(): Promise<void> {
  * Create a worktree the create sheet described, scoped by the repository
  * directory it names. Runs as the same background job card as the menu path.
  */
-export function createWorktreeFrom(input: CreateWorktreeInput): void {
+export function createWorktreeFrom(input: CreateWorktreeInput): boolean {
   const session = liveSession();
   const scope = worktreeScope(input.workspace_id, input.cwd);
-  if (!session || !scope || !capabilityEnabled("create_worktree")) return;
+  if (!session || !scope || !capabilityEnabled("create_worktree")) return false;
   if (!startWorktreeJob(worktreeJobDriver(session, scope), input)) {
     showError(t("op.worktreeJobLimit"));
     commitView();
+    return false;
   }
+  return true;
 }
 
 export async function openSelectedWorktree(): Promise<void> {
@@ -485,13 +551,31 @@ export async function renamePane(agent: AgentCard | undefined = selectedAgent(),
     emptyHint: t("text.paneEmptyHint"),
   });
   if (label === null || !ownsOperationView(owner)) return;
+  const outcome = await applyPaneLabel(session, owner, agent, label, options);
+  if (!outcome.ok && outcome.message && ownsOperationView(owner)) {
+    showError(outcome.message, owner.scope);
+    commitView();
+  }
+}
+
+/** Rename from a form that stays open (the pane sheet); blank restores the automatic name. */
+export async function renamePaneTo(agent: AgentCard, label: string, options: PaneOperationOptions = {}): Promise<SheetOutcome> {
+  const session = liveSession();
+  if (!session || !agent.paneId || options.valid?.() === false) return NOT_RUN;
+  return applyPaneLabel(session, operationOwner(session), agent, label, options);
+}
+
+async function applyPaneLabel(session: LiveSession, owner: OperationOwner, agent: AgentCard, label: string,
+  options: PaneOperationOptions): Promise<SheetOutcome> {
   try {
     requirePaneTarget(agent, options);
-    if (!session.isConnected() || operationBusy()) return;
-    await session.renamePane(agent.paneId, label.trim() || null);
+    if (!session.isConnected() || operationBusy()) return NOT_RUN;
+    await session.renamePane(agent.paneId, label.trim().slice(0, OPERATION_INPUT_LIMITS.label) || null);
     if (ownsOperationView(owner)) await refreshFromSession();
+    return { ok: true };
   } catch (error) {
-    await reportOwnedError(owner, error);
+    await reconcileAmbiguousMutation(owner.session, error, undefined, () => ownsOperationView(owner));
+    return { ok: false, message: messageOf(error) };
   }
 }
 
@@ -541,15 +625,30 @@ export async function closePane(agent: AgentCard | undefined = selectedAgent(), 
   const session = liveSession();
   if (!session || !agent?.paneId || options.valid?.() === false) return;
   const owner = operationOwner(session);
-  const running = agent.status === "working" || agent.status === "blocked";
   if (!(await askConfirm({
     title: t("confirm.closePaneTitle"),
     subject: { name: agentTitle(agent), detail: agent.cwd || undefined, status: agentStatusLabel(agent) },
     message: t("confirm.closePaneEffect"),
-    warning: running ? t("confirm.closeRunning") : undefined,
+    warning: paneIsRunning(agent) ? t("confirm.closeRunning") : undefined,
     confirmLabel: t("op.closePane"),
   }))) return;
   if (!ownsOperationView(owner)) return;
+  await closeConfirmedPane(session, owner, agent, options);
+}
+
+/** Closing ends whatever runs in the pane; the confirmation says so louder while an agent is busy. */
+export function paneIsRunning(agent: AgentCard): boolean {
+  return agent.status === "working" || agent.status === "blocked";
+}
+
+/** Close after a confirmation the caller already showed (the pane sheet's inline confirm). */
+export async function closePaneConfirmed(agent: AgentCard, options: PaneOperationOptions = {}): Promise<void> {
+  const session = liveSession();
+  if (!session || !agent.paneId || options.valid?.() === false) return;
+  await closeConfirmedPane(session, operationOwner(session), agent, options);
+}
+
+async function closeConfirmedPane(session: LiveSession, owner: OperationOwner, agent: AgentCard, options: PaneOperationOptions): Promise<void> {
   const paneId = agent.paneId;
   await runHerdOperation(t("op.closingPane"), t("op.closedPane"), async () => {
     requirePaneTarget(agent, options);

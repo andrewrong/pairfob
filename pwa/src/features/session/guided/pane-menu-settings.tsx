@@ -7,7 +7,7 @@ import { TERM_COL_PRESETS, TERM_FONT_MAX, TERM_FONT_MIN, setTermFont, termFontPx
 import { useCompose } from "../hooks";
 import { canEnterAgentChat } from "../chat/agent-chat-controller";
 import { setFullTerminalComposeLive, setTermFit } from "../full-terminal/full-terminal";
-import { selectPaneTermMode } from "../term-mode";
+import { resolvedPaneTermMode, selectPaneTermMode } from "../term-mode";
 import { setComposeLive } from "./compose";
 import { toggleTermWrap } from "./term";
 import { SegmentedControl } from "../../../shared/ui/primitives";
@@ -15,24 +15,49 @@ import { MenuRadio, type ActionSheetController } from "../../../shared/ui/overla
 import { MenuGroup, MenuSetting, MenuStepper, MenuSwitch } from "../../../shared/ui/overlay/menu-controls";
 
 /**
- * The pane sheet's quick settings. Mode changes the whole screen, so choosing
- * one closes the sheet; everything else applies in place and the reader sees
- * it take effect in the pane behind the (collapsed) sheet.
+ * The pane sheet's mode choice. Mode changes the whole screen, so choosing one
+ * closes the sheet. The line under it says what Auto picked right now, and why
+ * a mode that cannot be chosen is off.
  */
-export function PaneQuickSettings({ modal, mode, full, chat }: {
-  modal: ActionSheetController; mode: TermMode; full: boolean; chat: boolean;
-}) {
+export function PaneModeSetting({ modal, mode }: { modal: ActionSheetController; mode: TermMode }) {
+  const agentOff = mode !== "agent" && !canEnterAgentChat();
+  const hint = mode === "auto" ? t("pm.modeAuto", { mode: TERM_MODE_LABEL[resolvedPaneTermMode("auto")] })
+    : t("pm.modeFixed", { mode: TERM_MODE_LABEL[mode] });
+  return <div className="pane-mode">
+    <SegmentedControl className="menu-mode" activation="manual" aria-label={t("mode.aria")}>
+      {TERM_MODE_OPTIONS.map(option => <MenuRadio key={option} modal={modal} label={TERM_MODE_LABEL[option]} aria={TERM_MODE_MENU[option]}
+        selected={mode === option} disabled={option === "agent" && agentOff}
+        action={() => selectPaneTermMode(option)} />)}
+    </SegmentedControl>
+    <p className="pane-mode-hint">{hint}{agentOff ? ` ${t("pm.modeAgentOff")}` : ""}</p>
+  </div>;
+}
+
+/**
+ * Input and display. Everything here applies in place and the reader sees it
+ * take effect in the pane behind the sheet.
+ */
+export function PaneDisplaySettings({ modal, full, chat }: { modal: ActionSheetController; full: boolean; chat: boolean }) {
   const prefs = usePreferences();
   const { composeLive } = useCompose();
   const font = (delta: number) => { setTermFont(termFontPx() + delta); commitView(); };
-  return <MenuGroup className="pane-quick">
-    <MenuSetting label={t("pane.sectionMode")} hint={t("mode.autoHint")} stacked>
-      <SegmentedControl className="menu-mode" activation="manual" aria-label={t("mode.aria")}>
-        {TERM_MODE_OPTIONS.map(option => <MenuRadio key={option} modal={modal} label={TERM_MODE_LABEL[option]} aria={TERM_MODE_MENU[option]}
-          selected={mode === option} disabled={option === "agent" && mode !== option && !canEnterAgentChat()}
-          action={() => selectPaneTermMode(option)} />)}
+  if (chat) return null;
+  return <MenuGroup className="pane-quick" label={t("pm.groupDisplay")}>
+    <MenuSetting label={t("menu.input")} hint={t(composeLive ? "pane.liveAria" : "pane.composeAria")}>
+      <SegmentedControl className="menu-mode menu-seg-compact" activation="manual" aria-label={t("pane.inputAria")}>
+        {[{ live: false, label: t("compose.batch"), aria: t("pane.composeAria") },
+          { live: true, label: t("compose.live"), aria: t("pane.liveAria") }].map(option => <MenuRadio key={String(option.live)} modal={modal} stay
+          label={option.label} aria={option.aria} selected={composeLive === option.live} action={async () => {
+            if (full) setFullTerminalComposeLive(option.live);
+            else await setComposeLive(option.live);
+            commitView();
+          }} />)}
       </SegmentedControl>
     </MenuSetting>
+    <MenuStepper label={t("pane.fontSize")} value={t("pane.fontPx", { n: prefs.termFontPx })}
+      decrease={t("menu.fontDown")} increase={t("menu.fontUp")} onDecrease={() => font(-1)} onIncrease={() => font(1)}
+      canDecrease={prefs.termFontPx > TERM_FONT_MIN} canIncrease={prefs.termFontPx < TERM_FONT_MAX} />
+    {!full && <MenuSwitch label={t("menu.wrap")} checked={prefs.termWrap} onChange={toggleTermWrap} />}
     {full && <MenuSetting label={t("pane.width")} stacked>
       <SegmentedControl className="menu-mode" activation="manual" aria-label={t("pane.width")}>
         <MenuRadio modal={modal} stay label={t("pane.fit")} aria={t("pane.fitAria")} selected={prefs.termFit === "fit"}
@@ -42,22 +67,5 @@ export function PaneQuickSettings({ modal, mode, full, chat }: {
           action={() => { setTermFit("pan", cols); commitView(); }} />)}
       </SegmentedControl>
     </MenuSetting>}
-    {!chat && <>
-      <MenuSetting label={t("menu.input")} hint={t(composeLive ? "pane.liveAria" : "pane.composeAria")}>
-        <SegmentedControl className="menu-mode menu-seg-compact" activation="manual" aria-label={t("pane.inputAria")}>
-          {[{ live: false, label: t("compose.batch"), aria: t("pane.composeAria") },
-            { live: true, label: t("compose.live"), aria: t("pane.liveAria") }].map(option => <MenuRadio key={String(option.live)} modal={modal} stay
-            label={option.label} aria={option.aria} selected={composeLive === option.live} action={async () => {
-              if (full) setFullTerminalComposeLive(option.live);
-              else await setComposeLive(option.live);
-              commitView();
-            }} />)}
-        </SegmentedControl>
-      </MenuSetting>
-      <MenuStepper label={t("pane.fontSize")} value={t("pane.fontPx", { n: prefs.termFontPx })}
-        decrease={t("menu.fontDown")} increase={t("menu.fontUp")} onDecrease={() => font(-1)} onIncrease={() => font(1)}
-        canDecrease={prefs.termFontPx > TERM_FONT_MIN} canIncrease={prefs.termFontPx < TERM_FONT_MAX} />
-      {!full && <MenuSwitch label={t("menu.wrap")} checked={prefs.termWrap} onChange={toggleTermWrap} />}
-    </>}
   </MenuGroup>;
 }

@@ -22,6 +22,8 @@ export type AppHost = {
 };
 
 let host: AppHost | null = null;
+/** Open commit holds; see `holdCommits`. */
+const holds = new Set<object>();
 let disposeCommitRequester: (() => void) | null = null;
 
 export function registerAppHost(next: AppHost): void {
@@ -40,6 +42,7 @@ export function registerAppHost(next: AppHost): void {
 
 export function releaseAppHost(current: AppHost): void {
   if (host !== current) return;
+  holds.clear();
   // Clear our own references first, so a reentrant release during dispose never
   // observes a half-retired host and an old disposer can never clear a
   // replacement's seam.
@@ -70,4 +73,27 @@ export function appHost(): AppHost | null {
  */
 export function commitView(): void {
   host?.commit({ sync: true });
+}
+
+/**
+ * Hold the commit pipeline for one deferred navigation.
+ *
+ * The native list ↔ pane transition captures the old page before its update
+ * callback commits the new one. A staged navigation has already asked for a
+ * coalesced commit by then; left alone, that microtask would paint the
+ * destination before the capture. While a hold is open, commits are skipped —
+ * the holder commits right after releasing (the transition adapter's update
+ * callback, or its timeout guard). Releasing twice is harmless.
+ */
+export function holdCommits(): () => void {
+  const token = {};
+  holds.add(token);
+  return () => {
+    holds.delete(token);
+  };
+}
+
+/** True while a deferred navigation waits for its capture. */
+export function commitsHeld(): boolean {
+  return holds.size > 0;
 }

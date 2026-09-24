@@ -181,6 +181,9 @@ describe("fresh-upload image preparation", () => {
     await prepareFreshImage(scope, id, 0, new AbortController().signal, () => true);
     expect(received).toBe(true); // JPEG non-screenshot → photo origin
     const [shot] = adoptIncoming(key, scope, [fakeImage("Screenshot.jpg", 1000)]);
+    // Screenshots default to the original; ask for compression explicitly.
+    expect(queueSnapshot(key)!.items.find((item) => item.localId === shot)!.compressionMode).toBe("original");
+    setPreference(key, shot, "smart");
     await prepareFreshImage(scope, shot, 0, new AbortController().signal, () => true);
     // screenshot-named JPEG is not a photo origin
     expect(received).toBe(false);

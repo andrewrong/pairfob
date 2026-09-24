@@ -45,3 +45,13 @@ test("Ctrl punctuation and digit aliases encode terminal control bytes", () => {
     expect(encodeTerminalKey(`ctrl+alt+${key}`)).toBe(`\x1b${String.fromCharCode(code)}`);
   }
 });
+
+test("Space is a named pad key that always travels as one PTY write", () => {
+  // Herdr's SendKeys rejects whitespace, so the name must never reach it.
+  expect(mapPadKey("space", none)).toEqual(["space"]);
+  expect(requiresTerminalText("space")).toBe(true);
+  expect(encodeTerminalKey("space")).toBe(" ");
+  expect(encodeTerminalKey(mapPadKey("space", { ...none, ctrl: true })[0]!)).toBe("\0");
+  expect(encodeTerminalKey(mapPadKey("space", { ...none, alt: true })[0]!)).toBe("\x1b ");
+  expect(requiresTerminalText(mapPadKey("space", { ...none, shift: true })[0]!)).toBe(true);
+});

@@ -17,7 +17,8 @@ import { setComposeDraft, setComposeFocused, setComposeIME, setComposeLive } fro
 import { setDefaultComposeLive, setKeysExpanded, setPadKind, setPaneComposeLive } from "../../settings/preferences-store";
 import { setOperationBusy } from "../../operations/capabilities-store";
 import { attachLiveSession } from "../../computers/catalog-store";
-import { applySnapshot } from "../../dashboard/catalog-store";
+import { applySnapshot, selectedAgent } from "../../dashboard/catalog-store";
+import { paneIdentity } from "../../dashboard/model/herd-view";
 import { patchChromeTitle, type SessionHandlers } from "./view";
 import { SessionPane } from "./session-pane";
 import type { LiveSession } from "../../../lib/protocol/client";
@@ -27,11 +28,10 @@ const chromeSource = await Bun.file(new URL("./session-chrome.tsx", import.meta.
 const paneSource = await Bun.file(new URL("./session-pane.tsx", import.meta.url)).text();
 
 let connected = true;
-let back = 0, menu = 0, inspect = 0, switched = 0;
+let back = 0, menu = 0, inspect = 0;
 const handlers: SessionHandlers = {
   onBack: () => { back++; },
   onMenu: () => { menu++; },
-  onSwitch: () => { switched++; },
   onWorkspace: () => { inspect++; },
 };
 
@@ -66,7 +66,7 @@ beforeEach(async () => {
   appRoot().replaceChildren();
   setLang("zh");
   connected = true;
-  back = menu = inspect = switched = 0;
+  back = menu = inspect = 0;
   snapshotRestorer.capture();
   scalarPrefState.capture();
   act(() => {
@@ -105,14 +105,14 @@ afterEach(() => {
 describe("pane header keeps status surfaces in step", () => {
   /**
    * A working/idle flip seen while the pane is open runs patchChromeTitle, not a
-   * full render, on a phone viewport. Status, the accessible name, and the
-   * interrupt button must stay on the same published snapshot.
+   * full render, on a phone viewport. The status word, the avatar dot and the
+   * full text must stay on the same published snapshot.
    */
   test("the patch path goes through the same status sync as the builder", () => {
     paint();
-    const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
-    expect(appRoot().querySelector(".icon-stop") !== null).toBeTrue();
-    expect(title.getAttribute("aria-label")).toContain(t("status.working"));
+    const title = appRoot().querySelector<HTMLElement>(".chrome-title")!;
+    expect(title.querySelector(".chrome-status")?.textContent).toBe(t("status.working"));
+    expect(title.querySelector(".agent-avatar-status.is-working") !== null).toBeTrue();
     act(() => {
       applySnapshot({
         ...AGENT_SNAPSHOT,
@@ -121,28 +121,45 @@ describe("pane header keeps status surfaces in step", () => {
       patchChromeTitle();
     });
     expect(appRoot().querySelector(".chrome-title") === title).toBeTrue();
-    expect(appRoot().querySelector(".icon-stop")).toBeNull();
-    expect(title.getAttribute("aria-label")).toContain(agentStatusLabel({ paneId: "p1", agent: "codex", status: "idle", cwd: "", workspaceId: "" }));
+    const idle = agentStatusLabel({ paneId: "p1", agent: "codex", status: "idle", cwd: "", workspaceId: "" });
+    expect(title.querySelector(".chrome-status")?.textContent).toBe(idle);
+    expect(title.getAttribute("title")).toContain(idle);
+    expect(title.querySelector(".agent-avatar-status.is-idle") !== null).toBeTrue();
     expect(viewSource).toContain("flushSync(notifySessionUI)");
     expect(viewSource).toContain("export function patchChromeTitle");
   });
 
-  test("status sync owns the accessible name and the interrupt button", () => {
+  test("the identity is display-only and the header never offers a stop target", () => {
     paint();
-    const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
-    expect(title.getAttribute("aria-label")).toContain(t("status.working"));
-    expect(appRoot().querySelector(".icon-stop")?.getAttribute("aria-label")).toBe(t("pane.interrupt"));
-    expect(chromeSource).toContain("icon-stop");
-    expect(chromeSource).toContain('t("pane.interrupt")');
+    const title = appRoot().querySelector<HTMLElement>(".chrome-title")!;
+    // Not a button: switching sessions goes back through the list.
+    expect(title.tagName).toBe("DIV");
+    expect(title.closest("button")).toBeNull();
+    // Working, yet no header stop: stopping lives on the send button.
+    expect(title.querySelector(".chrome-status")?.textContent).toBe(t("status.working"));
+    expect(appRoot().querySelector(".icon-stop")).toBeNull();
+    expect(chromeSource).not.toContain("icon-stop");
+    expect(chromeSource).not.toContain("onSwitch");
     expect(chromeSource).toContain('t("pane.menuTitle")');
-    expect(chromeSource).not.toContain("title.after");
-    expect(viewSource).not.toContain("syncChromeStop");
+    expect(viewSource).not.toContain("onSwitch");
   });
 
-  test("nothing else builds the interrupt button behind the sync's back", () => {
-    expect(viewSource).not.toContain("icon-stop");
+  test("the back button counts the other panes waiting on the reader, never while status is unverifiable", () => {
+    act(() => applySnapshot({
+      ...AGENT_SNAPSHOT,
+      panes: [
+        { ...AGENT_SNAPSHOT.panes[0]!, agent_status: "blocked" },
+        { ...AGENT_SNAPSHOT.panes[0]!, pane_id: "p2", agent_status: "blocked" },
+        { ...AGENT_SNAPSHOT.panes[0]!, pane_id: "p3", agent_status: "blocked", agent: "" },
+      ],
+    }));
     paint();
-    expect(appRoot().querySelectorAll(".icon-stop")).toHaveLength(1);
+    // p1 is this pane; p3 is a plain terminal, which never waits on anyone.
+    expect(appRoot().querySelector(".chrome-back-badge")?.textContent).toBe("1");
+    expect(appRoot().querySelector(".back")?.getAttribute("aria-label")).toBe(t("chrome.backWaiting", { n: "1" }));
+    act(() => setNetworkOnline(false));
+    expect(appRoot().querySelector(".chrome-back-badge")).toBeNull();
+    expect(appRoot().querySelector(".back")?.getAttribute("aria-label")).toBe(t("chrome.backList"));
   });
 
   test("pane modes live in the more menu, not as extra chrome slots", () => {
@@ -165,7 +182,7 @@ describe("pane header keeps status surfaces in step", () => {
   test("workspace inspection is a first-class trailing action before more", () => {
     paint();
     expect([...appRoot().querySelectorAll(".chrome-actions button")].map((button) => button.className))
-      .toEqual(["icon-btn icon-stop", "icon-btn icon-workspace", "icon-btn icon-more"]);
+      .toEqual(["icon-btn icon-workspace", "icon-btn icon-more"]);
     expect(appRoot().querySelector(".icon-workspace")?.getAttribute("aria-label")).toBe(t("workspace.open"));
     expect(chromeSource).not.toContain("labEnabled");
     const workspace = chromeSource.indexOf("icon-workspace");
@@ -186,42 +203,37 @@ describe("pane header keeps status surfaces in step", () => {
     expect(appRoot().querySelector(".pane-root") === pane).toBeTrue();
     const notice = appRoot().querySelector("[data-react-notice]")!;
     expect(notice.previousElementSibling?.className).toBe("chrome");
-    expect(notice.nextElementSibling?.classList.contains("term-wrap")).toBeTrue();
+    expect(notice.nextElementSibling?.classList.contains("term-stage")).toBeTrue();
+    expect(notice.nextElementSibling?.firstElementChild?.classList.contains("term-wrap")).toBeTrue();
     expect(paneSource).toContain("<AppNotice />");
     expect(viewSource).not.toContain("appendNotice");
     expect(viewSource).not.toContain("selectBar");
     expect(viewSource).not.toContain("noteNode");
   });
 
-  test("the status dot sits with the status line so the title can use the full width", () => {
+  test("the status dot sits on the avatar, as on the list card, so the title can use the full width", () => {
     paint();
     const title = appRoot().querySelector(".chrome-title")!;
     const name = title.querySelector(".chrome-name");
     const meta = title.querySelector(".chrome-meta");
-    const dot = title.querySelector(".agent-dot");
     expect(name !== null).toBeTrue();
     expect(meta !== null).toBeTrue();
-    expect(dot !== null).toBeTrue();
     expect(name!.nextElementSibling === meta).toBeTrue();
-    expect(meta!.querySelector(".agent-dot") === dot).toBeTrue();
+    expect(title.querySelector(".chrome-avatar .agent-avatar .agent-avatar-status") !== null).toBeTrue();
+    expect(meta!.querySelector(".chrome-status") !== null).toBeTrue();
     expect(meta!.querySelector(".chrome-meta-text") !== null).toBeTrue();
-    expect(title.querySelector(".chrome-name-row")).toBeNull();
-    expect(chromeSource).toContain("chrome-name");
-    expect(chromeSource).toContain("chrome-meta-text");
-    expect(chromeSource).toContain("agent-dot");
-    expect(chromeSource).not.toContain("chrome-name-row");
+    expect(title.querySelector(".agent-dot")).toBeNull();
   });
 
-  test("the visible subtitle is a short status line, not the dashboard card meta", () => {
+  test("the header shows the list card's own title and line, with no header-only facts", () => {
     paint();
-    const visible = appRoot().querySelector(".chrome-meta-text")?.textContent ?? "";
-    expect(visible).toContain("project");
-    expect(visible).toBe(`${t("status.working")} · project`);
-    const title = appRoot().querySelector<HTMLButtonElement>(".chrome-title")!;
-    expect(title.title).toBe(`demo · ${t("status.working")} · codex · project`);
-    expect(title.getAttribute("aria-label")).toBe(t("chrome.switchAriaMeta", {
-      title: "demo", line: `${t("status.working")} · codex · project`,
-    }));
+    const card = paneIdentity(selectedAgent()!, "flat", false);
+    expect(appRoot().querySelector(".chrome-name")?.textContent).toBe(card.title);
+    expect(appRoot().querySelector(".chrome-status")?.textContent).toBe(card.statusLabel);
+    // The workspace "demo" is already the title here, so it is not repeated.
+    expect(appRoot().querySelector(".chrome-meta-text")?.textContent).toBe(card.line);
+    expect(appRoot().querySelector<HTMLElement>(".chrome-title")!.title)
+      .toBe(`${card.title} · ${card.statusLabel} · ${card.line}`);
     act(() => {
       applySnapshot({
         ...AGENT_SNAPSHOT,
@@ -232,13 +244,8 @@ describe("pane header keeps status surfaces in step", () => {
       });
       patchChromeTitle();
     });
-    expect(appRoot().querySelector(".chrome-meta-text")?.textContent)
-      .toBe(`${t("status.working")} · project · ${t("chrome.split")}`);
-    expect(chromeSource).toContain("cwdName(selected.cwd)");
-    expect(chromeSource).toContain('tabIsSplit(selected, [...agents]) ? t("chrome.split")');
-    expect(chromeSource).toContain("agentMeta(selected)");
-    expect(chromeSource).toContain("chromeName(selected)");
-    expect(chromeSource.indexOf("agentMeta(selected)")).toBeGreaterThan(-1);
-    expect(chromeSource.indexOf("cwdName(selected.cwd)")).toBeGreaterThan(-1);
+    // "Split" is layout, not identity: it lives in the ⋯ menu.
+    expect(appRoot().querySelector(".chrome-meta")?.textContent).not.toContain(t("chrome.split"));
+    expect(chromeSource).toContain("paneIdentity(");
   });
 });

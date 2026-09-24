@@ -10,7 +10,8 @@ import type { HerdAttentionItem } from "../model/herd-view";
  */
 export function AttentionStrip({ items, onOpen, hidden = false }: {
   items: readonly HerdAttentionItem[];
-  onOpen: (paneId: string) => void;
+  /** The ticket is handed over so it can grow into the pane it opens. */
+  onOpen: (paneId: string, source: HTMLElement) => void;
   /** Folded away with the header: still laid out for the transition, not reachable. */
   hidden?: boolean;
 }) {
@@ -23,7 +24,8 @@ export function AttentionStrip({ items, onOpen, hidden = false }: {
           <span className="attn-count">{items.length}</span>
         </span>
         {items.map((item) => (
-          <Button key={item.paneId} className={`attn-ticket is-${item.kind}`} onClick={() => onOpen(item.paneId)}>
+          <Button key={item.paneId} className={`attn-ticket is-${item.kind}`} data-pane-id={item.paneId}
+            onClick={(event) => onOpen(item.paneId, event.currentTarget)}>
             <AgentAvatar kind={item.agentKind} size="sm" />
             <span className="attn-ticket-name">{item.title}</span>
             {item.workspace ? <span className="attn-ticket-ws">{item.workspace}</span> : null}

@@ -242,6 +242,38 @@ export function chromeName(agent: AgentCard): string {
   return agentTitle(agent);
 }
 
+/** Where a terminal runs, relative to its workspace root; empty at the root itself. */
+function terminalDir(agent: AgentCard): string {
+  const cwd = agent.cwd?.trim().replace(/\/+$/, "") ?? "";
+  if (!cwd) return "";
+  const root = agent.workspaceCwd?.trim().replace(/\/+$/, "") ?? "";
+  if (root && cwd === root) return "";
+  if (root && cwd.startsWith(`${root}/`)) return cwd.slice(root.length + 1);
+  if (!root && same(cwdName(cwd), agent.workspaceLabel)) return "";
+  return cwd;
+}
+
+/**
+ * A plain terminal's second line: the command it runs and where, never a
+ * status — a shell has no agent state to report.
+ */
+export function terminalMeta(agent: AgentCard, group: ListGroup = "flat"): string {
+  const title = agentTitle(agent, group);
+  const bits: string[] = [];
+  const push = (value: string | undefined) => {
+    const text = value?.trim() ?? "";
+    if (!text || alreadyShown(text, title, bits)) return;
+    bits.push(text);
+  };
+  push(cleanOscTitle(agent.terminalTitle?.trim() ?? "", agent));
+  if (group !== "space") push(agent.workspaceLabel);
+  push(terminalDir(agent));
+  const tab = visibleTabLabel(agent.tabLabel);
+  if (tab && !same(tab, agent.workspaceLabel)) push(tab);
+  if (!bits.length) bits.push(t("title.terminal"));
+  return bits.join(" · ");
+}
+
 export function agentMeta(agent: AgentCard, group: ListGroup = "flat"): string {
   const title = agentTitle(agent, group);
   const who = whoLabel(agent);

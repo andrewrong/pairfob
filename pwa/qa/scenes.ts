@@ -33,9 +33,11 @@ import {
   showWorkspaceTab, WORKSPACE_PENDING_DELAY_MS,
 } from "../src/features/workspace";
 import type { FixtureScene } from "./types";
-import type { FixtureSession } from "./session";
+import type { FixtureSession, SessionSource } from "./session";
 import { FIXED_NOW } from "./environment";
 import * as data from "./data";
+import { BUSY_AGENT_KINDS, BUSY_PINNED, busyPaneText, busySnapshot } from "./demo-data";
+import { resetAttachmentFixture, seedAttachmentTray } from "./attachments";
 
 /**
  * Named-domain fixture setup for deterministic QA scenes.
@@ -69,6 +71,7 @@ export const scenes: FixtureScene[] = [
   { name: "attention-legacy", description: "Legacy agents without readiness facts" },
   { name: "home-grouped", description: "Grouped workspace list" },
   { name: "home-offline", description: "Unverifiable session status" },
+  { name: "home-busy", description: "Busy computer: six workspaces, many agents and terminals, grouped" },
   { name: "desktop-empty", description: "Responsive rail with no selected pane; supply desktop viewport" },
   { name: "desktop-guided", description: "Responsive rail and guided pane; supply desktop viewport" },
   { name: "desktop-chat", description: "Responsive rail and agent chat; supply desktop viewport" },
@@ -82,6 +85,7 @@ export const scenes: FixtureScene[] = [
   { name: "quota-error", description: "Quota unavailable/error state" },
   { name: "board", description: "Weighted split layout with ANSI previews" },
   { name: "board-empty", description: "Board without workspaces" },
+  { name: "board-busy", description: "Busy computer board: multi-pane tabs with per-pane previews" },
   { name: "workspace-loading", description: "Cold directory skeleton" },
   { name: "workspace-files", description: "Root file browser" },
   { name: "workspace-directory", description: "Nested directory breadcrumbs" },
@@ -99,6 +103,8 @@ export const scenes: FixtureScene[] = [
   { name: "guided-wrap", description: "Wrapped terminal text" },
   { name: "guided-select", description: "Native text selection mode" },
   { name: "guided-row", description: "Selected rendered row action bar" },
+  { name: "guided-attachments", description: "Attachment tray: in-body, ready, uploading, failed and restored items" },
+  { name: "guided-attachments-relay", description: "Attachment tray waiting for a direct connection" },
   { name: "chat", description: "Streaming execution trace" },
   { name: "chat-complete", description: "Finished execution with Markdown reply" },
   { name: "chat-draft", description: "Multiline agent prompt draft" },
@@ -117,6 +123,13 @@ export const scenes: FixtureScene[] = [
 ];
 
 const AGENT_KINDS = ["codex", "claude", "grok", "pi"];
+
+const BUSY_SCENES = new Set(["home-busy", "board-busy"]);
+
+/** The computer a scene talks to: busy scenes bring their own snapshot and screens. */
+export function sceneSource(name: string): SessionSource {
+  return BUSY_SCENES.has(name) ? { snapshot: busySnapshot, paneText: busyPaneText, agentKinds: BUSY_AGENT_KINDS } : {};
+}
 
 function allCapabilities(): Record<string, boolean> {
   return Object.fromEntries(Object.keys(NO_OPERATION_CAPABILITIES).map((key) => [key, true]));
@@ -160,6 +173,7 @@ export function resetFixtureBaseline(session: FixtureSession): void {
   clearAllDiffNotes();
   clearBoardPreviews();
   resetComposeDrafts();
+  resetAttachmentFixture();
 
   // Connection / navigation baseline.
   applyOriginConfig({ protocol: 2, p2p: true });
@@ -258,6 +272,14 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     return;
   }
   if (name === "home-empty" || name === "board-empty") replaceAgentsFromSnapshot({ panes: [] });
+  if (BUSY_SCENES.has(name)) {
+    replaceAgentsFromSnapshot(busySnapshot());
+    applyCapabilities(allCapabilities() as typeof NO_OPERATION_CAPABILITIES, BUSY_AGENT_KINDS);
+    if (name === "home-busy") {
+      setListGroup("space");
+      for (const paneId of BUSY_PINNED) togglePanePin(paneId);
+    }
+  }
   if (name === "attention-rich" || name === "attention-rich-updated")
     replaceAgentsFromSnapshot(data.attentionSnapshot(name === "attention-rich-updated"));
   if (name === "attention-empty") replaceAgentsFromSnapshot({ ...data.snapshot(), panes: data.snapshot().panes?.filter((pane) => pane.agent_status !== "unknown") });
@@ -279,7 +301,7 @@ export async function applyScene(name: string, session: FixtureSession): Promise
   }
   if (name.startsWith("board")) {
     setScreen("board");
-    const focus = data.snapshot().focused;
+    const focus = (BUSY_SCENES.has(name) ? busySnapshot() : data.snapshot()).focused;
     if (focus) focusBoard(focus.workspace_id ?? "", focus.tab_id ?? "");
     await refreshBoardPreviews();
   }
@@ -314,6 +336,11 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     setTermWrap(name === "guided-wrap");
     setTermSelect(name === "guided-select");
     setPaneRow(name === "guided-row" ? 2 : null);
+    if (name.startsWith("guided-attachments")) {
+      const relay = name === "guided-attachments-relay";
+      if (relay) setSessionTransport("relay");
+      setComposeDraft(seedAttachmentTray(relay ? "relay" : "p2p"));
+    }
   }
   if (name.startsWith("chat") || name === "desktop-chat") {
     chatPane();

@@ -30,8 +30,6 @@ describe("workspace chrome entry", () => {
     renderReact(createElement(SessionActions, {
       onWorkspace: () => undefined,
       onMenu: () => undefined,
-      onStop: () => undefined,
-      working: false,
     }));
     const cluster = appRoot().querySelector(".chrome-actions")!;
     expect(cluster.querySelector(".icon-workspace")?.getAttribute("aria-label")).toBe(t("workspace.open"));

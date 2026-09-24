@@ -182,6 +182,16 @@ describe("home list while unverifiable", () => {
     expect((app?.querySelector(".banner-warn")) === null).toBe(true);
   });
 
+  test("connected but unverifiable home offers a retry in the header line", () => {
+    setSession(true);
+    applyRuntimeIdentity({ herdHost: "", runtimeKind: "" });
+    leftoverAgent();
+    renderHome();
+    // The status the reader already looks at also says what a tap does.
+    expect(appRoot().querySelector(".host-title-line")?.textContent)
+      .toBe(`${t("chrome.unverifiable")} · ${t("host.retryShort")}`);
+  });
+
   test("live home shows fresh statuses and no stale banner", () => {
     setSession(true);
     applyRuntimeIdentity({ herdHost: "", runtimeKind: "herdr" });

@@ -1,17 +1,15 @@
-import { Ellipsis, FolderOpen, Square } from "lucide-react";
-import { useLayoutEffect, useRef } from "react";
-import { agentMeta, agentStatusLabel, agentTitle, chromeName, cwdName, tabIsSplit } from "../../../lib/dashboard";
+import { Ellipsis, FolderOpen } from "lucide-react";
 import { t } from "../../../lib/i18n";
-import type { AgentCard } from "../../../lib/ranking";
+import type { DashboardAgentCard } from "../../../lib/dashboard";
+import type { Immutable } from "../../../shared/model/domain-store";
 import { useDashboard } from "../../dashboard/hooks";
+import { blockedElsewhere, paneHeaderLine, paneIdentity } from "../../dashboard/model/herd-view";
+import { usePreferences } from "../../settings/hooks";
 import { useConnection, useRuntime } from "../../connection/hooks";
 import { operationBusy } from "../../operations/capabilities-store";
-import { haptic } from "../../../lib/dom";
-import { canInterruptAgent, herdLiveness } from "../../connection/runtime-status";
+import { herdLiveness } from "../../connection/runtime-status";
 import type { SessionHandlers } from "./view";
-import { queueKey } from "./keys";
-import { morphingPane, shareTitle } from "../../../app/transition";
-import { BackButton, Button } from "../../../shared/ui/primitives";
+import { AgentAvatar, BackButton, Button } from "../../../shared/ui/primitives";
 
 /**
  * Whether the agent statuses on screen can no longer be confirmed. Subscribes to
@@ -25,13 +23,13 @@ export function useStatusUnverifiable(): boolean {
   return herdLiveness() === "unverifiable";
 }
 
-/** Shared trailing actions for guided, terminal and agent chat chrome. */
-export function SessionActions({ onWorkspace, onMenu, onStop, working }: {
-  onWorkspace: () => void; onMenu: () => void; onStop: () => void; working: boolean;
-}) {
+/**
+ * Shared trailing actions for guided, terminal and agent chat chrome. Always the
+ * same two targets: stopping a task lives on the send button, so nothing here
+ * appears or disappears with the agent's status.
+ */
+export function SessionActions({ onWorkspace, onMenu }: { onWorkspace: () => void; onMenu: () => void }) {
   return <div className="chrome-actions">
-    {working && <Button className="icon-btn icon-stop" aria-label={t("pane.interrupt")} title={t("pane.interruptTitle")}
-      onClick={() => { haptic(10); onStop(); }}><Square size={14} fill="currentColor" aria-hidden="true" /></Button>}
     <Button className="icon-btn icon-workspace" aria-label={t("workspace.open")} title={t("workspace.open")}
       onClick={onWorkspace}><FolderOpen size={20} aria-hidden="true" /></Button>
     <Button className="icon-btn icon-more" aria-label={t("pane.menuTitle")} disabled={operationBusy()}
@@ -39,32 +37,63 @@ export function SessionActions({ onWorkspace, onMenu, onStop, working }: {
   </div>;
 }
 
-export function SessionChrome({ selected, includeBack, handlers }: {
-  selected?: AgentCard; includeBack: boolean; handlers: SessionHandlers;
+/** Back to the list, carrying how many other panes are waiting on the reader. */
+function SessionBack({ onBack, waiting }: { onBack: () => void; waiting: number }) {
+  return <span className="chrome-back">
+    <BackButton onBack={onBack} label={waiting ? t("chrome.backWaiting", { n: String(waiting) }) : t("chrome.backList")} />
+    {waiting ? <span className="chrome-back-badge" aria-hidden="true">{waiting > 9 ? "9+" : waiting}</span> : null}
+  </span>;
+}
+
+/**
+ * The one session header for guided, agent chat and complete terminal.
+ *
+ * Display-only: the identity is the list card's own projection (same title,
+ * status word and fact line, see `paneIdentity`), plus the workspace the list
+ * would have shown as a group heading. It is not a button — switching sessions
+ * happens on the list, reached through back or the edge swipe. The avatar and
+ * title carry the classes the shared list ↔ pane transition names.
+ */
+export function SessionIdentity({ agent, fallbackTitle, includeBack, handlers, className = "", guided = false }: {
+  agent: Immutable<DashboardAgentCard> | undefined;
+  fallbackTitle: string;
+  includeBack: boolean;
+  handlers: SessionHandlers;
+  className?: string;
+  /** The guided header is the one `patchChromeTitle` repaints in place. */
+  guided?: boolean;
 }) {
-  const title = useRef<HTMLButtonElement>(null);
   const agents = useDashboard().agents;
+  const listGroup = usePreferences().listGroup;
   const stale = useStatusUnverifiable();
-  const status = selected ? (stale ? t("status.unverifiable") : agentStatusLabel(selected)) : "";
-  const fullLine = selected ? [status, agentMeta(selected)].filter(Boolean).join(" · ") : "";
-  const meta = selected ? [status, cwdName(selected.cwd), tabIsSplit(selected, [...agents]) ? t("chrome.split") : ""]
-    .filter(Boolean).join(" · ") : "";
-  const titleText = selected ? [agentTitle(selected), fullLine].filter(Boolean).join(" · ") : undefined;
-  const aria = selected ? (fullLine ? t("chrome.switchAriaMeta", { title: agentTitle(selected), line: fullLine })
-    : t("chrome.switchAria", { title: agentTitle(selected) })) : undefined;
-  useLayoutEffect(() => {
-    if (selected && morphingPane() === selected.paneId && title.current) shareTitle(title.current);
-  });
-  return <header className="chrome" data-react-session-chrome="">
-    {includeBack && <BackButton onBack={handlers.onBack} label={t("chrome.backList")} />}
-    <Button ref={title} className="chrome-title" title={titleText} aria-label={aria} onClick={handlers.onSwitch}>
-      <span className="chrome-name">{selected ? chromeName(selected) : t("title.session")}</span>
-      {meta && <span className="chrome-meta">
-        <span className={`agent-dot agent-${stale ? "unknown" : selected!.status}`} />
-        <span className="chrome-meta-text">{meta}</span>
-      </span>}
-    </Button>
-    <SessionActions onWorkspace={handlers.onWorkspace} onMenu={handlers.onMenu}
-      working={Boolean(selected && canInterruptAgent(selected.status))} onStop={() => queueKey("esc")} />
+  const identity = agent ? paneIdentity(agent, listGroup, stale) : null;
+  const line = agent && identity ? paneHeaderLine(identity, agent) : "";
+  const waiting = blockedElsewhere(agents, agent?.paneId ?? "", stale);
+  const title = identity?.title ?? fallbackTitle;
+  const full = [title, identity?.statusLabel, line].filter(Boolean).join(" · ");
+  return <header className={`chrome${className ? ` ${className}` : ""}`} data-react-session-chrome={guided ? "" : undefined}>
+    {includeBack && <SessionBack onBack={handlers.onBack} waiting={waiting} />}
+    <div className="chrome-title" title={full}>
+      {identity ? <span className="chrome-avatar">
+        <AgentAvatar kind={identity.kind === "agent" ? identity.agentKind : ""}
+          status={identity.kind === "agent" ? identity.statusTone : undefined} />
+      </span> : null}
+      <span className="chrome-copy">
+        <span className="chrome-name">{title}</span>
+        {identity && (identity.statusLabel || line) ? <span className="chrome-meta">
+          {identity.statusLabel ? <span className={`chrome-status is-${identity.statusTone}`}>{identity.statusLabel}</span> : null}
+          {identity.statusLabel && line ? <span className="chrome-meta-sep" aria-hidden="true">·</span> : null}
+          {line ? <span className="chrome-meta-text">{line}</span> : null}
+        </span> : null}
+      </span>
+    </div>
+    <SessionActions onWorkspace={handlers.onWorkspace} onMenu={handlers.onMenu} />
   </header>;
+}
+
+export function SessionChrome({ selected, includeBack, handlers }: {
+  selected?: Immutable<DashboardAgentCard>; includeBack: boolean; handlers: SessionHandlers;
+}) {
+  return <SessionIdentity agent={selected} fallbackTitle={t("title.session")} includeBack={includeBack}
+    handlers={handlers} guided />;
 }

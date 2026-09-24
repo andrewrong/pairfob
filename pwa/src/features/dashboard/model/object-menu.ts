@@ -76,6 +76,8 @@ export function workspaceMenuModel(input: { agent: AgentCard; createTab: boolean
   if (!agent.workspaceId) return null;
   const items: ObjectMenuItem[] = [];
   if (input.createTab) items.push({ kind: "newTabInWorkspace", label: t("menu.newTabInWorkspace") });
+  // Switches to the Board tab with this workspace selected.
+  items.push({ kind: "openBoard", label: t("menu.openInBoard") });
   items.push({ kind: "renameWorkspace", label: t("menu.renameWorkspace") });
   items.push({ kind: "closeWorkspace", label: t("op.closeWorkspace"), danger: true });
   return { title: agent.workspaceLabel || t("workspace.unnamed"), facts: [], items };
