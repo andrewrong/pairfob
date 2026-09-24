@@ -62,5 +62,6 @@
   background: var(--accent);
 }
 
+html:has(#app.tabs) { scroll-padding-bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px) + 12px); }
 #app.tabs .page { padding-bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px) + 24px); }
 #app.tabs.board .board-shell { padding-bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px)); }

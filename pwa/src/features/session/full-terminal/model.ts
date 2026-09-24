@@ -1,3 +1,4 @@
+import type { LocalizedText } from "../../../lib/i18n";
 /**
  * Pure complete-terminal view helpers. Do not import state, paint, or DOM.
  */
@@ -8,7 +9,7 @@ export type FullTerminalViewFields = {
   title: string;
   working: boolean;
   stage: string;
-  detail: string;
+  detail: LocalizedText;
   retry: boolean;
   busy: boolean;
   composeLive: boolean;

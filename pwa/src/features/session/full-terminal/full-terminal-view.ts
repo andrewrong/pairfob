@@ -1,3 +1,4 @@
+import type { LocalizedText } from "../../../lib/i18n";
 import { sameFullTerminalView } from "./model";
 import type { FullTerminalStage } from "./full-terminal-state";
 
@@ -7,7 +8,7 @@ export type FullTerminalViewSnapshot = {
   title: string;
   working: boolean;
   stage: FullTerminalStage;
-  detail: string;
+  detail: LocalizedText;
   retry: boolean;
   busy: boolean;
   composeLive: boolean;

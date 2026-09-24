@@ -15,6 +15,7 @@ import { computersStore, liveSession } from "../../features/computers/catalog-st
 import { liveAgents, selectedAgent } from "../../features/dashboard/catalog-store";
 import { runtimeStore } from "../../features/connection/runtime-store";
 import { boardStore } from "../../features/board/layout-store";
+import { paneActivated } from "../../features/settings/preferences-store";
 import { createSelectedTab, createWorktreeFrom, startNewConversation } from "../../features/operations/controller";
 import { loadCreateMemory, rememberCreate } from "../../features/operations/create-memory";
 import { askCreate, NEW_WORKSPACE, type CreateRequest, type CreateWorkspaceOption } from "../../features/operations/create-sheet";
@@ -28,13 +29,20 @@ import { currentScreen } from "../../app/navigation-store";
 
 type Anchors = Map<string, DashboardAgentCard>;
 
-/** One anchor pane per workspace, in the computer's order, the context first. */
+/**
+ * One anchor pane per workspace, the context first, then in the list's order:
+ * the workspace the reader opened last leads, ties keep the computer's order.
+ */
 function workspaceChoices(first: string | undefined): { options: CreateWorkspaceOption[]; anchors: Anchors } {
   const anchors: Anchors = new Map();
+  const activated = paneActivated();
+  const latest = new Map<string, number>();
   for (const agent of liveAgents() as DashboardAgentCard[]) {
-    if (agent.workspaceId && !anchors.has(agent.workspaceId)) anchors.set(agent.workspaceId, agent);
+    if (!agent.workspaceId) continue;
+    if (!anchors.has(agent.workspaceId)) anchors.set(agent.workspaceId, agent);
+    latest.set(agent.workspaceId, Math.max(latest.get(agent.workspaceId) ?? 0, activated[agent.paneId] ?? 0));
   }
-  const ids = [...anchors.keys()];
+  const ids = [...anchors.keys()].sort((a, b) => (latest.get(b) ?? 0) - (latest.get(a) ?? 0));
   const ordered = first && anchors.has(first) ? [first, ...ids.filter((id) => id !== first)] : ids;
   return {
     anchors,

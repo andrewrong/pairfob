@@ -5,9 +5,14 @@
 
 .create-sheet-body { display: flex; flex-direction: column; }
 
+/* A sticky footer sits inside the scroller's padding: drop the bottom padding
+   so nothing scrolls into view beneath the pinned action. The footer carries
+   the safe-area inset itself. */
+.sheet-body:has(> .create-sheet-body > .create-footer) { padding-bottom: 0; }
+
 /* One section label for the whole form: same size, same space above each. */
 .create-label {
-  margin: 18px 2px 8px;
+  margin: 18px 0 8px;
   font-size: var(--text-secondary);
   font-weight: 650;
   color: var(--muted);
@@ -50,7 +55,7 @@
 .create-chip.is-combo.on { background: rgba(110, 168, 254, 0.12); color: var(--ink); border-color: var(--accent); }
 .create-chip.is-new:not(.on) { border-style: dashed; color: var(--accent); }
 
-.create-path { margin: 6px 2px 0; font: 500 var(--text-caption) var(--mono); color: var(--muted); }
+.create-path { margin: 6px 0 0; font: 500 var(--text-caption) var(--mono); color: var(--muted); }
 
 .create-dirs {
   margin-top: 10px;
@@ -90,7 +95,9 @@
   font-size: var(--text-caption);
 }
 
-.create-input {
+/* Scoped under the sheet so the pairing screen's global `input[type="text"]`
+   (wide-tracked mono code entry) does not win on specificity. */
+.create-sheet-body .create-input {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -99,10 +106,12 @@
   background: var(--bg);
   color: var(--ink);
   font: 16px var(--font);
+  letter-spacing: normal;
 }
 
-.create-input.is-mono { font-family: var(--mono); }
-.create-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+.create-sheet-body .create-input::placeholder { font-size: 16px; }
+.create-sheet-body .create-input.is-mono { font-family: var(--mono); }
+.create-sheet-body .create-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
 .create-dirs .create-input { width: calc(100% - 28px); margin: 4px 14px 12px; }
 
 .create-field {
@@ -110,13 +119,11 @@
   flex-direction: column;
   gap: 8px;
   margin-top: 18px;
-  padding-left: 2px;
   color: var(--muted);
   font-size: var(--text-secondary);
   font-weight: 650;
 }
 
-.create-field .create-input { margin-left: -2px; width: calc(100% + 2px); }
 
 .create-optional { font-weight: 400; opacity: 0.8; }
 
@@ -152,8 +159,8 @@
 
 .create-kind.on { border-color: var(--accent); background: rgba(110, 168, 254, 0.1); }
 .create-kind.is-all { border-style: dashed; }
-.create-kind-name { max-width: 100%; font-size: var(--text-body); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.create-kind-sub { min-height: 1.3em; font-size: var(--text-caption); line-height: 1.3; color: var(--muted); }
+.create-kind-name { max-width: 100%; height: 20px; font-size: var(--text-body); line-height: 20px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.create-kind-sub { height: 16px; font-size: var(--text-caption); line-height: 16px; white-space: nowrap; color: var(--muted); }
 .agent-avatar.is-more { background: var(--surface-2); color: var(--muted); }
 
 .create-footer {

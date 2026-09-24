@@ -37,7 +37,9 @@ export function SheetFrame<T>({ modal, title, children, className = "", subtitle
     onCancel: () => { if (depth.current) nav.pop(); else modal.dismiss(); },
     cancelGuardMs: 0, sheet: { form: modal.form, scroller: body },
     detents: expandable ? { expanded: () => expandedRef.current, set: setExpanded } : undefined,
-    focus: () => modal.form.current?.querySelector<HTMLButtonElement>(".sheet-body button:not(:disabled)")?.focus() });
+    // A sheet may name its starting control with data-autofocus; otherwise the first enabled button.
+    focus: () => (modal.form.current?.querySelector<HTMLElement>(".sheet-body [data-autofocus]:not(:disabled)")
+      ?? modal.form.current?.querySelector<HTMLButtonElement>(".sheet-body button:not(:disabled)"))?.focus() });
   // A new page starts at its top and takes focus, so keyboard and screen-reader
   // users land in the page they asked for rather than on a removed control.
   useLayoutEffect(() => {

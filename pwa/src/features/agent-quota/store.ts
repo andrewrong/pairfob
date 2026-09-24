@@ -27,6 +27,7 @@ import type { LiveSession } from "../../lib/protocol/session-types";
  * read-only because the common caller either forwards a fresh protocol answer or
  * carries the previous published snapshot into a loading state, and neither
  * should have to hand over a writable array.
+ * Errors produced by the controller are copy keys, translated by the view.
  */
 export type QuotaSnapshotInput = { loading: boolean; items: readonly QuotaRead[] | null; error: string };
 

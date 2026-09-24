@@ -6,6 +6,7 @@ export type LangPref = "auto" | Lang;
 export const LANG_KEY = "pairfob_lang";
 const YEAR = 31_536_000;
 
+import { enSingular } from "./i18n-en-plurals";
 import { en } from "./i18n-en.ts";
 import { zh } from "./i18n-zh.ts";
 
@@ -154,7 +155,9 @@ export function hasCopy(key: string): key is CopyKey {
 }
 
 export function t(key: CopyKey, vars?: Record<string, string | number>): string {
-  let text: string = table()[key] ?? zh[key] ?? key;
+  const count = vars?.count ?? vars?.n;
+  const singular = current === "en" && (count === 1 || count === "1") ? enSingular[key] : undefined;
+  let text: string = singular ?? table()[key] ?? zh[key] ?? key;
   if (vars) {
     for (const [name, value] of Object.entries(vars)) {
       text = text.replaceAll(`{${name}}`, String(value));
@@ -165,4 +168,19 @@ export function t(key: CopyKey, vars?: Record<string, string | number>): string 
 
 export function copyKeys(): CopyKey[] {
   return Object.keys(zh) as CopyKey[];
+}
+
+/** Persist keys and arguments, resolving nested copy only when rendering. */
+export type CopyMessage = { key: CopyKey; vars?: Record<string, string | number | CopyMessage> };
+export type LocalizedText = string | CopyMessage;
+
+export function copy(key: CopyKey, vars?: CopyMessage["vars"]): CopyMessage {
+  return vars ? { key, vars } : { key };
+}
+
+export function resolveCopy(value: LocalizedText): string {
+  if (typeof value === "string") return value;
+  const vars = value.vars && Object.fromEntries(Object.entries(value.vars).map(([key, item]) =>
+    [key, typeof item === "object" ? resolveCopy(item) : item]));
+  return t(value.key, vars);
 }

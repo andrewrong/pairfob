@@ -3,7 +3,7 @@ import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 
 import { agentTitle } from "../../../lib/dashboard";
-import { t } from "../../../lib/i18n";
+import { copy, t, type LocalizedText } from "../../../lib/i18n";
 import { canInterruptAgent } from "../../connection/runtime-status";
 import {
   ProtocolError,
@@ -20,7 +20,7 @@ import { isFullTerminal, openPaneId, setAgentChat, setFullTerminal } from "../se
 import { commitView } from "../../../app/host";
 import { applyComposeDraft, bumpViewIncarnation, captureComposeDraft, currentViewIncarnation, switchComposeView } from "../drafts/compose-drafts";
 import { haptic } from "../../../lib/dom";
-import { messageOf } from "../../../lib/notices";
+import { messageCopy } from "../../../lib/notices";
 import { isDesk } from "../../../app/viewport";
 import {
   bindFontPinch,
@@ -183,7 +183,7 @@ function startCommandPump(
     onError: (error) => {
       if (version !== bridgeVersion) return;
       fullTerminalPerf.publish("command_error");
-      void suspendBridge(true, t("ft.interrupt", { error: messageOf(error) }));
+      void suspendBridge(true, copy("ft.interrupt", { error: messageCopy(error) }));
     },
   });
 }
@@ -298,16 +298,16 @@ function bindInput(host: HTMLElement): void {
   emitFullTerminalView();
 }
 
-function webglFailure(error: unknown): string {
+function webglFailure(error: unknown): LocalizedText {
   const message = error instanceof Error ? error.message : "";
-  if (message === WEBGL_CONTEXT_LOST) return t("ft.webglLost");
-  if (message === WEBGL_UNAVAILABLE) return t("ft.webglUnavailable");
-  return messageOf(error);
+  if (message === WEBGL_CONTEXT_LOST) return copy("ft.webglLost");
+  if (message === WEBGL_UNAVAILABLE) return copy("ft.webglUnavailable");
+  return messageCopy(error);
 }
 
 function handleRendererContextLoss(version: number): void {
   if (version !== rendererVersion || !isFullTerminal()) return;
-  const reason = t("ft.loadFail", { error: t("ft.webglLost") });
+  const reason = copy("ft.loadFail", { error: copy("ft.webglLost") });
   void suspendBridge(true, reason);
   disposeRenderer();
   terminalStatus.fail(reason);
@@ -325,14 +325,14 @@ function scheduleMount(host: HTMLElement): void {
 async function mount(host: HTMLElement): Promise<void> {
   const version = ++rendererVersion;
   mounting = true;
-  terminalStatus.reset(t("ft.preparing"));
+  terminalStatus.reset(copy("ft.preparing"));
   let module: typeof import("./full-terminal-xterm.ts");
   try {
     module = await loadFullTerminalXterm();
   } catch (error) {
     if (version !== rendererVersion) return;
     mounting = false;
-    terminalStatus.fail(t("ft.loadFail", { error: webglFailure(error) }));
+    terminalStatus.fail(copy("ft.loadFail", { error: webglFailure(error) }));
     return;
   }
   if (version !== rendererVersion || !isFullTerminal() || !host.isConnected) return;
@@ -357,7 +357,7 @@ async function mount(host: HTMLElement): Promise<void> {
   } catch (error) {
     if (version !== rendererVersion) return;
     disposeRenderer();
-    terminalStatus.fail(t("ft.loadFail", { error: webglFailure(error) }));
+    terminalStatus.fail(copy("ft.loadFail", { error: webglFailure(error) }));
     return;
   }
   fullTerminalPerf.componentReady();
@@ -424,12 +424,12 @@ async function openBridge(takeover: boolean): Promise<void> {
   const paneId = openPaneId();
   if (opening || bridgeId || !terminal || !session || !paneId || !isFullTerminal() || document.visibilityState === "hidden") return;
   if (!session.isConnected()) {
-    terminalStatus.wait(t("ft.waitRestore"));
+    terminalStatus.wait(copy("ft.waitRestore"));
     return;
   }
   const version = ++bridgeVersion;
   opening = true;
-  terminalStatus.start(takeover ? t("ft.takeover") : t("ft.opening"), "opening");
+  terminalStatus.start(copy(takeover ? "ft.takeover" : "ft.opening"), "opening");
   fullTerminalPerf.bridgeStarted();
   try {
     const size = fittedSize ?? fit();
@@ -444,7 +444,7 @@ async function openBridge(takeover: boolean): Promise<void> {
     fullTerminalPerf.bridgeOpened();
     assembler.reset();
     frameGate.reset();
-    terminalStatus.start(t("ft.live"), "live");
+    terminalStatus.start(copy("ft.live"), "live");
     if (isDesk() || keyboard?.isOpen()) terminal?.focus();
     else closeTerminalKeyboard();
   } catch (error) {
@@ -455,7 +455,7 @@ async function openBridge(takeover: boolean): Promise<void> {
       await openBridge(true);
       return;
     }
-    terminalStatus.fail(t("ft.openFail", { error: messageOf(error) }));
+    terminalStatus.fail(copy("ft.openFail", { error: messageCopy(error) }));
   } finally {
     if (version === bridgeVersion) {
       opening = false;
@@ -464,7 +464,7 @@ async function openBridge(takeover: boolean): Promise<void> {
   }
 }
 
-async function suspendBridge(sendClose: boolean, reason?: string, showFailure = true): Promise<void> {
+async function suspendBridge(sendClose: boolean, reason?: LocalizedText, showFailure = true): Promise<void> {
   const session = liveSession();
   const id = bridgeId;
   const renderer = rendererVersion;
@@ -482,7 +482,7 @@ async function suspendBridge(sendClose: boolean, reason?: string, showFailure = 
   if (sendClose && session && id) await session.terminalClose(id).catch(() => undefined);
   emitFullTerminalView();
   if (!showFailure || version !== bridgeVersion || renderer !== rendererVersion || bridgeId || opening || !isFullTerminal()) return;
-  terminalStatus.fail(reason ?? t("ft.paused"));
+  terminalStatus.fail(reason ?? copy("ft.paused"));
 }
 
 async function resumeFullTerminal(): Promise<void> {
@@ -540,7 +540,7 @@ export function enterFullTerminal(): void {
     setAgentChat(false);
     setFullTerminal(true);
   });
-  terminalStatus.reset(t("ft.preparing"));
+  terminalStatus.reset(copy("ft.preparing"));
   commitView();
 }
 
@@ -656,7 +656,7 @@ export function prepareFullTerminal(): void {
     return;
   }
   disposeRenderer();
-  terminalStatus.reset(t("ft.preparing"));
+  terminalStatus.reset(copy("ft.preparing"));
   fullTerminalPerf.begin();
   terminalShellActive = true;
   emitFullTerminalView();
@@ -677,11 +677,11 @@ export function handleFullTerminalEvent(event: SessionEvent): boolean {
       const admission = frameGate.preflight(sequence, frame.full);
       if (admission === "stale") return true;
       if (admission === "gap") {
-        void suspendBridge(true, t("ft.gap"));
+        void suspendBridge(true, copy("ft.gap"));
         return true;
       }
       if (pendingWriteBytes + frame.data.byteLength > MAX_RENDER_QUEUE_BYTES) {
-        void suspendBridge(true, t("ft.tooFast"));
+        void suspendBridge(true, copy("ft.tooFast"));
         return true;
       }
       const nextRemote = { cols: frame.width, rows: frame.height };
@@ -713,9 +713,9 @@ export function handleFullTerminalEvent(event: SessionEvent): boolean {
           }
         });
       }
-      terminalStatus.set(t("ft.live"), "live");
+      terminalStatus.set(copy("ft.live"), "live");
     } catch (error) {
-      void suspendBridge(true, messageOf(error));
+      void suspendBridge(true, messageCopy(error));
     }
     return true;
   }
@@ -731,7 +731,7 @@ export function handleFullTerminalEvent(event: SessionEvent): boolean {
     pendingWriteBytes = 0;
     remoteGrid = null;
     fullTerminalPerf.publish("terminal_closed");
-    terminalStatus.fail(event.reason ? t("ft.closedReason", { reason: event.reason }) : t("ft.closed"));
+    terminalStatus.fail(event.reason ? copy("ft.closedReason", { reason: event.reason }) : copy("ft.closed"));
     return true;
   }
   if (event.type === "disconnected" || event.type === "reconnecting" || event.type === "terminal") {
@@ -745,11 +745,11 @@ export function handleFullTerminalEvent(event: SessionEvent): boolean {
     pendingWriteBytes = 0;
     remoteGrid = null;
     fullTerminalPerf.publish(event.type);
-    terminalStatus.wait(t("ft.waitRestore"));
+    terminalStatus.wait(copy("ft.waitRestore"));
     return false;
   }
   if (event.type === "connected" && !bridgeId) {
-    terminalStatus.set(t("ft.restored"), "opening");
+    terminalStatus.set(copy("ft.restored"), "opening");
     void resumeFullTerminal();
   }
   return false;

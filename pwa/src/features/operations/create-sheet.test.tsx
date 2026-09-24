@@ -124,6 +124,8 @@ describe("create sheet", () => {
     const { result } = await open({ initial: NEW_WORKSPACE });
     act(() => button(".create-dir", "~/projects/pairfob").click());
     expect(sheet().querySelector(".create-hint")?.textContent).toContain(t("create.alreadyOpen", { name: "pairfob" }));
+    // The summary names what the button will do, not a new workspace.
+    expect(sheet().querySelector(".create-summary")?.textContent).toBe(t("create.summaryTab", { workspace: "pairfob", kind: "codex" }));
     await submit();
     expect(await result).toEqual({ kind: "tab", workspaceId: "w1", agentKind: "codex", label: "" });
   });

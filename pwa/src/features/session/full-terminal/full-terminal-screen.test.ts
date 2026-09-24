@@ -1,3 +1,4 @@
+import { resolveCopy, setLang, t } from "../../../lib/i18n";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { happy } from "../../../../test-support/dom";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -148,6 +149,7 @@ afterEach(async () => {
     disposeFullTerminal();
     releaseFullTerminalScreen();
     unmountApp();
+    setLang("zh");
     registerSessionOwnerPreparer(null);
     attachLiveSession(null);
     resetTransitionState();
@@ -171,7 +173,7 @@ describe("react complete-terminal shell", () => {
     expect(host?.contains(root.querySelector(".full-terminal-scroll")!)).toBeTrue();
     expect(host?.querySelector(".full-terminal-pan > .full-terminal-canvas")).toBeTruthy();
     expect(chrome?.querySelector(".full-terminal-title")).toBeTruthy();
-    expect(chrome?.querySelector(".full-terminal-status")?.textContent).toBe(getFullTerminalView().detail);
+    expect(chrome?.querySelector(".full-terminal-status")?.textContent).toBe(resolveCopy(getFullTerminalView().detail));
     expect(chrome?.querySelector(".icon-workspace")).toBeTruthy();
     expect(chrome?.querySelector(".icon-more")).toBeTruthy();
     expect(getFullTerminalView().working).toBeTrue();
@@ -285,7 +287,7 @@ describe("react complete-terminal shell", () => {
     expect(layer.getAttribute("aria-live")).toBe("assertive");
     expect(layer.querySelector<HTMLButtonElement>(".full-terminal-state-retry")?.hidden).toBeFalse();
     expect(getFullTerminalView().retry).toBeTrue();
-    expect(app.querySelector(".full-terminal-status")?.textContent).toBe(getFullTerminalView().detail);
+    expect(app.querySelector(".full-terminal-status")?.textContent).toBe(resolveCopy(getFullTerminalView().detail));
   });
 
   test("FullTerminalScreen is the route component", () => {
@@ -324,4 +326,16 @@ describe("react complete-terminal shell", () => {
     act(() => isolated?.unmount());
     container.remove();
   });
+});
+
+test("language changes update the memoized host labels without replacing the terminal canvas", async () => {
+  act(boot);
+  await waitUntil(() => !!app.querySelector(".xterm"), "terminal mounted");
+  const canvas = app.querySelector(".full-terminal-canvas");
+  const terminal = app.querySelector(".xterm");
+  act(() => setLang("en"));
+  expect(app.querySelector(".full-terminal-host")?.getAttribute("aria-label")).toBe(t("title.terminal"));
+  expect(app.querySelector(".full-terminal-scroll")?.getAttribute("aria-label")).toBe(t("keys.scrollAria"));
+  expect(app.querySelector(".full-terminal-canvas")).toBe(canvas);
+  expect(app.querySelector(".xterm")).toBe(terminal);
 });

@@ -180,6 +180,9 @@ describe("board screen presentation", () => {
     paint(model({ workspaceList: [], tabList: [], layouts: [], agents: [], tabId: "" }));
     expect(appRoot().querySelector(".board-ws-name")?.textContent).toBe(t("board.title"));
     expect(appRoot().querySelector(".board-ws-path")).toBeNull();
+    // Nothing to switch to and nothing to zoom: a plain title, no zoom controls.
+    expect(appRoot().querySelector("button.board-ws")).toBeNull();
+    expect(appRoot().querySelector(".board-zoom")).toBeNull();
     expect(appRoot().querySelector(".board-stage")).toBeNull();
     expect(appRoot().querySelector(".board-canvas .empty-title")?.textContent).toBe(t("board.emptyTitle"));
     // No stage means no camera write and no gesture binding at all.

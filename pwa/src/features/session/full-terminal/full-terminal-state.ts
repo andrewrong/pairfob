@@ -1,9 +1,9 @@
-import { t } from "../../../lib/i18n";
+import { t, type LocalizedText } from "../../../lib/i18n";
 
 export type FullTerminalStage = "loading" | "opening" | "waiting" | "error" | "live";
 
 export class FullTerminalStatus {
-  detail = "";
+  detail: LocalizedText = "";
   stage: FullTerminalStage = "loading";
   private retryAvailable = false;
 
@@ -13,29 +13,29 @@ export class FullTerminalStatus {
     return this.retryAvailable;
   }
 
-  set(detail: string, stage: FullTerminalStage = this.stage): void {
-    if (this.detail === detail && this.stage === stage) return;
+  set(detail: LocalizedText, stage: FullTerminalStage = this.stage): void {
+    if (JSON.stringify(this.detail) === JSON.stringify(detail) && this.stage === stage) return;
     this.detail = detail;
     this.stage = stage;
     this.repaint();
   }
 
-  fail(detail: string): void {
+  fail(detail: LocalizedText): void {
     this.retryAvailable = true;
     this.set(detail, "error");
   }
 
-  wait(detail: string): void {
+  wait(detail: LocalizedText): void {
     this.retryAvailable = false;
     this.set(detail, "waiting");
   }
 
-  start(detail: string, stage: "opening" | "live"): void {
+  start(detail: LocalizedText, stage: "opening" | "live"): void {
     this.retryAvailable = false;
     this.set(detail, stage);
   }
 
-  reset(detail: string): void {
+  reset(detail: LocalizedText): void {
     this.retryAvailable = false;
     this.set(detail, "loading");
   }

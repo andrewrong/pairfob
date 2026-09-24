@@ -1,5 +1,5 @@
 import { ChevronLeft, MoreHorizontal, Pencil, Plus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { t } from "../../lib/i18n";
 import { OPERATION_INPUT_LIMITS } from "../../lib/operations";
 import { SheetFrame } from "../../shared/ui/overlay/action-sheet";
@@ -56,15 +56,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   const [picking, setPicking] = useState(false);
   const isNew = where === NEW_WORKSPACE;
   // Start on the chosen place, not on whichever chip happens to come first.
-  const body = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      const chip = body.current?.querySelector<HTMLElement>(".create-scroll[role=radiogroup] .create-chip.on");
-      chip?.focus({ preventScroll: true });
-      chip?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, []);
+  const initialWhere = useRef(where).current;
   const worktree = isNew && start === "worktree";
   const favorites = useMemo(() => favoriteKinds(input.kinds, memory, kind), [input.kinds, memory, kind]);
   const workspace = input.workspaces.find((item) => item.id === where);
@@ -73,7 +65,9 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   const recentDirs = memory.dirs.filter((item) => !input.workspaces.some((space) => space.path === item));
   const openDirs = input.workspaces.filter((item) => item.path);
 
+  // An already-open directory becomes a tab there (see submit), so say that.
   const summary = worktree ? t("create.summaryWt", { dir: path || "…" })
+    : openHere ? t("create.summaryTab", { workspace: openHere.label, kind: kindName(kind) })
     : isNew ? t("create.summaryWs", { dir: path || "…", kind: kindName(kind) })
       : t("create.summaryTab", { workspace: workspace?.label ?? "", kind: kindName(kind) });
 
@@ -126,7 +120,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   );
 
   return (
-    <div ref={body} className="create-sheet-body">
+    <div className="create-sheet-body">
       {recents.length ? <>
         <h3 className="create-label">{t("create.recent")}</h3>
         <div className="create-scroll">
@@ -150,12 +144,14 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
         {/* A new workspace leads the row, so it is never scrolled out of reach. */}
         {canNew ? (
           <Button className={`create-chip is-new${isNew ? " on" : ""}`} role="radio" aria-checked={isNew}
+            data-autofocus={initialWhere === NEW_WORKSPACE ? "" : undefined}
             onClick={() => { setWhere(NEW_WORKSPACE); setError(""); }}>
             <Plus size={15} aria-hidden="true" />{t("create.newWorkspace")}
           </Button>
         ) : null}
         {input.canCreateTab ? input.workspaces.map((space) => (
           <Button key={space.id} className={`create-chip${where === space.id ? " on" : ""}`} role="radio" aria-checked={where === space.id}
+            data-autofocus={initialWhere === space.id ? "" : undefined}
             onClick={() => { setWhere(space.id); setError(""); }}>{space.label}</Button>
         )) : null}
       </div>

@@ -1,4 +1,4 @@
-import { resetBoardTestDOM } from "../../../../test-support/dom";
+import { happy, resetBoardTestDOM } from "../../../../test-support/dom";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act } from "react";
 import type { DashboardAgentCard } from "../../../lib/dashboard";
@@ -255,12 +255,44 @@ describe("herd screen presentation", () => {
     const tickets = [...app().querySelectorAll<HTMLButtonElement>(".attn-ticket")];
     expect(tickets.map((node) => node.querySelector(".attn-ticket-name")?.textContent)).toEqual(["wait", "done"]);
     expect(tickets.map((node) => node.className)).toEqual(["attn-ticket is-blocked", "attn-ticket is-done"]);
-    expect(app().querySelector(".attn-strip-label")?.textContent).toBe(t("list.needsYou", { count: "2" }));
+    expect(app().querySelector(".attn-strip-label")?.firstChild?.textContent).toBe(t("list.needsYouTitle"));
+    expect(app().querySelector(".attn-count")?.textContent).toBe("2");
+    // Unfolded, the strip is the shortcut; the header's copy of it stays out of reach.
+    const pill = app().querySelector<HTMLButtonElement>(".herd-attn-pill")!;
+    expect(pill.tabIndex).toBe(-1);
+    expect(pill.getAttribute("aria-hidden")).toBe("true");
+    expect(app().querySelector(".attn-wrap")?.hasAttribute("inert")).toBe(false);
     act(() => tickets[0].click());
     expect(calls).toEqual(["attention:wait"]);
     // Nothing waiting, no strip.
     paint(model());
     expect(app().querySelector(".attn-strip")).toBeNull();
+  });
+
+  test("scrolling folds the header: the strip steps back and the pill takes its place", async () => {
+    paint(model({ agents: [agent("wait", "alpha", "blocked")] }));
+    const scrollTo = async (y: number) => {
+      Object.defineProperty(window, "scrollY", { configurable: true, value: y });
+      await act(async () => {
+        window.dispatchEvent(new happy.Event("scroll") as unknown as Event);
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      });
+    };
+    await scrollTo(60);
+    // Below the fold threshold nothing changes, so a small nudge never flickers.
+    expect(app().querySelector(".herd-head")?.classList.contains("is-folded")).toBe(false);
+    await scrollTo(200);
+    expect(app().querySelector(".herd-head")?.classList.contains("is-folded")).toBe(true);
+    expect(app().querySelector(".attn-wrap")?.hasAttribute("inert")).toBe(true);
+    const pill = app().querySelector<HTMLButtonElement>(".herd-attn-pill")!;
+    expect(pill.tabIndex).toBe(0);
+    expect(pill.hasAttribute("aria-hidden")).toBe(false);
+    // Folded stays folded until the page is back near the top.
+    await scrollTo(60);
+    expect(app().querySelector(".herd-head")?.classList.contains("is-folded")).toBe(true);
+    await scrollTo(0);
+    expect(app().querySelector(".herd-head")?.classList.contains("is-folded")).toBe(false);
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
   });
 
   test("a folded heading still reports what waits inside and jumps to it", () => {

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { useSession } from "../hooks";
-import { t } from "../../../lib/i18n";
+import { resolveCopy, t } from "../../../lib/i18n";
 import { setFullTerminalDocumentMode } from "./full-terminal-state";
 import { getFullTerminalView, subscribeFullTerminalView } from "./full-terminal-view";
 import type { FullTerminalControlsOptions } from "./full-terminal-compose";
@@ -48,7 +48,7 @@ function FullTerminalBody({ view, onBack, onSwitch, onWorkspace, onMenu, onStop,
   const session = useSession();
   const active = engineActive ?? session.fullTerminal;
   const aria = view.detail
-    ? t("chrome.switchAriaMeta", { title: view.title, line: view.detail })
+    ? t("chrome.switchAriaMeta", { title: view.title, line: resolveCopy(view.detail) })
     : t("chrome.switchAria", { title: view.title });
   return (
     <div className="pane-root full-terminal-root" data-pane-id={view.paneId} data-terminal-owner={view.owner} data-react-full-terminal="">
@@ -56,7 +56,7 @@ function FullTerminalBody({ view, onBack, onSwitch, onWorkspace, onMenu, onStop,
         <BackButton onBack={onBack} label={t("chrome.backList")} />
         <Button className="full-terminal-heading" aria-haspopup="dialog" aria-label={aria} title={aria} onClick={onSwitch}>
           <strong className="full-terminal-title">{view.title}</strong>
-          <span className="full-terminal-status">{view.detail}</span>
+          <span className="full-terminal-status">{resolveCopy(view.detail)}</span>
         </Button>
         <SessionActions
           onWorkspace={onWorkspace}

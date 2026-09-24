@@ -1,5 +1,5 @@
 import { ProtocolError } from "./protocol/errors.ts";
-import { hasCopy, t, type CopyKey } from "./i18n.ts";
+import { copy, hasCopy, t, type CopyKey } from "./i18n.ts";
 
 const FRIENDLY_CODES = [
   "unpaired",
@@ -106,12 +106,17 @@ export function noticeFor(code: string): string {
   return errorCopy(code) || genericNotice();
 }
 
-export function messageOf(error: unknown, context: "mutation" | "read" = "mutation"): string {
+export function messageCopy(error: unknown, context: "mutation" | "read" = "mutation") {
   if (error instanceof ProtocolError) {
-    if (context === "read" && error.code === "too_large") return t("err.readTooLarge");
-    return noticeFor(error.code);
+    if (context === "read" && error.code === "too_large") return copy("err.readTooLarge");
+    const key = `err.${error.code}`;
+    if (FRIENDLY_SET.has(error.code) && hasCopy(key)) return copy(key);
   }
-  return genericNotice();
+  return copy("err.generic");
+}
+
+export function messageOf(error: unknown, context: "mutation" | "read" = "mutation"): string {
+  return t(messageCopy(error, context).key);
 }
 
 /** Live session chrome copy. Never surfaces mux ERROR.message. */

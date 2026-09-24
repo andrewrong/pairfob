@@ -88,14 +88,21 @@ export function BoardScreenView({
     <div ref={rootRef} className="board-shell">
       <header className="board-chrome">
         {showBack ? <BackButton onBack={actions.back} label={view.back} /> : <h1 className="sr-only">{view.title}</h1>}
-        <Button className="board-ws" aria-haspopup="dialog"
-          onClick={() => openWorkspaceSheet(view, actions.selectWorkspace)}>
-          <span className="board-ws-mark" aria-hidden="true" />
-          <span className="board-ws-text">
-            <span className="board-ws-name">{space?.label ?? view.title}<ChevronDown size={16} aria-hidden="true" /></span>
-            {space?.path ? <span className="board-ws-path">{space.path}</span> : null}
+        {/* No workspace yet: a plain title, not a switcher with nothing in it. */}
+        {space ? (
+          <Button className="board-ws" aria-haspopup="dialog"
+            onClick={() => openWorkspaceSheet(view, actions.selectWorkspace)}>
+            <span className="board-ws-mark" aria-hidden="true" />
+            <span className="board-ws-text">
+              <span className="board-ws-name">{space.label}<ChevronDown size={16} aria-hidden="true" /></span>
+              {space.path ? <span className="board-ws-path">{space.path}</span> : null}
+            </span>
+          </Button>
+        ) : (
+          <span className="board-ws is-static" aria-hidden={showBack ? undefined : true}>
+            <span className="board-ws-text"><span className="board-ws-name">{view.title}</span></span>
           </span>
-        </Button>
+        )}
         {space ? <span className="board-marks"><SpaceMarks space={space} /></span> : null}
       </header>
       {showBack ? <StatusLine status={view.status} /> : null}
@@ -126,11 +133,11 @@ export function BoardScreenView({
       </div>
       <div className="board-body">
         <BoardCanvasView canvas={view.canvas} controller={controller} />
-        <div className="board-zoom" role="group" aria-label={t("board.zoomGroup")}>
+        {view.canvas.layout ? <div className="board-zoom" role="group" aria-label={t("board.zoomGroup")}>
           <Button className="icon-btn" aria-label={view.zoom.in} onClick={() => actions.zoom(1)}><Plus size={20} aria-hidden="true" /></Button>
           <Button className="board-zoom-fit" aria-label={view.zoom.fit} onClick={actions.fit}>{view.zoom.fitLabel}</Button>
           <Button className="icon-btn" aria-label={view.zoom.out} onClick={() => actions.zoom(-1)}><Minus size={20} aria-hidden="true" /></Button>
-        </div>
+        </div> : null}
       </div>
     </div>
   );

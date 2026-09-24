@@ -70,6 +70,8 @@
   cursor: pointer;
 }
 
+.board-ws.is-static { cursor: default; }
+
 .board-ws-mark {
   flex: none;
   width: 10px;
@@ -143,7 +145,7 @@
 .board-zoom .icon-btn { color: var(--ink); }
 
 .board-zoom-fit {
-  min-height: 40px;
+  min-height: 44px;
   border: 0;
   border-block: 1px solid var(--line);
   background: none;

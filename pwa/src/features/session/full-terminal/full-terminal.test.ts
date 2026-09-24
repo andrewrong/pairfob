@@ -116,7 +116,7 @@ describe("complete-terminal chrome stays a distinct surface", () => {
     const mountFn = fn("async function mount(", "function disposeRenderer(");
     expect(mountFn).not.toContain("state.fullTerminal = false");
     expect(mountFn).not.toContain("render()");
-    expect(mountFn).toContain('t("ft.loadFail"');
+    expect(mountFn).toContain('copy("ft.loadFail"');
     expect(mountFn).toContain("terminalStatus.fail");
 
     const openFn = fn("async function openBridge(", "async function suspendBridge(");
@@ -124,7 +124,7 @@ describe("complete-terminal chrome stays a distinct surface", () => {
     expect(openFn).not.toContain("disposeRenderer()");
     expect(openFn).not.toContain("render()");
     expect(openFn).toContain("terminalStatus.fail");
-    expect(openFn).toContain('t("ft.openFail"');
+    expect(openFn).toContain('copy("ft.openFail"');
     expect(openFn).toContain("if (!session.isConnected())");
     expect(openFn).toContain("version !== bridgeVersion");
     expect(openFn.indexOf("version !== bridgeVersion", openFn.indexOf("catch (error)"))).toBeGreaterThan(

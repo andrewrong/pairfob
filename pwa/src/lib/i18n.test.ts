@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "../../test-support/boot-dom";
-import { copyKeys, detectLang, lang, langPref, setLang, setLangPref, t } from "./i18n";
+import { copy, resolveCopy, copyKeys, detectLang, lang, langPref, setLang, setLangPref, t } from "./i18n";
+import { enSingular } from "./i18n-en-plurals";
 import { en } from "./i18n-en";
 import { zh } from "./i18n-zh";
 
@@ -72,4 +73,32 @@ describe("language preference", () => {
     expect(lang()).toBe("en");
     expect(t("home.settings")).toBe("Settings");
   });
+});
+
+test("stored nested copy resolves in the current language", () => {
+  setLang("zh");
+  const detail = copy("ft.loadFail", { error: copy("ft.webglLost") });
+  const chinese = resolveCopy(detail);
+  setLang("en");
+  expect(resolveCopy(detail)).toBe(t("ft.loadFail", { error: t("ft.webglLost") }));
+  expect(resolveCopy(detail)).not.toBe(chinese);
+});
+
+test("English count copy handles zero, one and many without changing Chinese", () => {
+  setLang("en");
+  expect(t("diffNotes.count", { count: 0 })).toBe("0 comments");
+  expect(t("diffNotes.count", { count: 1 })).toBe("1 comment");
+  expect(t("diffNotes.count", { count: 2 })).toBe("2 comments");
+  expect(t("trace.runningSteps", { n: 1 })).toBe("Running · 1 step");
+  expect(t("trace.nSteps", { n: 2 })).toBe("Run · 2 steps");
+  expect(t("tabs.attentionAria", { count: "1" })).toBe("1 session needs you");
+  setLang("zh");
+  expect(t("diffNotes.count", { count: 1 })).toBe("1 条批注");
+});
+
+test("singular alternatives preserve every interpolation slot", () => {
+  const slots = (text: string) => [...text.matchAll(/\{([^{}]+)\}/g)].map(match => match[1]).sort();
+  for (const [key, value] of Object.entries(enSingular)) {
+    expect(slots(value!)).toEqual(slots(en[key as keyof typeof en]));
+  }
 });

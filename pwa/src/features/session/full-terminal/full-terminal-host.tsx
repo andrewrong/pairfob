@@ -1,7 +1,7 @@
-import { memo, useLayoutEffect, useRef } from "react";
+import { memo, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { termFit } from "../../settings/preferences-store";
 import { haptic } from "../../../lib/dom";
-import { t } from "../../../lib/i18n";
+import { langRevision, subscribeLang, t } from "../../../lib/i18n";
 import { attachFullTerminalHost } from "./full-terminal-engine";
 import type { RemoteScroll } from "./full-terminal-scroll";
 import { SessionScrollRail } from "../guided/session-scroll";
@@ -33,6 +33,7 @@ export const FullTerminalHost = memo(function FullTerminalHost({
   scroll: RemoteScroll;
   pageLines: () => number;
 }) {
+  useSyncExternalStore(subscribeLang, langRevision);
   const rootRef = useRef<HTMLElement | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
 

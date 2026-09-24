@@ -215,7 +215,8 @@ function hasFreshData(q: QuotaRead): boolean {
 export function quotaPanelModel(snapshot: QuotaSnapshotLike | undefined, connected: boolean): QuotaPanelModel {
   return {
     busy: !!snapshot?.loading,
-    error: snapshot?.error || null,
+    error: snapshot?.error === "quota.upgrade" || snapshot?.error === "quota.failed"
+      ? t(snapshot.error) : snapshot?.error || null,
     offline: !connected,
     offlineCopy: t("quota.offline"),
     cards: [...(snapshot?.items ?? [])].sort((a, b) => Number(hasFreshData(b)) - Number(hasFreshData(a)))

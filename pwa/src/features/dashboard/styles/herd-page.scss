@@ -13,17 +13,21 @@
   top: 0;
   z-index: 4;
   margin: 0 -18px;
-  padding: calc(env(safe-area-inset-top, 0px) + 6px) 18px 4px;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 18px 0;
   background: var(--bg);
+  box-shadow: 0 1px 0 transparent, 0 10px 18px -18px transparent;
+  transition: box-shadow var(--dur-3) var(--ease);
 }
 
-.herd-head.is-folded { border-bottom: 1px solid var(--line); }
+/* Folded: a hairline and a soft drop say "content scrolls under here". */
+.herd-head.is-folded { box-shadow: 0 1px 0 var(--line), 0 10px 18px -12px rgba(0, 0, 0, 0.6); }
 
 .herd-head-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: 52px;
+  padding-bottom: 4px;
 }
 
 .host-title {
@@ -44,6 +48,7 @@
 .host-title .dot { flex: none; width: 10px; height: 10px; }
 .host-title-text { min-width: 0; display: flex; flex-direction: column; }
 
+/* The name shrinks by scale, not font-size, so the fold never reflows text. */
 .host-title-name {
   display: flex;
   align-items: center;
@@ -55,24 +60,29 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transform-origin: left center;
+  transition: transform var(--dur-3) var(--ease);
 }
 
 .host-title-name svg { flex: none; color: var(--muted); }
 
 .host-title-line {
+  max-height: 20px;
   font-size: var(--text-secondary);
+  line-height: 20px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: max-height var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease);
 }
 
 .host-title.is-warn .host-title-line,
 .host-title.is-pending .host-title-line { color: var(--warn); }
 .host-title.is-off .host-title-line { color: var(--error); }
 
-.herd-head.is-folded .host-title-name { font-size: var(--text-title); }
-.herd-head.is-folded .host-title-line { display: none; }
+.herd-head.is-folded .host-title-name { transform: scale(0.76); }
+.herd-head.is-folded .host-title-line { max-height: 0; opacity: 0; }
 
 .herd-mode {
   flex: none;
@@ -91,58 +101,105 @@
 
 .herd-mode svg { color: var(--muted); }
 
+/* Folded shortcut back to the strip: fades and slides in from the right. */
 .herd-attn-pill {
   flex: none;
-  min-height: 44px;
-  padding: 0 10px;
+  max-width: 0;
+  min-height: 36px;
+  padding: 0;
+  overflow: hidden;
   border: 0;
   border-radius: var(--r-md);
   background: rgba(255, 178, 36, 0.16);
   color: var(--warn);
   font: 700 var(--text-secondary) var(--font);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(8px);
+  pointer-events: none;
   cursor: pointer;
+  transition: max-width var(--dur-3) var(--ease), padding var(--dur-3) var(--ease),
+    opacity var(--dur-2) var(--ease), transform var(--dur-3) var(--ease);
 }
 
-/* "Needs you" shortcuts. */
+.herd-head.is-folded .herd-attn-pill {
+  max-width: 120px;
+  padding: 0 10px;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* "Needs you" shortcuts: one calm row under the title, collapsing on fold. */
+.attn-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease);
+}
+
+.herd-head.is-folded .attn-wrap { grid-template-rows: 0fr; opacity: 0; }
+
 .attn-strip {
+  min-height: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0 -18px;
-  padding: 2px 18px 10px;
+  padding: 6px 18px 12px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  transition: padding var(--dur-3) var(--ease);
 }
 
+.herd-head.is-folded .attn-strip { padding-top: 0; padding-bottom: 0; }
+
 .attn-strip::-webkit-scrollbar { display: none; }
-.herd-head.is-folded .attn-strip { display: none; }
 
 .attn-strip-label {
   flex: none;
-  font-size: var(--text-caption);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 2px;
+  font-size: var(--text-secondary);
   font-weight: 700;
   color: var(--warn);
-  padding-right: 2px;
+}
+
+.attn-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--warn);
+  color: #1a1200;
+  font: 700 var(--text-caption) var(--font);
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .attn-ticket {
   flex: none;
-  max-width: 230px;
-  min-height: 44px;
+  max-width: 220px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 12px 0 10px;
+  gap: 8px;
+  padding: 0 12px 0 6px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
+  border-radius: 12px;
   background: var(--surface);
   color: var(--ink);
   font: 600 var(--text-body) var(--font);
   cursor: pointer;
 }
 
-.attn-ticket.is-blocked { border-color: rgba(255, 178, 36, 0.45); }
-.attn-ticket-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.attn-ticket.is-blocked { border-color: rgba(255, 178, 36, 0.4); background: #1a1812; }
+.attn-ticket .agent-avatar.is-sm { width: 24px; height: 24px; }
+.attn-ticket-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
 .attn-ticket-dot.is-blocked { background: var(--warn); }
 .attn-ticket-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attn-ticket-ws { flex: none; color: var(--muted); font-weight: 400; font-size: var(--text-secondary); }
@@ -157,6 +214,15 @@
   gap: 2px;
   margin: var(--space-2) 0 6px;
 }
+
+/* The first heading sits right under the header; the header's own bottom
+   padding is the gap. */
+.herd-page .herd-list .herd-group:first-child .group-head,
+.herd-page .herd-list .herd-group:first-child > .section-title { margin-top: 0; padding-top: 0; }
+
+/* Focus and in-page scrolling keep a row clear of the sticky header and the
+   heading stuck beneath it. */
+html:has(.herd-page) { scroll-padding-top: calc(var(--herd-head-h, 0px) + 64px); }
 
 /* On the phone page a section heading sticks under the header while its rows
    scroll beneath it, so the workspace in view is always named. */
@@ -235,7 +301,28 @@
 }
 
 .create-fab:disabled { opacity: 0.6; }
-.herd-head.is-folded ~ .create-fab { padding: 0 16px; }
-.herd-head.is-folded ~ .create-fab .create-fab-label { display: none; }
+
+.create-fab-label {
+  display: inline-block;
+  max-width: 6em;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease);
+}
+
+.create-fab { transition: padding var(--dur-3) var(--ease), gap var(--dur-3) var(--ease); }
+.herd-head.is-folded ~ .create-fab { padding: 0 16px; gap: 0; }
+.herd-head.is-folded ~ .create-fab .create-fab-label { max-width: 0; opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .herd-head,
+  .host-title-name,
+  .host-title-line,
+  .herd-attn-pill,
+  .attn-wrap,
+  .attn-strip,
+  .create-fab,
+  .create-fab-label { transition: none; }
+}
 
 .herd-page .herd-list { padding-bottom: 84px; }

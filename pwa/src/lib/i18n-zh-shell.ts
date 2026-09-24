@@ -102,4 +102,5 @@ export const zhShell = {
   "board.zoomGroup": "缩放",
   "board.tabWaiting": "有会话等你",
   "board.tabDone": "有会话新完成",
+  "list.needsYouTitle": "需要你",
 } as const;

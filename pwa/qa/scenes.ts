@@ -275,7 +275,7 @@ export async function applyScene(name: string, session: FixtureSession): Promise
   if (name.startsWith("quota")) {
     setScreen("quota");
     setQuotaSnapshot(session.live, { loading: name === "quota-loading", items: name === "quota" ? data.quotas() : null,
-      error: name === "quota-error" ? t("quota.failed") : "" });
+      error: name === "quota-error" ? "quota.failed" : "" });
   }
   if (name.startsWith("board")) {
     setScreen("board");

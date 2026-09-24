@@ -6,6 +6,8 @@ import { appRoot } from "../../../app/dom-root";
 import { FullTerminalStateLayer } from "./full-terminal-state-layer";
 import { publishFullTerminalView, resetFullTerminalView, type FullTerminalViewSnapshot } from "./full-terminal-view";
 
+import { copy, setLang, t } from "../../../lib/i18n";
+
 const { FullTerminalStatus } = await import("./full-terminal-state.ts");
 
 let retries = 0;
@@ -42,6 +44,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   unmountReact();
+  setLang("zh");
   resetFullTerminalView();
   appRoot().replaceChildren();
 });
@@ -117,4 +120,17 @@ describe("full terminal centered state", () => {
     expect(status.detail).toBe("等待恢复");
     expect(status.stage).toBe("waiting");
   });
+});
+test("terminal status copy resolves after a language change without a transport event", () => {
+  setLang("zh");
+  const status = new FullTerminalStatus(() => {});
+  status.fail(copy("ft.openFail", { error: copy("err.timeout") }));
+  publishFullTerminalView(snap({ stage: status.stage, detail: status.detail, retry: status.retry }));
+  paint();
+  const chinese = appRoot().querySelector(".full-terminal-state-detail")!.textContent;
+  act(() => setLang("en"));
+  expect(appRoot().querySelector(".full-terminal-state-detail")!.textContent)
+    .toBe(t("ft.openFail", { error: t("err.timeout") }));
+  expect(appRoot().querySelector(".full-terminal-state-detail")!.textContent).not.toBe(chinese);
+  expect(status.retry).toBeTrue();
 });

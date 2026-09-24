@@ -1,10 +1,11 @@
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import { useSyncExternalStore } from "react";
-import { t } from "../../../lib/i18n";
+import { langRevision, subscribeLang, resolveCopy, t } from "../../../lib/i18n";
 import { fullTerminalStateTitle } from "./full-terminal-state";
 import { getFullTerminalView, subscribeFullTerminalView } from "./full-terminal-view";
 
 export function FullTerminalStateLayer({ onRetry }: { onRetry: () => void }) {
+  useSyncExternalStore(subscribeLang, langRevision);
   const view = useSyncExternalStore(subscribeFullTerminalView, getFullTerminalView);
   const Icon = view.stage === "error" ? CircleAlert : LoaderCircle;
   const live = view.stage === "live";
@@ -19,7 +20,7 @@ export function FullTerminalStateLayer({ onRetry }: { onRetry: () => void }) {
       <Icon className="full-terminal-state-spinner" aria-hidden="true" />
       <div className="full-terminal-state-copy">
         <strong className="full-terminal-state-title">{fullTerminalStateTitle(view.stage)}</strong>
-        <p className="full-terminal-state-detail">{view.detail}</p>
+        <p className="full-terminal-state-detail">{resolveCopy(view.detail)}</p>
       </div>
       <button
         type="button"

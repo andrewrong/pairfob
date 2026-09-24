@@ -120,16 +120,20 @@ export function HerdScreen({
     };
   }, [variant]);
   // Section headings stick right under the header, whatever its current height.
+  // The height lives on the root, whose scroll padding keeps a focused row out
+  // from under the sticky header.
   useLayoutEffect(() => {
     const node = head.current;
-    const page = root.current;
-    if (variant !== "page" || !node || !page) return;
-    const apply = () => page.style.setProperty("--herd-head-h", `${node.offsetHeight}px`);
+    if (variant !== "page" || !node) return;
+    const rootStyle = document.documentElement.style;
+    const apply = () => rootStyle.setProperty("--herd-head-h", `${node.offsetHeight}px`);
     apply();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(apply);
-    observer.observe(node);
-    return () => observer.disconnect();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(apply);
+    observer?.observe(node);
+    return () => {
+      observer?.disconnect();
+      rootStyle.removeProperty("--herd-head-h");
+    };
   }, [variant]);
   const revealNext = (status: "blocked" | "done", groupId?: string) => {
     const candidates = view.groups
@@ -176,14 +180,17 @@ export function HerdScreen({
       <header ref={head} className={`herd-head${folded ? " is-folded" : ""}`}>
         <div className="herd-head-row">
           <HostTitle host={view.host} onOpen={actions.openHostMenu} />
-          {folded && view.attention.length ? (
-            <Button className="herd-attn-pill" onClick={() => window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" })}>
+          {view.attention.length ? (
+            // Mounted while there is attention so it can fade in as the header
+            // folds; unfolded, the strip below carries the same shortcut.
+            <Button className="herd-attn-pill" tabIndex={folded ? undefined : -1} aria-hidden={folded ? undefined : true}
+              onClick={() => window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" })}>
               {t("list.needsYou", { count: String(view.attention.length) })}
             </Button>
           ) : null}
           <GroupModeButton mode={view.listGroup} onOpen={actions.openGroupModeMenu} />
         </div>
-        <AttentionStrip items={view.attention} onOpen={actions.openAttention} />
+        <AttentionStrip items={view.attention} onOpen={actions.openAttention} hidden={folded} />
       </header>
       <HerdBanners tone={view.status.tone} />
       <AppNotice />

@@ -422,3 +422,16 @@ describe("Cursor CLI quota auth states", () => {
     expect(appRoot().querySelector(".quota-command")).toBeNull();
   });
 });
+
+test("a cached quota failure follows language switches without another request", async () => {
+  mountLiveOn("quota");
+  let calls = 0;
+  useSession(async () => { calls++; throw new ProtocolError("unknown_op", "wire detail"); });
+  await act(async () => { await refreshAgentQuota(); });
+  const chinese = t("quota.upgrade");
+  expect(appRoot().textContent).toContain(chinese);
+  act(() => setLang("en"));
+  expect(appRoot().textContent).toContain(t("quota.upgrade"));
+  expect(appRoot().textContent).not.toContain(chinese);
+  expect(calls).toBe(1);
+});

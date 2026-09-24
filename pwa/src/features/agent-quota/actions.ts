@@ -1,6 +1,5 @@
 import { liveSession } from "../computers/catalog-store";
 import { goToScreen } from "../../app/navigation-store";
-import { t } from "../../lib/i18n";
 import { ProtocolError } from "../../lib/protocol/errors";
 import { commitView } from "../../app/host";
 import { quotaSnapshot, setQuotaSnapshot } from "./store";
@@ -39,7 +38,7 @@ export async function refreshAgentQuota(): Promise<void> {
     setQuotaSnapshot(session, {
       loading: false,
       items: null,
-      error: t(error instanceof ProtocolError && error.code === "unknown_op" ? "quota.upgrade" : "quota.failed"),
+      error: error instanceof ProtocolError && error.code === "unknown_op" ? "quota.upgrade" : "quota.failed",
     });
   }
 }

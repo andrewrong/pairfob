@@ -104,4 +104,5 @@ export const enShell: Record<keyof typeof zhShell, string> = {
   "board.zoomGroup": "Zoom",
   "board.tabWaiting": "a session is waiting",
   "board.tabDone": "a session just finished",
+  "list.needsYouTitle": "Needs you",
 };
