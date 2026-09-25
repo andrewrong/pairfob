@@ -95,6 +95,12 @@ export function quotaOverview(q: QuotaRead | undefined): number | "unlimited" | 
   return w.unlimited ? "unlimited" : 100 - w.used_percent;
 }
 
+/** "1 分钟前更新"; "just now" reads as its own phrase instead of a capitalized fragment. */
+function updatedCopy(observedAt: number): string {
+  const when = formatDeviceAge(observedAt);
+  return when === t("device.justNow") ? t("quota.updatedJustNow") : t("quota.updatedAgo", { when });
+}
+
 export type QuotaTone = "ok" | "warn" | "error";
 
 /** Below 30% the meter turns yellow, below 10% red. */
@@ -203,7 +209,7 @@ export function quotaCardModel(q: QuotaRead): QuotaCardModel {
     plan: q.plan || t("quota.planUnknown"),
     state: status === "ok" ? "fresh" : status === "stale" ? "stale" : "missing",
     statusCopy: t(statusKeys[status]),
-    updated: q.observed_at ? t("quota.updatedAgo", { when: formatDeviceAge(q.observed_at) }) : null,
+    updated: q.observed_at ? updatedCopy(q.observed_at) : null,
     windows,
     help,
     helpDetail,
@@ -286,6 +292,6 @@ export function quotaModuleModel(snapshot: QuotaSnapshotLike | undefined, connec
     state: "ready",
     rows,
     noData: providers.length - rows.length,
-    updated: newest ? t("quota.updatedAgo", { when: formatDeviceAge(newest) }) : null,
+    updated: newest ? updatedCopy(newest) : null,
   };
 }

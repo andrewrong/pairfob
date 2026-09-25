@@ -5,6 +5,10 @@
 //
 //   bun scripts/site-shots.ts
 //
+// It also composes the README strip site/img/readme/{en,zh}.webp from three of
+// those stills. `--readme-only` skips the PWA and recomposes the strip from the
+// stills already on disk.
+//
 // Needs Google Chrome (override the binary with CHROME=/path/to/chrome). The
 // script starts its own PWA dev server and headless Chrome, and stops both.
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -13,6 +17,10 @@ import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "..");
 const OUT = join(ROOT, "site", "img", "home");
+// Outside img/home so pack-origin-assets.sh does not ship it to the site.
+const README_OUT = join(ROOT, "site", "img", "readme");
+const README_STILLS = ["home-grouped", "guided-draft", "workspace-diff"];
+const README_ONLY = process.argv.includes("--readme-only");
 const VITE_PORT = Number(process.env.SHOTS_VITE_PORT ?? 5198);
 const CDP_PORT = Number(process.env.SHOTS_CDP_PORT ?? 9337);
 const SCALE = 1.5;
@@ -121,7 +129,44 @@ async function capture(cdp: Cdp, lang: string, shot: Shot): Promise<void> {
   }
 }
 
-const vite = Bun.spawn(["bunx", "vite", "--port", String(VITE_PORT), "--strictPort"], {
+// One transparent strip of phone stills at their native pixels, rounded and
+// hairline-edged so it reads on both GitHub themes.
+async function composeReadme(cdp: Cdp, lang: string): Promise<void> {
+  const stills = await Promise.all(README_STILLS.map(async (name) => {
+    const bytes = await Bun.file(join(OUT, lang, `${name}.webp`)).arrayBuffer();
+    return `<img src="data:image/webp;base64,${Buffer.from(bytes).toString("base64")}">`;
+  }));
+  const gap = 40;
+  const pad = 2;
+  const width = README_STILLS.length * 585 + (README_STILLS.length - 1) * gap + pad * 2;
+  const height = 1266 + pad * 2;
+  const html = `<!doctype html><style>
+    html, body { margin: 0; background: transparent; }
+    body { display: flex; gap: ${gap}px; padding: ${pad}px; }
+    img { width: 585px; height: 1266px; border-radius: 36px; box-shadow: 0 0 0 1px rgb(128 128 128 / 0.45); }
+  </style>${stills.join("")}`;
+  const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" });
+  const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
+  try {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+    await cdp.send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 0 } }, sessionId);
+    await cdp.send("Page.enable", {}, sessionId);
+    const { frameTree } = await cdp.send("Page.getFrameTree", {}, sessionId);
+    await cdp.send("Page.setDocumentContent", { frameId: frameTree.frame.id, html }, sessionId);
+    await cdp.send("Runtime.evaluate", {
+      expression: "Promise.all([...document.images].map((img) => img.decode()))",
+      awaitPromise: true,
+    }, sessionId);
+    const { data } = await cdp.send("Page.captureScreenshot", { format: "webp", quality: 88 }, sessionId);
+    const file = join(README_OUT, `${lang}.webp`);
+    await Bun.write(file, Buffer.from(data, "base64"));
+    console.log(`wrote ${file.slice(ROOT.length + 1)}`);
+  } finally {
+    await cdp.send("Target.closeTarget", { targetId });
+  }
+}
+
+const vite = README_ONLY ? undefined : Bun.spawn(["bunx", "vite", "--port", String(VITE_PORT), "--strictPort"], {
   cwd: join(ROOT, "pwa"),
   stdout: "ignore",
   stderr: "inherit",
@@ -140,16 +185,20 @@ const chrome = Bun.spawn([
 
 let cdp: Cdp | undefined;
 try {
-  await waitFor(`http://127.0.0.1:${VITE_PORT}/qa/index.html`, "the PWA dev server");
+  if (vite) await waitFor(`http://127.0.0.1:${VITE_PORT}/qa/index.html`, "the PWA dev server");
   const version = await (await waitFor(`http://127.0.0.1:${CDP_PORT}/json/version`, "Chrome")).json();
   cdp = await Cdp.connect(version.webSocketDebuggerUrl);
   for (const lang of LANGS) {
-    await mkdir(join(OUT, lang), { recursive: true });
-    for (const shot of SHOTS) await capture(cdp, lang, shot);
+    if (!README_ONLY) {
+      await mkdir(join(OUT, lang), { recursive: true });
+      for (const shot of SHOTS) await capture(cdp, lang, shot);
+    }
+    await mkdir(README_OUT, { recursive: true });
+    await composeReadme(cdp, lang);
   }
 } finally {
   cdp?.close();
   chrome.kill();
-  vite.kill();
+  vite?.kill();
   await rm(profile, { recursive: true, force: true });
 }

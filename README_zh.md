@@ -11,20 +11,15 @@
 **同一批活着的会话**，不是副本。电脑只往外连，不开入站端口、不需要 VPN，
 会话端到端加密。
 
-<p align="center">
-  <img src="site/img/home/zh/home-grouped.webp" width="200" alt="按工作区分组的会话列表，顶部是等你处理的会话" />
-  <img src="site/img/home/zh/guided-draft.webp" width="200" alt="会话内：实时终端画面和输入框" />
-  <img src="site/img/home/zh/workspace-diff.webp" width="200" alt="在手机上查看文件 diff" />
-  <img src="site/img/home/zh/chat-complete.webp" width="200" alt="对话模式里 Agent 完成后的回复" />
-</p>
+![手机上的 Pairfob：会话列表、实时会话和 diff 审查](site/img/readme/zh.webp)
 
 ## 快速开始
 
 macOS 或 Linux，电脑上装有 Herdr（没装时安装脚本会询问是否帮你装）。
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh   # 校验、登记、启动后台服务
-pairfob pair                                      # 显示二维码
+curl -fsSL https://pairfob.com/install.sh | sh
+pairfob pair
 ```
 
 在手机上打开 [pairfob.com/pair](https://pairfob.com/pair) 扫码，然后在电脑上按
@@ -37,7 +32,7 @@ pairfob pair                                      # 显示二维码
 
 ## 在手机上能做什么
 
-- **Agent 等你时及时处理。** 列表顶部的 **等你** 和可选的推送通知会把
+- **Agent 等你时及时处理。** 列表顶部的 **需要你** 和可选的推送通知会把
   等待中的 Agent 提出来，点一下直接进到那个提示。
 - **在活着的会话里干活。** **自动** 会按会话在三种模式间选择：**控制**
   （终端画面 + 系统键盘，支持听写，带快捷键区）、**终端**（真实 PTY，适合

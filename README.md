@@ -12,12 +12,7 @@ or another computer opens **the same live sessions**, not copies. The computer
 dials out, so there are no inbound ports and no VPN, and the session is
 end-to-end encrypted.
 
-<p align="center">
-  <img src="site/img/home/en/home-grouped.webp" width="200" alt="Session list grouped by workspace, with a Needs you strip" />
-  <img src="site/img/home/en/guided-draft.webp" width="200" alt="Inside a session: the live terminal view with a compose box" />
-  <img src="site/img/home/en/workspace-diff.webp" width="200" alt="Reviewing a file diff from the phone" />
-  <img src="site/img/home/en/chat-complete.webp" width="200" alt="Chat mode showing the agent's finished reply" />
-</p>
+![Pairfob on a phone: the session list, a live session, and a diff review](site/img/readme/en.webp)
 
 ## Quick start
 
@@ -25,8 +20,8 @@ macOS or Linux, with Herdr installed (the installer offers to install it if
 missing).
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh   # verify, enroll, start the background service
-pairfob pair                                      # shows a QR code
+curl -fsSL https://pairfob.com/install.sh | sh
+pairfob pair
 ```
 
 On the phone, open [pairfob.com/pair](https://pairfob.com/pair) and scan, then

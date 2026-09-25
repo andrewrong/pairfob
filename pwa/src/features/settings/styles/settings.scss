@@ -310,30 +310,48 @@
 .set-switch[aria-checked="true"] { background: var(--ok); }
 .set-switch[aria-checked="true"]::after { transform: translateX(20px); }
 
-/* A segmented control on an item's trailing edge: equal segments sized to the widest label. */
+/*
+  A segmented control on an item's trailing edge. Each segment is as wide as its
+  own label, and the item's label never gives up width to the control: when both
+  do not fit on one line (long English labels, a narrow phone), the control wraps
+  under the label and stretches across the card. The label's huge grow factor
+  keeps the control at its natural width while they share a line.
+*/
+.set-item:has(> .set-seg) {
+  flex-wrap: wrap;
+  row-gap: 2px;
+  padding-block: 4px;
+}
+
+.set-item:has(> .set-seg) > .set-item-text {
+  flex: 1000 0 auto;
+  min-height: 44px;
+  justify-content: center;
+}
+
 .set-seg.seg {
   --seg-pad: 2px;
   --seg-gap: 2px;
-  flex: none;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  flex: 1 1 auto;
   margin: 0;
   background: var(--surface-2);
   border: 0;
   border-radius: 11px;
 }
 
-.set-seg::before { border-radius: 9px; }
+/* Segments differ in width, so the choice is painted on the segment itself. */
+.set-seg::before { display: none; }
 
 .set-seg .seg-item {
+  flex: 1 1 auto;
   min-height: 40px;
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 9px;
   white-space: nowrap;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
-.set-item:has(> .set-seg) { padding-block: 4px; }
+.set-seg .seg-item.on { background: var(--bg); }
 
 /* Single-choice rows (network route): the check marks the choice. */
 .set-radios.seg {
