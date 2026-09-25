@@ -178,7 +178,7 @@ function assertPaneRoot(expectedPane: string): void {
 }
 
 test("every QA scene id + untitled built", () => {
-  expect(scenes.length).toBe(74);
+  expect(scenes.length).toBe(76);
   const seen = new Set<string>();
   for (const scene of scenes) {
     expect(seen.has(scene.name)).toBeFalse();
@@ -242,7 +242,7 @@ test("every scene renders through the App or its terminal shell fixture", async 
   }
   expect(failures).toEqual([]);
   expect(shellRendered).toEqual(["terminal-loading", "terminal-error"]);
-  expect(appRendered).toHaveLength(72);
+  expect(appRendered).toHaveLength(74);
   expect(appRendered.length + shellRendered.length).toBe(scenes.length);
 }, 180_000);
 
@@ -356,6 +356,6 @@ test("scene names and descriptions are documented for the window.qa surface", ()
   const names = scenes.map((scene) => scene.name);
   expect(names).toContain("terminal-loading");
   expect(names).toContain("terminal-error");
-  expect(names.length).toBe(74);
+  expect(names.length).toBe(76);
   for (const scene of scenes) expect(scene.description).toBeTruthy();
 });

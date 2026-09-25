@@ -30,8 +30,8 @@ type Shot = { name: string; scene: string; width: number; height: number };
 const PHONE = { width: 390, height: 844 };
 const SHOTS: Shot[] = [
   { name: "connect", scene: "connect", ...PHONE },
-  { name: "home-grouped", scene: "home-grouped", ...PHONE },
-  { name: "guided-draft", scene: "guided-draft", ...PHONE },
+  { name: "home-grouped", scene: "home-grouped-tailnet", ...PHONE },
+  { name: "guided-draft", scene: "guided-draft-tailnet", ...PHONE },
   { name: "guided-expanded", scene: "guided-expanded", ...PHONE },
   { name: "workspace-diff", scene: "workspace-diff", ...PHONE },
   { name: "chat-complete", scene: "chat-complete", ...PHONE },

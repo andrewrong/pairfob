@@ -7,8 +7,9 @@ local Unix socket. No Pairfob relay or Tailscale Serve configuration is used.
 
 ## Install and use
 
-Install Tailscale and Herdr on the computer, and Tailscale on the phone. Run
-the installer shown in the repository README, then check `pairfob doctor`.
+Install Tailscale and Herdr on the computer, and Tailscale on the phone. Build
+and install the current direct version using the commands in the repository
+README, then run `pairfob doctor` with that same binary.
 The doctor must report `Running yes`, `Herdr ready`, and a Tailscale address.
 If Herdr lives outside the service's `PATH`, set `HERDR_BIN` to its absolute
 executable path before `pairfob service install`.
@@ -51,8 +52,10 @@ revoke lost phones with `pairfob forget`.
 The browser URL uses **HTTP**, so it may display “Not Secure.” Tailscale's
 transport encryption does not turn that origin into a browser secure context.
 Browser features requiring HTTPS, including in-page camera scanning, service
-workers, push notifications, and PWA installation, may be unavailable on a Tailscale IP. Attachment uploads currently require the old P2P transport and are disabled in this direct deployment. Use the
-phone's system camera or paste the complete link for pairing. The one-use
+workers, push notifications, and PWA installation, may be unavailable on a
+Tailscale IP. Attachment uploads currently require the old P2P transport and
+are disabled in this direct deployment. Use the phone's system camera or paste
+the complete link for pairing. The one-use
 ticket is in the URL fragment, which is not sent in an HTTP request; treat the
 link as sensitive until pairing completes. Pairfob logs network peer addresses
 and request paths locally, but does not log that fragment.

@@ -6,38 +6,41 @@
 
 [English](README.md) | **简体中文**
 
-**把 [Herdr](https://herdr.dev) 里的 Agent 带到手机上。** Codex、Claude、Grok
-等 Agent 继续在你的电脑上跑；配对一次后，手机、平板或另一台电脑打开的是
-**同一批活着的会话**，不是副本。手机和电脑通过同一个 Tailscale 网络
-直连，会话内容端到端加密。
+**在手机上接着操作 [Herdr](https://herdr.dev) 会话。** Agent 继续在电脑上运行。
+配对后的手机通过 Tailscale 读取实时终端画面，并把按键发回电脑。
 
 ![手机上的 Pairfob：会话列表、实时会话和 diff 审查](site/img/readme/zh.webp)
 
-## 快速开始
+## 从当前源码开始
 
-macOS 或 Linux，电脑上装有 Herdr（没装时安装脚本会询问是否帮你装）。
+官网安装脚本目前仍提供旧中继版本。要使用 `main` 分支的 Tailscale 直连版，
+现在请从源码构建。需要 macOS 或 Linux、Go 1.26、bun、Herdr 0.7+，
+电脑和手机都已连接 Tailscale；手机还需获准访问电脑 Tailscale IP 的 TCP 18474 端口。
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh
-pairfob pair
+(cd pwa && bun install --frozen-lockfile)
+bash ./scripts/embed-pwa.sh
+mkdir -p "$HOME/.local/bin"
+go build -o "$HOME/.local/bin/pairfob" ./cmd/pairfob
+"$HOME/.local/bin/pairfob" service install
+"$HOME/.local/bin/pairfob" doctor
+"$HOME/.local/bin/pairfob" pair
 ```
 
-先让手机和电脑加入同一个 Tailscale 网络。运行 `pairfob pair`，用手机扫描终端里的
-二维码（也可以粘贴二维码下方的完整配对链接），然后在电脑上按一次回车放行。
-浏览器若允许从该 HTTP 地址安装，可以加到主屏幕。完整步骤见
-[Tailscale 直连部署说明](docs/tailscale-direct.md)。
+用手机系统相机扫描二维码，或打开终端打印的完整配对链接；只有短码无法连接。
+接着在电脑按 Enter 确认。以后在同一手机浏览器中打开这台电脑的 Tailscale
+地址即可。用户服务在登录后运行上面构建的二进制，请勿移动该文件。服务管理、
+清理设备和浏览器限制见 [Tailscale 直连部署说明](docs/tailscale-direct.md)。
 
-平时就在 Herdr 里？`herdr plugin install arronKler/pairfob` 会把
-**Pairfob: Pair a device** 加进 Herdr 的动作菜单，首次使用时安装同一个经过
-校验的二进制。见 [`plugin/herdr/`](plugin/herdr/README.md)。
+[Herdr 插件](plugin/herdr/README.md)和官网安装脚本目前安装的仍是旧发行版；
+发布新的直连二进制后才能通过它们安装直连版。
 
 ## 在手机上能做什么
 
 - **Agent 等你时及时处理。** 打开 Pairfob 后，列表顶部的 **需要你** 会把
   等待中的 Agent 提出来，点一下直接进到那个提示。
-- **在活着的会话里干活。** 目前直连时 **自动** 使用 **控制**
-  （终端画面 + 系统键盘，支持听写，带快捷键区）；也可以手选 **终端**（真实 PTY，适合
-  vim 和全屏 TUI）、**对话**（给 Agent 发消息、看回复）。
+- **操作实时会话。** 看渲染好的终端画面，用系统键盘和按键垫输入；
+  全屏 TUI 可切到**终端**模式，阅读 Agent 消息可切到**对话**模式。
 - **审查改动。** 浏览文件，查看 git 状态和 diff，在 diff 行上写评论并发给
   Agent。
 - **管理工作区。** 新建对话、标签页、分屏和 worktree，在 **画板** 上看标签页
@@ -47,9 +50,8 @@ pairfob pair
 - **看订阅余量。** 由电脑收集 Codex、Claude Code、Copilot、Cursor、Grok 等账号的
   额度。
 
-手机端支持中文和 English。
-
-当前 HTTP 直连部署暂不支持浏览器推送通知和附件上传。Tailscale IP 上的页面也可能无法使用网页内相机或安装 PWA；请用手机系统相机扫描配对二维码。
+手机端支持中文和 English。当前 HTTP 直连地址不支持浏览器推送和附件上传；
+网页内扫码与安装 PWA 也可能受浏览器限制。扫描配对二维码请用手机系统相机。
 
 ## 安全
 
@@ -69,9 +71,13 @@ pairfob pair
 | Herdr | 0.7 及以上；安装脚本可以装固定版本 0.8.2 |
 | Herdr 插件 | Herdr 0.8.2 及以上 |
 | 在手机上关闭工作区 | Herdr 0.9.0 及以上 |
-| 手机 / 平板 | 较新的移动浏览器和 Tailscale；Tailscale IP 上的 HTTP 页面可能无法安装 PWA |
+| 手机 / 平板 | 较新的移动浏览器，并与电脑加入同一个 tailnet |
+| 当前源码构建工具 | Go 1.26 和 bun |
 
 ## 电脑上的命令
+
+下列示例假定 `~/.local/bin` 已加入 `PATH`；否则请使用
+`"$HOME/.local/bin/pairfob"`。
 
 ```sh
 pairfob                     # 查看状态；没在运行时启动它
@@ -80,12 +86,12 @@ pairfob list                # 已配对设备
 pairfob forget 1            # 按序号或名字解除配对
 pairfob doctor              # 检查这台电脑（只诊断，不改任何东西）
 pairfob setup               # 检查 Herdr，按需安装并启动
-pairfob update              # 更新到最新版本并重启服务
+pairfob update              # 仅适用于发行版；当前源码版要重新构建
 pairfob quota-setup-claude  # 开启 Claude 订阅余量采集
 pairfob service status      # 登录服务：start / stop / restart / install / uninstall
 ```
 
-第二台电脑运行同一个安装脚本，然后在手机上用 **设置 → 添加另一台电脑**
+第二台电脑也要构建并运行自己的用户服务，然后在手机上用 **设置 → 添加另一台电脑**
 配对。服务和设备管理见 [部署说明](docs/tailscale-direct.md)。
 
 ## 工作原理
@@ -111,13 +117,12 @@ pairfob service status      # 登录服务：start / stop / restart / install / 
 
 ```sh
 (cd pwa && bun install --frozen-lockfile)
-./scripts/dev-up.sh     # 在本机回环地址启动 origin + pairfob + PWA
 ./scripts/verify.sh     # 完整检查：Go、PWA、Worker、站点测试和构建
-./scripts/dev-down.sh
 ```
 
-设置 `PAIRFOB_DEV_FAKE_RUNTIME=1` 可以不接 Herdr、用演示数据。真机调试、
-验证范围、协议约束和发布流程见 [`docs/develop.md`](docs/develop.md)（英文）。
+`scripts/dev-up.sh` 是用于协议开发的本地 Worker 测试环境；直连宿主机构建
+见上面的步骤。真机调试、验证范围、协议约束和发布流程见
+[`docs/develop.md`](docs/develop.md)（英文）。
 
 ## 参与贡献
 

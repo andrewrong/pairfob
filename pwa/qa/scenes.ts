@@ -75,6 +75,7 @@ export const scenes: FixtureScene[] = [
   { name: "attention-empty", description: "Attention filters with no matching checking tasks" },
   { name: "attention-legacy", description: "Legacy agents without readiness facts" },
   { name: "home-grouped", description: "Grouped workspace list" },
+  { name: "home-grouped-tailnet", description: "Grouped workspace list on a direct Tailscale host" },
   { name: "home-offline", description: "Unverifiable session status" },
   { name: "home-busy", description: "Busy computer: six workspaces, many agents and terminals, grouped" },
   { name: "home-reading", description: "Just connected: runtime and first snapshot not read yet" },
@@ -104,6 +105,7 @@ export const scenes: FixtureScene[] = [
   { name: "workspace-error", description: "Workspace read failure" },
   { name: "guided", description: "Guided ANSI terminal and collapsed keys" },
   { name: "guided-draft", description: "Unsent compose draft" },
+  { name: "guided-draft-tailnet", description: "Unsent compose draft on a direct Tailscale host" },
   { name: "guided-ime", description: "Focused compose with active composition and selection" },
   { name: "guided-expanded", description: "Expanded terminal key pad" },
   { name: "guided-slash", description: "Expanded command pad" },
@@ -257,6 +259,10 @@ export function resetFixtureBaseline(session: FixtureSession): void {
 
 export async function applyScene(name: string, session: FixtureSession): Promise<void> {
   if (!scenes.some((scene) => scene.name === name)) throw new Error(`Unknown QA scene: ${name}`);
+  if (name.endsWith("-tailnet")) {
+    applyOriginConfig({ protocol: 2, p2p: false });
+    setSessionTransport("relay");
+  }
   if (name === "boot" || name === "resuming") { setPhase(name); return; }
   if (name.startsWith("resuming-slow")) {
     // The fixture clock is frozen, so the recorded attempt simply started 9 s earlier.
@@ -321,14 +327,10 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     replaceAgentsFromSnapshot(data.attentionSnapshot(name === "attention-rich-updated"));
   if (name === "attention-empty") replaceAgentsFromSnapshot({ ...data.snapshot(), panes: data.snapshot().panes?.filter((pane) => pane.agent_status !== "unknown") });
   if (name === "attention-legacy") replaceAgentsFromSnapshot(data.snapshot());
-  if (name === "home-grouped") { setListGroup("space"); togglePanePin("w1:p3"); }
+  if (name === "home-grouped" || name === "home-grouped-tailnet") { setListGroup("space"); togglePanePin("w1:p3"); }
   if (name === "home-offline" || name === "settings-offline") { setNetworkOnline(false); session.setConnected(false); }
   if (name.startsWith("settings")) {
     setScreen("settings");
-    if (name === "settings-tailnet") {
-      applyOriginConfig({ protocol: 2, p2p: false });
-      setSessionTransport("relay");
-    }
     if (name === "settings-devices") applyDeviceList(data.devices());
     if (name === "settings-loading") { applyDeviceList([]); setPushEnabled(null); beginSettingsRead(); }
     if (name === "settings-error") { setDevicesError(t("err.devicesLoad")); setPushConfigError(t("err.pushStatusLoad")); }
@@ -371,7 +373,7 @@ export async function applyScene(name: string, session: FixtureSession): Promise
   }
   if (name.startsWith("guided") || name === "desktop-guided") {
     guidedPane();
-    setComposeDraft(name === "guided-draft" ? "Review the changes and explain the next step." : name === "guided-ime" ? "正在编辑的文字" : "");
+    setComposeDraft(name === "guided-draft" || name === "guided-draft-tailnet" ? "Review the changes and explain the next step." : name === "guided-ime" ? "正在编辑的文字" : "");
     setKeysExpanded(name === "guided-expanded" || name === "guided-slash");
     setPadKind(name === "guided-slash" ? "slash" : "keys");
     setTermWrap(name === "guided-wrap");
