@@ -53,7 +53,7 @@ On a phone, the bottom bar has **Sessions** / **Board** / **Settings**; **Sessio
 
 ## Inside a session
 
-Opening a session defaults to **Auto**: Terminal on a P2P direct connection when the browser supports WebGL2 and Save-Data is off, otherwise Control. The session remains on the computer; this is not a remote-desktop screenshot or another terminal running in the browser.
+Opening a session defaults to **Auto**. On this direct Tailscale deployment it uses **Control**; the computer still owns the live session.
 
 Chrome:
 
@@ -67,7 +67,7 @@ The four choices are at the top of `···` under **Mode**. A switch inside a se
 
 | Mode | What it is |
 | --- | --- |
-| **Auto** | Chooses when the session opens: Terminal on P2P with WebGL2 unless Save-Data is on, otherwise Control |
+| **Auto** | Uses Control on the direct Tailscale deployment; other modes depend on available capabilities |
 | **Control** | View the terminal and operate the session with the system keyboard and keypad |
 | **Terminal** | A real terminal. Use for vim or a full-screen TUI. On a phone the default is an 80-column view you pan sideways; **Fit screen** resizes the computer to the phone width. Vertical pan still scrolls remotely |
 | **Chat** | Message the Agent (this is where you send a task; it is not a `···` menu item). The run collapses after the reply |
@@ -105,50 +105,7 @@ If the computer daemon cannot inspect the workspace, the page says so.
 
 ## Upload attachments
 
-Tap the attach button left of the compose field (**Add attachments**) and use the system picker for files, photos or the camera; you can also paste. The entry appears only when the computer supports uploads. If it is missing, check the connection and update Pairfob on the computer.
-
-### Upload and pass a file to the Agent
-
-1. Picked files appear in the attachment row above the compose field. Images can be edited first, and each can switch between **Smart compress** and **Original**.
-2. On a **P2P direct connection** uploads start by themselves. Without one, the row says **Uploads need a direct connection**; tap **Connect**.
-3. Write your instructions and tap **Send**. Uploaded paths are attached after the text, in the row's order. While something is still uploading the button shows **Uploading N%** and sends when it finishes; tap it to stop waiting. If an attachment cannot finish, you can **Retry**, **Connect**, or **Send without them**.
-4. To place a path at a specific spot in your text, choose **Put in message** for that attachment.
-
-Files are saved in the current session's workspace on the computer. Uploading alone never sends a task or presses terminal Enter; it all goes out when you tap **Send**. File transfer works independently of which Agent is running; reading a PDF, understanding an image, or parsing an Office document depends on that Agent's model and tools.
-
-### File types and limits
-
-**PDFs are supported and transferred unchanged.** **Choose file** does not restrict extensions: text, Markdown, JSON, images, Office documents, archives, audio and video can also be selected. Upload support does not imply that Pairfob previews or parses a format.
-
-The computer saves attachments under controlled filenames. A PDF correctly identified by the browser is saved with `.pdf`; types without a dedicated mapping, or without a recognized type, may be saved as `.bin` with their contents unchanged.
-
-| Limit | Current value |
-| --- | --- |
-| Attachment queue per session | Up to 5 files |
-| Actual uploaded file | Up to 20 MiB each |
-| Actual uploaded total in the same queue | Up to 40 MiB |
-| Source files retained locally | Up to 80 MiB total |
-
-Eligible JPEG photos can be selected at up to 40 MiB per source file, but the compressed result must still meet the upload limits. PDFs and other ordinary files are limited to 20 MiB at selection. **Local retained capacity is not an upload allowance.** If compression fails or Original leaves a file over the limit, reduce its size first.
-
-### Smart image compression
-
-The default is **Photo → Smart compress**. Processing starts when P2P is ready and the upload begins, not immediately when you select an image:
-
-- Ordinary JPG/JPEG photos larger than 256 KiB are compression candidates, with an output long edge of at most 2048 pixels. PNGs produced by editing a JPEG photo may also use this path.
-- Ordinary PNG, WebP, AVIF, HEIC/HEIF, GIF and SVG files stay original. Files recognized as screenshots by their names also skip automatic compression.
-- **Text & detail** or **Original** skips this compression step. Original keeps any edits already made.
-- Files of 256 KiB or less, failed compression, or results saving less than 10% keep the original.
-
-Each file shows the actual size savings or why the original was kept. Choose **Text & detail** for text screenshots, error messages and fine diagrams.
-
-### Interruptions, status checks and resuming
-
-**File uploads use P2P only.** Relay can show the session and **Check status**, but cannot start or continue sending files. Unsent queue work stops when P2P is unavailable; prepared image results can be reused. After reconnecting, explicitly tap **Upload**, **Upload all**, or **Continue upload**.
-
-After an interruption or an uncertain result, use **Check status** to find out how much the computer has received. This only reads status and never resumes automatically. Once P2P is ready, tap **Continue upload**. After a page reload, the browser attempts to restore unfinished attachments saved locally. Recovery is not guaranteed if browser storage is unavailable or its records have been cleared; follow the on-screen instructions.
-
-**Transfer details** separates hashing, local saving, sending and other measured stages. **Saving resume information** means the browser is storing its recovery record; that file has not entered the network sending stage yet.
+The current direct deployment has P2P disabled. The attachment picker and upload flow require that legacy transport, so **file uploads are unavailable here**. Reading files and diffs in the workspace remains available. Do not select a file expecting it to reach the computer.
 
 ## Actions that may appear on this view
 
@@ -169,16 +126,16 @@ The web surface does not offer arbitrary shell, deleting worktrees, or yanking t
 
 Tap **Settings** at the bottom on a phone, or at the top of the left rail on a wide screen.
 
-- **Connection:** computer name, online state, this phone’s label (for example iPhone), and **Network path** as **Auto** / **P2P** / **Relay**. Auto prefers a direct path; P2P tries one now; Relay stays on the relay. The current path and round-trip sit on the same card. The choice is remembered in this browser. **Add another computer** starts another pairing without replacing the current one. With more than one credential, **Switch computer** appears here and **Computers** appears in the top bar
+- **Connection:** shows the computer, this phone, and the active **Tailscale direct** path. There is no Relay / P2P path selector. **Add another computer** creates another pairing, and **Switch computer** appears when you have more than one
 - **Subscription quota:** allowance for accounts signed in on this computer (Codex, Claude Code, GitHub Copilot, Cursor, Grok, Antigravity). Overview rings; **Usage details** for each window. **Refresh quota** on that page. Missing or stale data is not shown as zero
 - **Language:** **Browser default**, or pin **中文** / **English**. This only changes Pairfob on this device. Docs have their own language menu in the top bar; both remember `pairfob_lang`
 - **Mode:** defaults to **Auto**, or can be pinned to **Control** / **Terminal** / **Chat**. A later switch is remembered per session
 - **Input:** whether new sessions start in Compose (write, then Send) or Live (type straight into the terminal). `···` → **Input and display** switches one session only
 - **Return key sends:** off by default, so the phone keyboard's Return adds a line and the send button sends; turn it on to send with Return. External keyboards always send with Enter and add a line with Shift+Enter
-- **Notifications:** see [Notifications](/push). Once enabled, this phone is notified when an Agent needs you or finishes; if the computer has not enabled push, it shows **Off on the computer**
+- **Notifications:** unavailable on this HTTP direct host; see [Notifications](/push)
 - **Paired devices:** label, online or offline, last used, and notification state. The current row is marked **This phone**. Other rows have **Unpair**; already unpaired rows are omitted
 - **Export connection diagnostics:** export recent connection events when something goes wrong; see the [FAQ](/faq)
-- **Computer update:** a reminder on the list, and **Check for updates** / **Update computer** on the **Computer version** row in Settings when the user service can do it. Confirming briefly disconnects, then reconnects. Never automatic. Command-line: [CLI](/cli)
+- **Computer update:** the direct host may not serve the phone’s release check. Use `pairfob update` for a release binary or rebuild a source-built binary; see [CLI](/cli)
 - **Danger zone:** **Unpair this phone**. Pairing is required to connect again
 
 A lost phone that can still open Pairfob can also unpair other devices from Settings. `pairfob forget` that phone on the computer immediately — [Multiple devices](/devices).
@@ -189,4 +146,4 @@ If another browser window of the same paired device opens Pairfob, the old windo
 
 ## Add to Home Screen
 
-See [Get started](/start#add-to-home-screen). On iOS, prefer Safari → Add to Home Screen for daily use.
+See [Get started](/start). HTTP on a Tailscale IP may prevent PWA installation; the browser page still works.

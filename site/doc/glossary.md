@@ -1,27 +1,24 @@
 ---
 title: Glossary
-description: What Herdr, pane, pairfob, and locator mean in Pairfob.
+description: Terms used by Pairfob's direct Tailscale deployment.
 ---
 
 # Glossary
 
 | Term | Meaning |
 | --- | --- |
-| Herdr | Local program that runs coding agents on the computer. Pairfob does not replace it. Needs 0.7 or newer |
-| pane | One already-open session surface |
-| Auto | Default when a session opens: Terminal on P2P with WebGL2 unless Save-Data is on, otherwise Control |
-| Control | Phone UI for that pane: the terminal view, keypad, and system keyboard |
-| Terminal | A real terminal. For vim or a full-screen TUI |
-| Chat | Message the Agent. Collapsible run |
-| pairfob | Pairfob background process on this computer. Outbound only. Talks to local Herdr only |
-| pairing code | 8 glyphs, secret |
-| locator | 6 glyphs, only finds that computer, not the same class of secret |
-| Computer confirm | After the other device proves the code, one Enter on the computer admits it |
-| relay | `pairfob.com`, this project's official instance. Forwards ciphertext, does not read the session. The session stays here when a direct path is unavailable |
-| P2P | A direct path between the phone and the computer. The session stays encrypted. Falls back to relay when a direct path cannot be found |
-| Network path | **Auto** / **P2P** / **Relay** in Settings. Auto prefers a direct path; P2P tries one now; Relay uses the relay only |
-| PWA | The Pairfob page in the browser; can be added to the Home Screen. Path `/pair` |
-| `PAIRFOB_STATE_DIR` | Default `~/.config/pairfob`, credentials and device list |
-| worktree | Git worktree. List / create / open follow the computer |
-| Workspace viewer | Folder in the session chrome: files, uncommitted changes, diff comments |
-| Subscription quota | Allowance for accounts signed in on this computer, in Settings; not this session's usage |
+| Herdr | Local program running coding agents on the computer; Pairfob connects to its local socket |
+| pane | One live terminal surface in a Herdr session |
+| Control | Rendered pane, keypad, and system keyboard on the phone |
+| Terminal | Full terminal view for vim and other TUIs when supported |
+| Chat | Agent messages and a readable transcript |
+| Auto | Selects a suitable pane mode from current capabilities |
+| tailnet | The private Tailscale network shared by the phone and computer |
+| Pairfob gateway | PWA and WebSocket listener on the computer's Tailscale IPv4 address, port 18474 |
+| pairing link | One-use URL with the computer address and a fragment containing the code and invitation ticket |
+| computer confirm | Enter on the computer admits the device after it proves the pairing code |
+| device credential | Stored after pairing; lets that browser resume without another QR |
+| PWA | Browser page served by the computer; HTTP can limit installation and secure-context features |
+| `PAIRFOB_STATE_DIR` | Local state and paired devices; default `~/.config/pairfob` |
+| worktree | Git worktree managed by Herdr on the computer |
+| subscription quota | Allowance for accounts signed in on this computer, shown in Settings |

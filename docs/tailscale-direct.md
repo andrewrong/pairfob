@@ -51,7 +51,7 @@ revoke lost phones with `pairfob forget`.
 The browser URL uses **HTTP**, so it may display “Not Secure.” Tailscale's
 transport encryption does not turn that origin into a browser secure context.
 Browser features requiring HTTPS, including in-page camera scanning, service
-workers and push notifications, may be unavailable on a Tailscale IP. Use the
+workers, push notifications, and PWA installation, may be unavailable on a Tailscale IP. Attachment uploads currently require the old P2P transport and are disabled in this direct deployment. Use the
 phone's system camera or paste the complete link for pairing. The one-use
 ticket is in the URL fragment, which is not sent in an HTTP request; treat the
 link as sensitive until pairing completes. Pairfob logs network peer addresses

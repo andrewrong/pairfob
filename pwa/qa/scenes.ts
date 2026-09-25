@@ -82,6 +82,7 @@ export const scenes: FixtureScene[] = [
   { name: "desktop-guided", description: "Responsive rail and guided pane; supply desktop viewport" },
   { name: "desktop-chat", description: "Responsive rail and agent chat; supply desktop viewport" },
   { name: "settings", description: "Connected settings and update footer" },
+  { name: "settings-tailnet", description: "Connected settings on a direct Tailscale host" },
   { name: "settings-offline", description: "Offline settings" },
   { name: "settings-devices", description: "Self, offline and revoked device rows" },
   { name: "settings-loading", description: "Settings pending state" },
@@ -324,6 +325,10 @@ export async function applyScene(name: string, session: FixtureSession): Promise
   if (name === "home-offline" || name === "settings-offline") { setNetworkOnline(false); session.setConnected(false); }
   if (name.startsWith("settings")) {
     setScreen("settings");
+    if (name === "settings-tailnet") {
+      applyOriginConfig({ protocol: 2, p2p: false });
+      setSessionTransport("relay");
+    }
     if (name === "settings-devices") applyDeviceList(data.devices());
     if (name === "settings-loading") { applyDeviceList([]); setPushEnabled(null); beginSettingsRead(); }
     if (name === "settings-error") { setDevicesError(t("err.devicesLoad")); setPushConfigError(t("err.pushStatusLoad")); }

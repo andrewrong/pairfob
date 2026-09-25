@@ -24,8 +24,8 @@ pageClass: pf-intro
     <p>新建、分屏、worktree、自动 / 控制 / 终端 / 对话，都以电脑当时为准。做不到的，手机上不会出现，也不会假装成功。</p>
   </article>
   <article>
-    <p class="pf-claim-t">不开端口，能直连就直连</p>
-    <p>电脑自己连出去，不绑 Tailscale，不把 Herdr 暴露到公网。手机和电脑优先直连（P2P），会话不经过 pairfob.com；连不上才走中转。两条路内容都是加密的。</p>
+    <p class="pf-claim-t">通过 Tailscale 直连</p>
+    <p>两台设备都加入你的 tailnet。Pairfob 只监听电脑的 Tailscale IP 和 18474 端口，Herdr 仍在本机；已配对会话内容端到端加密。</p>
   </article>
 </div>
 
@@ -63,9 +63,9 @@ pageClass: pf-intro
     <p class="pf-vs-is">配对是授权，凭证只在这台浏览器里</p>
   </div>
   <div class="pf-vs-row">
-    <p class="pf-vs-not" data-not="不是">VPN / Tailscale</p>
+    <p class="pf-vs-not" data-not="不是">公网监听</p>
     <span class="pf-vs-arrow" aria-hidden="true">→</span>
-    <p class="pf-vs-is">电脑主动连出去，家里不用开端口</p>
+    <p class="pf-vs-is">只通过你的 Tailscale 网络访问</p>
   </div>
 </div>
 
@@ -77,16 +77,16 @@ pageClass: pf-intro
 
 - 离开工位时用手机接着写、在终端里确认、看 diff、开 worktree
 - 坐回来什么都不用同步
-- 家里路由器不用做端口转发，也不想为这个去绑远程网络
+- 使用已有的 Tailscale 网络，不在路由器上做公网端口转发
 
 目前支持 **macOS 和 Linux**。Windows 还不能装 `pairfob`。
 
 ## 最短路径
 
 <ol class="pf-track">
-<li><p>电脑上装好 Herdr；pairfob 启动时会拉起它</p></li>
+<li><p>电脑上装好 Herdr 和 Tailscale；手机加入同一个 tailnet</p></li>
 <li><p><a href="./install">安装</a> <code>pairfob</code>：<code>curl -fsSL https://pairfob.com/install.sh | sh</code></p></li>
-<li><p>电脑执行 <code>pairfob pair</code>，另一台设备打开 <a href="/pair">pairfob.com/pair</a></p></li>
+<li><p>电脑执行 <code>pairfob pair</code>，用手机系统相机扫描二维码</p></li>
 <li><p>手机扫码后，在电脑终端按一次 Enter 确认</p></li>
 </ol>
 

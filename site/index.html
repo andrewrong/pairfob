@@ -6,7 +6,7 @@
     <title>Pairfob — continue the AI agent session on your computer from your phone</title>
     <meta
       name="description"
-      content="Continue the coding agents already running on your computer from your phone. Pairfob is the phone surface for Herdr: Codex, Claude, and Grok stay one session on both sides, end-to-end encrypted, no VPN and no inbound ports."
+      content="Continue the coding agents already running on your computer from your phone. Pairfob serves the phone interface directly over your Tailscale network, with end-to-end encrypted sessions."
     />
     <link rel="canonical" href="https://pairfob.com/" />
     <link rel="alternate" hreflang="en" href="https://pairfob.com/" />
@@ -129,7 +129,7 @@
             <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8" /></svg>
           </a>
           <a class="btn btn-dark bar-cta cta-desk" href="#how" data-i18n="cta.start">Get started</a>
-          <a class="btn btn-dark bar-cta cta-phone" href="/pair" data-i18n="cta.open">Open Pairfob</a>
+          <a class="btn btn-dark bar-cta cta-phone" href="/doc/start" data-i18n="cta.open">Set up Pairfob</a>
         </div>
       </div>
     </header>
@@ -143,7 +143,7 @@
               <p class="chip"><i class="live" aria-hidden="true"></i><span data-i18n="hero.chip">The phone surface for Herdr</span><i class="chip-sep" aria-hidden="true"></i><span data-i18n="hero.chip2">Open source · Free</span></p>
               <h1 data-i18n="hero.title" data-i18n-html>Agents that run on your computer,<br />continued from your phone.</h1>
               <ul class="ticks">
-                <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick1">Runs in the browser, no app to install</span></li>
+                <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick1">Pairfob in the browser · Tailscale on both devices</span></li>
                 <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick2">No account</span></li>
                 <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick3">End-to-end encrypted</span></li>
               </ul>
@@ -153,7 +153,7 @@
               <div class="cta">
                 <a class="btn btn-dark cta-desk" href="#how"><span data-i18n="hero.cta.how">Get started in 3 steps</span><svg><use href="#i-down" /></svg></a>
                 <a class="btn btn-line cta-desk" href="#what" data-i18n="hero.cta.see">See it on the phone</a>
-                <a class="btn btn-dark cta-phone" href="/pair"><span data-i18n="cta.open">Open Pairfob</span><svg><use href="#i-arrow" /></svg></a>
+                <a class="btn btn-dark cta-phone" href="/doc/start"><span data-i18n="cta.open">Set up Pairfob</span><svg><use href="#i-arrow" /></svg></a>
                 <a class="btn btn-line cta-phone" href="#how" data-i18n="hero.cta.install">Install on your computer first</a>
               </div>
             </div>
@@ -270,8 +270,8 @@
           </header>
           <ul class="reqs" data-i18n-aria="req.aria" aria-label="Requirements">
             <li><svg><use href="#i-laptop" /></svg><span><b data-i18n="req1.b">Computer</b><span data-i18n="req1">macOS or Linux with Herdr 0.7+</span></span></li>
-            <li><svg><use href="#i-phone" /></svg><span><b data-i18n="req2.b">Phone / tablet</b><span data-i18n="req2">Just a browser; on iOS, add it to the Home Screen from Safari</span></span></li>
-            <li><svg><use href="#i-cloud" /></svg><span><b data-i18n="req3.b">Network</b><span data-i18n="req3">Both sides online, no ports to open</span></span></li>
+            <li><svg><use href="#i-phone" /></svg><span><b data-i18n="req2.b">Phone / tablet</b><span data-i18n="req2">Browser and Tailscale on the same tailnet</span></span></li>
+            <li><svg><use href="#i-cloud" /></svg><span><b data-i18n="req3.b">Network</b><span data-i18n="req3">Tailscale permits access to the computer on port 18474</span></span></li>
           </ul>
 
           <ol class="steps">
@@ -283,7 +283,7 @@
                     <code>curl -fsSL https://pairfob.com/install.sh | sh</code>
                     <button type="button" class="copy" data-copy="curl -fsSL https://pairfob.com/install.sh | sh" data-i18n="start.copy">Copy</button>
                   </div>
-                  <p class="dim gap" data-i18n="s1.term2">verifies the download · enrolls this computer · installs a user service</p>
+                  <p class="dim gap" data-i18n="s1.term2">verifies the download · installs a user service</p>
                   <p class="dim" data-i18n="s1.term3">then starts at login and launches Herdr</p>
                   <p class="gap"><span class="acc">$</span> pairfob doctor</p>
                   <p class="dim" data-i18n="s1.term4">tells you what is still missing</p>
@@ -301,8 +301,8 @@
                   <p><span class="acc">$</span> pairfob pair</p>
                   <p>Scan from the other device:</p>
                   <canvas class="qr" id="qr" width="33" height="33" aria-hidden="true"></canvas>
-                  <p class="dim">Can't scan? Type this pairing code:</p>
-                  <p>K7QF-3M9D-a8</p>
+                  <p class="dim">Can't scan? Paste the complete pairing link.</p>
+                  <p>http://&lt;tailscale-ip&gt;:18474/pair#…</p>
                   <p class="dim">Waiting to pair…  Ctrl-C to cancel</p>
                 </div>
               </div>
@@ -323,22 +323,21 @@
               </div>
               <div class="step-body">
                 <p class="where"><span class="n">3</span><svg><use href="#i-phone" /></svg><span data-i18n="where.phone">On the phone</span></p>
-                <h3 data-i18n="s3.h">Open pairfob.com/pair and scan</h3>
+                <h3 data-i18n="s3.h">Scan the QR with your phone</h3>
                 <p data-i18n="s3.p" data-i18n-html>After the scan, the terminal shows <code>Press Enter to pair</code>. Press Enter on the computer and you're paired.</p>
                 <div class="step-url cta-desk">
                   <div class="url-box">
-                    <code>https://pairfob.com/pair</code>
-                    <button type="button" class="copy cta-desk" data-copy="https://pairfob.com/pair" data-i18n="start.copy">Copy</button>
+                    <code>http://&lt;tailscale-ip&gt;:18474/pair#…</code>
                   </div>
-                  <p class="hint" data-i18n="s3.hint">Open it on your phone. Don't open it on this computer.</p>
+                  <p class="hint" data-i18n="s3.hint">Use the complete link printed on your computer; the example above is not a pairing link.</p>
                 </div>
-                <div class="step-open cta-phone"><a class="btn btn-dark" href="/pair" data-i18n="s3.open">Open Pairfob and scan</a></div>
+                <div class="step-open cta-phone"><a class="btn btn-dark" href="/doc/start" data-i18n="s3.open">How to pair</a></div>
               </div>
             </li>
           </ol>
 
           <div class="after">
-            <div><i><svg><use href="#i-phone" /></svg></i><p><b data-i18n="after1.b">Every time after</b><span data-i18n="after1" data-i18n-html>Open <code>pairfob.com/pair</code> or the Home Screen icon and you're in your computer's sessions.</span></p></div>
+            <div><i><svg><use href="#i-phone" /></svg></i><p><b data-i18n="after1.b">Every time after</b><span data-i18n="after1" data-i18n-html>Open the computer's Tailscale address to resume with your saved pairing.</span></p></div>
             <div><i><svg><use href="#i-hosts" /></svg></i><p><b data-i18n="after2.b">A second computer</b><span data-i18n="after2">Run step 1 there too, then on your phone: Settings → Add another computer.</span></p></div>
           </div>
         </div>
@@ -391,7 +390,7 @@
             </div>
             <div class="extras">
               <div><i><svg><use href="#i-hosts" /></svg></i><b data-i18n="x1.b">One device, several computers</b><span data-i18n="x1">Work and home machines; switch in Settings.</span></div>
-              <div><i><svg><use href="#i-bell" /></svg></i><b data-i18n="x2.b">A push when it needs you</b><span data-i18n="x2">Optional. Tap the notification to land in that session.</span></div>
+              <div><i><svg><use href="#i-bell" /></svg></i><b data-i18n="x2.b">See when it needs you</b><span data-i18n="x2">Open Pairfob to see waiting sessions at the top.</span></div>
               <div><i><svg><use href="#i-plus" /></svg></i><b data-i18n="x3.b">Start sessions from the phone</b><span data-i18n="x3">Pick a workspace and an agent, and go.</span></div>
               <div><i><svg><use href="#i-branch" /></svg></i><b data-i18n="x4.b">Switch Git worktrees</b><span data-i18n="x4">List, create, open. Paths outside the allowed roots are refused.</span></div>
             </div>
@@ -413,7 +412,7 @@
             <li><p class="not"><i data-i18n="vs.not">Not</i><s data-i18n="vs3.not">Agents moved into the cloud</s></p><b data-i18n="vs3.is">Agents still run on your computer</b></li>
             <li><p class="not"><i data-i18n="vs.not">Not</i><s data-i18n="vs4.not">A cut-down mobile agent</s></p><b data-i18n="vs4.is">What the computer can do is what the phone can do</b></li>
             <li><p class="not"><i data-i18n="vs.not">Not</i><s data-i18n="vs5.not">An account login</s></p><b data-i18n="vs5.is">Pairing is authorization; the credential stays in this browser</b></li>
-            <li><p class="not"><i data-i18n="vs.not">Not</i><s data-i18n="vs6.not">A VPN / Tailscale</s></p><b data-i18n="vs6.is">The computer dials out; you do not open ports at home</b></li>
+            <li><p class="not"><i data-i18n="vs.not">Not</i><s data-i18n="vs6.not">A public internet listener</s></p><b data-i18n="vs6.is">Pairfob listens only on the computer's Tailscale IP</b></li>
           </ul>
         </div>
       </section>
@@ -423,33 +422,23 @@
         <div class="wrap">
           <header class="sec-head">
             <p class="ask" data-i18n="safe.ask">Is it secure?</p>
-            <h2 data-i18n="safe.h2" data-i18n-html>Direct whenever possible:<br />sessions skip the relay.</h2>
-            <p data-i18n="safe.p">By default your phone and computer connect directly (P2P), so session data never passes through pairfob.com. Only when a direct path fails does it go through the relay, and the relay only forwards ciphertext; it can't see the screen or what you type.</p>
+            <h2 data-i18n="safe.h2" data-i18n-html>Direct through your tailnet.<br />Sessions stay end-to-end encrypted.</h2>
+            <p data-i18n="safe.p">Your phone connects to Pairfob on the computer's Tailscale IP. Pairfob does not relay this connection through pairfob.com. Herdr stays on the computer's local socket.</p>
           </header>
           <div class="routes">
             <div class="route route-p2p">
-              <p class="route-tag"><i class="dot" aria-hidden="true"></i><span data-i18n="route.p2p">Preferred · P2P direct</span></p>
+              <p class="route-tag"><i class="dot" aria-hidden="true"></i><span data-i18n="route.p2p">Tailscale direct · port 18474</span></p>
               <div class="route-line">
                 <div class="rnode"><span class="ic"><svg><use href="#i-phone" /></svg></span><b data-i18n="route.phone">Your phone</b><span class="key"><svg><use href="#i-lock" /></svg><span data-i18n="route.key">Holds the keys</span></span></div>
-                <div class="rwire strong"><i aria-hidden="true"></i><i aria-hidden="true"></i><em data-i18n="route.wire">End-to-end encrypted · skips the relay</em></div>
+                <div class="rwire strong"><i aria-hidden="true"></i><i aria-hidden="true"></i><em data-i18n="route.wire">Tailscale transport · end-to-end session encryption</em></div>
                 <div class="rnode"><span class="ic"><svg><use href="#i-laptop" /></svg></span><b data-i18n="route.pc">Your computer</b><span class="key"><svg><use href="#i-lock" /></svg><span data-i18n="route.key">Holds the keys</span></span></div>
               </div>
             </div>
-            <div class="route route-relay">
-              <p class="route-tag" data-i18n="route.relay">If direct fails · via the relay</p>
-              <div class="route-line">
-                <div class="rnode small"><span class="ic"><svg><use href="#i-phone" /></svg></span><b data-i18n="route.phone.s">Phone</b></div>
-                <div class="rwire"><em data-i18n="route.cipher">ciphertext</em></div>
-                <div class="rnode relay"><span class="ic"><svg><use href="#i-cloud" /></svg></span><b data-i18n="route.relay.b">pairfob.com relay</b><span data-i18n="route.relay.p">Forwards ciphertext only: it knows which computer to deliver to, but can't read or keep the content.</span></div>
-                <div class="rwire"><em data-i18n="route.cipher">ciphertext</em></div>
-                <div class="rnode small"><span class="ic"><svg><use href="#i-laptop" /></svg></span><b data-i18n="route.pc.s">Computer</b></div>
-              </div>
-            </div>
           </div>
-          <p class="route-fine" data-i18n="safe.fine">The relay also helps the two sides find each other; the messages that set up the direct link are encrypted too. To find a direct path, the browser asks Cloudflare's public-address lookup service once, and that service sees this device's public IP address.</p>
+          <p class="route-fine" data-i18n="safe.fine">The browser uses HTTP on the Tailscale IP, so it may say “Not Secure” and limit camera, installation, and notifications. Scan with the phone's system camera or paste the complete pairing link.</p>
           <div class="guar">
-            <div><b data-i18n="g1.b">Encrypted either way</b><span data-i18n="g1">Direct or relayed, the content is end-to-end encrypted.</span></div>
-            <div><b data-i18n="g2.b">No open ports</b><span data-i18n="g2">No VPN, no Tailscale, no router changes.</span></div>
+            <div><b data-i18n="g1.b">Two layers of encryption</b><span data-i18n="g1">Tailscale protects transport; Pairfob encrypts the paired session.</span></div>
+            <div><b data-i18n="g2.b">Tailnet access only</b><span data-i18n="g2">Both devices need Tailscale access to the computer's port 18474.</span></div>
             <div><b data-i18n="g3.b">Enter on the computer</b><span data-i18n="g3">Pairing is approved in the computer's terminal, so a photo of your QR code isn't enough.</span></div>
             <div><b data-i18n="g4.b">No account · open source</b><span data-i18n="g4">No email login. Apache-2.0, with the code on GitHub.</span></div>
           </div>
@@ -465,10 +454,10 @@
             <p class="faq-feedback" data-i18n="faq.feedback" data-i18n-html>Didn't find it? Read the <a href="/doc/faq" data-locale-href="faq">docs</a> or <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">open a GitHub issue</a>. Report security issues privately.</p>
           </header>
           <div class="faq">
-            <details open><summary data-i18n="faq.q0">Do I need to install an app on my phone?</summary><p data-i18n="faq.a0">No. Open pairfob.com/pair in the phone's browser. Add it to the Home Screen and it works like an app.</p></details>
+            <details open><summary data-i18n="faq.q0">Do I need to install an app on my phone?</summary><p data-i18n="faq.a0">Install Tailscale, then open Pairfob at your computer's Tailscale address in the browser.</p></details>
             <details><summary data-i18n="faq.q2">Does locking the screen or closing the lid still work?</summary><p data-i18n="faq.a2">A locked screen is fine. A closed lid only works if the machine does not sleep. Pairfob cannot wake a sleeping computer.</p></details>
             <details><summary data-i18n="faq.q3">Can I install pairfob on Windows?</summary><p data-i18n="faq.a3">Not yet. A Windows machine can open the page as another screen. The host still has to be macOS or Linux.</p></details>
-            <details><summary data-i18n="faq.q4">Do I need Tailscale or an inbound port?</summary><p data-i18n="faq.a4">No. pairfob only dials out.</p></details>
+            <details><summary data-i18n="faq.q4">Do I need Tailscale or an inbound port?</summary><p data-i18n="faq.a4">Yes. Both devices join the same tailnet; Pairfob listens on the computer's Tailscale IP and port 18474.</p></details>
             <details><summary data-i18n="faq.q5">Can one device manage several computers?</summary><p data-i18n="faq.a5">Yes. A phone, tablet, or another computer can be the device. After the second host is installed: Settings → Add another computer.</p></details>
             <details><summary data-i18n="faq.q6">Does it cost money?</summary><p data-i18n="faq.a6">No.</p></details>
           </div>
@@ -484,9 +473,9 @@
             <code>curl -fsSL https://pairfob.com/install.sh | sh</code>
             <button type="button" class="copy" data-copy="curl -fsSL https://pairfob.com/install.sh | sh" data-i18n="start.copy">Copy</button>
           </div>
-          <p class="then cta-desk" data-i18n="close.then" data-i18n-html>Then run <b>pairfob pair</b> and scan with your phone at <b>pairfob.com/pair</b>.</p>
+          <p class="then cta-desk" data-i18n="close.then" data-i18n-html>Then run <b>pairfob pair</b> and scan its QR with a phone on the same tailnet.</p>
           <p class="cta-phone" data-i18n="close.phone">Already set up on your computer?</p>
-          <p class="cta-phone close-open"><a class="btn btn-dark" href="/pair" data-i18n="cta.open">Open Pairfob</a></p>
+          <p class="cta-phone close-open"><a class="btn btn-dark" href="/doc/start" data-i18n="cta.open">Set up Pairfob</a></p>
         </div>
       </section>
     </main>

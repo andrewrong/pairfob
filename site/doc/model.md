@@ -7,12 +7,12 @@ description: Opening the phone is the session already running on the computer. N
 
 Pairfob is not another terminal in the browser, and it is not remote desktop. The Herdr session on the computer is the one the phone opens. Both sides see one screen; either side counts.
 
-Agents still run on your computer. `pairfob.com` only carries messages. It does not run agents and does not see the screen.
+Agents still run on your computer. The phone connects directly to the computer's Tailscale address. `pairfob.com` provides downloads and documentation; it does not carry this session.
 
 ## The loop to keep
 
 1. An agent is running on the computer
-2. It stops and needs you (optional: a push)
+2. It stops and needs you; open Pairfob to check its status
 3. You open **that** session, not a new one
 4. The prompt stays in the terminal; choose with the keypad, then Enter. Chat has **Go confirm**
 5. The system keyboard keeps talking
@@ -34,4 +34,4 @@ This is not a mirrored copy. The phone window and the computer window are the sa
 | --- | --- | --- | --- | --- |
 | Where the session lives | Your computer | Often a new session | The whole desktop | Someone else’s machine |
 | Merge on return | No | Often yes | Two places you acted | Two contexts |
-| Open ports at home | No | Depends | Common | No |
+| Connection | Tailscale IP, port 18474 | Depends | Depends | Hosted |

@@ -36,16 +36,15 @@ binary on first use. See [`plugin/herdr/`](plugin/herdr/README.md).
 
 ## What you can do from the phone
 
-- **Respond when an agent needs you.** A **Needs you** strip and optional push
-  notifications surface waiting agents; one tap opens the exact prompt.
-- **Work in the live session.** **Auto** picks per session between **Control**
-  (terminal view + system keyboard, dictation and a keypad), **Terminal** (the
+- **Respond when an agent needs you.** A **Needs you** strip surfaces waiting
+  agents when you open Pairfob; tap one to reach its prompt.
+- **Work in the live session.** **Auto** currently uses **Control** on the direct
+  connection (terminal view + system keyboard, dictation and a keypad). You can
+  also select **Terminal** (the
   real PTY, for vim and full-screen TUIs) and **Chat** (message the agent and
   read its replies).
 - **Review changes.** Browse files, read git status and diffs, comment on diff
   lines and send the comments to the agent.
-- **Hand files to the agent.** Upload photos, PDFs and other files over the encrypted session and
-  insert their workspace paths into the draft.
 - **Shape the workspace.** Start conversations, tabs, splits and worktrees, and
   see a tab's real pane layout on the **Board**. Controls only appear when the
   computer supports them.
@@ -55,6 +54,10 @@ binary on first use. See [`plugin/herdr/`](plugin/herdr/README.md).
   Copilot, Cursor, Grok and more, collected on the computer.
 
 The phone UI speaks English and 中文.
+
+The direct HTTP deployment does not currently support browser push notifications
+or attachment uploads. The browser may also block in-page camera access and PWA
+installation on a Tailscale IP. Use the phone's system camera to scan the pairing QR.
 
 ## Security
 
@@ -76,7 +79,7 @@ vulnerabilities privately via [SECURITY.md](SECURITY.md).
 | Herdr | 0.7 or newer; the installer can install pinned 0.8.2 |
 | Herdr plugin | Herdr 0.8.2 or newer |
 | Close a workspace from the phone | Herdr 0.9.0 or newer |
-| Phone / tablet | A current mobile browser; installable as a PWA |
+| Phone / tablet | A current mobile browser with Tailscale; HTTP on a Tailscale IP may prevent PWA installation |
 
 ## Computer commands
 

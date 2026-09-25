@@ -1,94 +1,47 @@
 ---
 title: Get started
-description: Install Herdr and pairfob once, then continue from another device.
+description: Install Herdr and Pairfob, join one Tailscale network, then pair your phone.
 ---
 
 # Get started
 
-This project's official instance is `https://pairfob.com`. Herdr must be able to run on the computer. macOS and Linux are supported; Windows is not yet.
+Pairfob runs on a macOS or Linux computer alongside Herdr. The phone connects to that computer's Tailscale IPv4 address on port 18474. Install Tailscale on both devices and allow that connection in your tailnet policy.
 
-Four steps: install Herdr → install Pairfob → pair → open a session.
+## 1. Prepare the computer
 
-## What you need
+Install [Herdr](https://herdr.dev) 0.7 or newer and join the computer to Tailscale. Pairfob uses Herdr's local socket; the agents and their sessions stay on the computer.
 
-| Need | Notes |
-| --- | --- |
-| A macOS or Linux computer | `pairfob` and the agents run here |
-| [Herdr](https://herdr.dev) 0.7 or newer | Pairfob does not ship an agent and does not replace Herdr |
-| `curl` | The install script downloads the binary |
-| A browser on another device | Phone, tablet, or another computer |
-
-## 1. Herdr is installed on the computer
-
-Pairfob does not replace Herdr. Agents still run here, but Herdr does not need to be open before Pairfob starts. When `pairfob` launches and finds Herdr offline, it starts it. Running `herdr` later attaches to that same server, so the sessions already opened from the phone are not copies.
-
-If automatic startup fails, the phone explicitly says Herdr is not running. Run `herdr` once on the computer and Pairfob recovers without a restart or new pairing. There is no extra “remote mode” to turn on.
-
-## 2. Install pairfob
+## 2. Install Pairfob
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh
+pairfob doctor
 ```
 
-This downloads `pairfob`, enrolls with the official instance at `https://pairfob.com`, and installs a user-level login service.
+The installer verifies the binary and installs a user-level login service. It does not enroll with a hosted relay. `doctor` should report **Running yes**, **Herdr ready**, and the computer's Tailscale address. The computer must be awake and logged in for its user service to run. See [Install](/install) for paths and service management.
 
-The service starts after you log in, not at power-on. Sleeping with the lid closed, or logging out, stops it until you return to that same session.
+## 3. Pair the phone
 
-A second computer uses the same command, then **Settings → Add another computer** on the phone.
-
-Flags, install paths, and uninstall: [Install](/install).
-
-After install, type `pairfob` with no subcommand. It prints whether it is running, how many devices are paired, and whether Herdr is open. For the full checklist use `pairfob doctor`.
-
-## 3. Pair
-
-On a terminal **on the computer that runs pairfob**:
+Join the phone to the same tailnet. On the computer run:
 
 ```sh
 pairfob pair
 ```
 
-It leads with a QR code and keeps a manual code as fallback. On the other device open <a href="/pair">pairfob.com/pair</a>:
+Scan the QR with the phone's **system camera**, or paste the **complete pairing link** printed below it into Pairfob's pairing screen. The short eight-glyph code alone cannot attach: the link contains a one-use invitation ticket. Confirm the pairing on the computer when prompted. Treat the link as sensitive until it expires. See [Pairing](/pair).
 
-- **Can scan:** scan and pairing starts
-- **Cannot scan:** type the code. That is **8 pairing glyphs + 6 locator glyphs** (you can paste all 14)
+## 4. Resume a session
 
-After the other side proves the code, press **Enter** once in the computer terminal. This is authorization, not an account login. Neither side shows security words.
+Open the computer's Tailscale address shown by `pairfob doctor` in the phone browser. A paired browser reconnects with its saved credential after a restart. Herdr's live sessions appear in the list. Pairfob reads the rendered pane and sends keys back to the computer's PTY.
 
-Details and errors: [Pairing](/pair).
+A Tailscale IP page uses HTTP and may display **Not Secure**. Tailscale encrypts traffic between the devices, and Pairfob encrypts established session content end to end. Browser features requiring HTTPS, such as in-page camera scanning, push, and PWA installation, may be unavailable. The phone's system camera can still open the QR link. See [Security](/security).
 
-## 4. Open a session
+## Check and manage
 
-Herdr sessions appear in the Pairfob list. Tapping a card opens that session on the computer, not a copy.
+```sh
+pairfob list          # paired devices and last successful use
+pairfob forget 1      # revoke one device by its current list number
+pairfob service status
+```
 
-When the status is **Needs you**, the prompt stays in the terminal. Pairfob **does not blindly send Enter**. Use the keypad's ↑/↓ to choose, then Enter. In **Chat**, tap **Go confirm** to switch to Control. The compose box uses the system keyboard, including dictation and autocorrect. What you send lands in that session on the computer.
-
-UI: [Using the app](/app). Leaving and sitting down: [Leave and return](/continue).
-
-## Add to Home Screen
-
-Pairfob is a web app. Pinning it removes the browser chrome.
-
-**iOS / iPadOS (Safari)**
-
-1. Open <a href="/pair">pairfob.com/pair</a> (after pairing this goes straight to the list)
-2. Share → Add to Home Screen
-3. Open from the icon next time
-
-iOS is meant to run from the Home Screen. A Safari tab still works; notifications and full screen are weaker.
-
-**Android (Chrome)**
-
-Chrome may offer “Install app”, or use the menu → Install app / Add to Home Screen.
-
-The credential lives in **this browser profile on this device**. Another browser, cleared site data, or a private tab means pairing again.
-
-## What success looks like
-
-| On the computer | On the phone |
-| --- | --- |
-| `pairfob doctor` shows Running / Herdr / Origin healthy | Opening Pairfob shows the same session list |
-| `pairfob list` includes this device | Opening a **Needs you** card, the prompt is on screen; confirm with the keypad then Enter |
-| The Herdr window is still there | Typed text appears in that computer session |
-
-Next: [Multiple devices](/devices), [Notifications](/push), or skim the [FAQ](/faq).
+If a device shows `never seen`, it paired but has never established a session. Check the list after each revocation because the numbers change. For another computer, install Pairfob there and use **Settings → Add another computer** on the phone. See [Multiple devices](/devices) and [Troubleshooting](/troubleshoot).

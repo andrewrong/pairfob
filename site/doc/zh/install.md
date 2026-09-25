@@ -1,115 +1,59 @@
 ---
 title: 安装
-description: install.sh 会下载 pairfob、核对校验和、登记，并装上登录即启动的用户服务。
+description: 校验并安装 Pairfob 二进制和 Tailscale 直连用户服务。
 ---
 
 # 安装
 
-安装从本项目官方实例 `https://pairfob.com/dl` 拉二进制。需要 `curl`。支持 macOS 和 Linux。Windows 会直接拒绝。
+Pairfob 在 macOS 或 Linux 上运行，需要 [Herdr](https://herdr.dev) 和 Tailscale。先让电脑加入 tailnet；手机也要加入同一个 tailnet，并获准访问电脑的 TCP 18474 端口。
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh
+pairfob doctor
 ```
 
-第二台电脑也是这条命令。装好后在手机上：**设置 → 添加另一台电脑**。不要设 `PAIRFOB_JOIN_TOKEN`。
+安装脚本从 `https://pairfob.com/dl` 下载二进制、校验 SHA-256、检查 Herdr，并安装用户级服务。它**不会向中继登记**。官网提供安装脚本和二进制，不承担手机与电脑之间的会话传输。
 
+## Herdr
 
-## Herdr 检查与安装
-
-安装器会先检查 Herdr，再替换已有 Pairfob、登记和安装服务。已有可用的 Herdr 会直接复用；已安装但未运行时会自动启动，并等待接口就绪。缺少 Herdr 时会在终端询问是否安装固定版本 0.8.2，核对 SHA-256 后安装到 `~/.local/bin/herdr`，不覆盖已有 Herdr。
-
-无交互安装可明确允许补齐依赖：
+脚本会复用已运行的 Herdr，或在允许时启动已安装的 Herdr。缺少 Herdr 时，可询问是否安装固定版本。无人值守安装：
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-interactive
 ```
 
-`--non-interactive` 禁止询问；缺少 Herdr 且没有 `--install-herdr` 时失败退出。`--skip-herdr-check` 可用于仅安装或离线准备，但不会显示会话已就绪。`--no-service` 不代表跳过 Herdr 检查；离线拷贝使用 `--no-service --no-enroll --skip-herdr-check`。
+若 Herdr 可执行文件不在服务的常规 PATH 里，安装服务前把 `HERDR_BIN` 设为其绝对路径。`pairfob setup` 检查 Herdr，也可配合 `--install-herdr` 安装；`pairfob doctor` 只诊断。
 
-安装后可运行 `pairfob setup` 再检查并启动 Herdr，或 `pairfob setup --install-herdr` 补齐缺少的依赖。`pairfob doctor` 只诊断，不安装、不启动。旧协议、启动失败、无效的 `HERDR_BIN` 或 socket 配置都需要修复后再继续；不会自动升级或重启已有 Herdr 会话。设置 `PAIRFOB_HERDR_AUTOSTART=0` 或多会话模式时，需要自行启动配置的 Herdr 服务。
-
-## 脚本实际做了什么
-
-1. 按当前系统下载对应的 `pairfob`
-2. 核对校验和，对不上就失败，不会覆盖已有文件
-3. 检查 Herdr，必要时经同意安装并启动，验证接口就绪
-4. 完成登记
-5. 除非 `--no-service`，否则装上登录即启动的**用户级**服务
-
-## 参数
+## 安装参数
 
 | 参数 | 作用 |
 | --- | --- |
-| `--prefix DIR` | 安装目录。可写的 `/usr/local/bin` 时用那里，否则 `~/.local/bin` |
-| `--no-service` | 只装二进制和登记，不装登录服务 |
-| `--no-enroll` | 跳过登记；不会自动跳过服务或 Herdr 检查 |
-| `--install-herdr` | 缺少 Herdr 时安装固定版本，不询问 |
-| `--non-interactive` | 禁止交互询问；未允许安装时缺少依赖则失败 |
-| `--skip-herdr-check` | 跳过 Herdr 检查，不声明会话就绪 |
+| `--prefix DIR` | 指定二进制目录；默认优先可写的 `/usr/local/bin`，否则 `~/.local/bin` |
+| `--no-service` | 只装二进制，不安装用户服务 |
+| `--install-herdr` | 缺少时安装固定版本的 Herdr |
+| `--non-interactive` | 不询问 |
+| `--skip-herdr-check` | 先准备 Pairfob，不宣称 Herdr 已就绪 |
 
-也可以：
+安装器还保留兼容命令 `pairfobd`。已配对设备的凭证保存在状态目录中，重新安装会保留它们。
 
-```sh
-curl -fsSL https://pairfob.com/install.sh | sh -s -- --prefix "$HOME/bin"
-```
+## 服务和本机文件
 
-已经登记过的机器再跑一遍安装脚本会换成新二进制，并留下原来的配对关系。
-
-服务会保存安装检查时选用的 Herdr 可执行文件及 socket、配置路径和启动选项，避免登录后的 PATH 差异导致连接失败。
-
-安装器从用户主目录检查和启动 Herdr，与登录服务一致；相对 Herdr 配置路径也以主目录为基准。
-
-## 装到哪里
-
-| 条件 | 二进制 |
-| --- | --- |
-| `/usr/local/bin` 可写 | 默认 `/usr/local/bin/pairfob` |
-| 普通用户 | 默认 `~/.local/bin/pairfob` |
-
-文档统一使用 `pairfob`。安装器还会在同一目录创建兼容别名 `pairfobd → pairfob`。
-
-若 `~/.local/bin` 不在 `PATH` 里，安装脚本会提醒你加进去，例如 zsh：
-
-```sh
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-## 装完之后
-
-登录一次之后，服务会自己起来。这是登录级服务，不是开机守护进程：睡眠和注销会停掉，回到同一次图形会话后再起来。当前这次图形会话如果还没装服务，可先在这个终端跑 `pairfob`，或：
+macOS 使用 launchd 用户服务，Linux 使用 systemd 用户服务。用户登录且电脑保持唤醒时服务运行。默认状态、管理 socket 和日志位于 `~/.config/pairfob/`。服务只监听电脑的 Tailscale IPv4 地址和 18474 端口，不暴露 Herdr socket。
 
 ```sh
 pairfob service status
 pairfob service restart
+pairfob doctor
 ```
 
-日常不需要碰这些。`pairfob update` 会换成新二进制并重启已安装的用户服务。
+服务配置和日志仅当前用户可读。状态文件、配对链接和本地部署 `.env` 不应提交到仓库。自建的 service 目录可放脚本和二进制；除非设置 `PAIRFOB_STATE_DIR`，那里不是实际状态目录。
 
-## 更新
+## 更新或卸载
 
-```sh
-pairfob update
-```
-
-换成最新版本并重启用户服务。不要把安装脚本再跑一遍当「更新」。
-
-## 卸载
+安装发行版后可用 `pairfob update`。源码构建的 `dev` 二进制应重新构建并重启用户服务。直连宿主机的手机端版本检查可能不可用。
 
 ```sh
 pairfob service uninstall
-prefix="$(dirname "$(command -v pairfob)")"
-rm -f "$prefix/pairfob" "$prefix/pairfobd"
 ```
 
-只卸服务不会删状态目录。若要连配对关系一起忘掉，再删 `~/.config/pairfob`（先确认你不再需要那些设备凭证）。
-
-## 从源码跑
-
-适合本机对照。仓库在 [arronKler/pairfob](https://github.com/arronKler/pairfob)。仍然需要安装 Herdr。日常使用还是上面的安装命令。
-
-```sh
-go run ./cmd/pairfob
-```
-
-本地配对和校验见仓库 README。
+卸载服务不会删除配对信息。只有确定要丢弃身份和所有配对凭证时才删除 `~/.config/pairfob/`。源码和构建说明见[仓库](https://github.com/arronKler/pairfob)。

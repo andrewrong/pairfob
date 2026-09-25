@@ -1,5 +1,4 @@
-/* "Is it secure?": an always-dark band. P2P direct is the lead route; the relay
-   is drawn as the fallback. Claims follow site/doc/zh/security.md. */
+/* "Is it secure?": the Tailscale direct route. Claims follow site/doc/zh/security.md. */
 
 .band {
   background: var(--band);

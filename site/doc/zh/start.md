@@ -1,94 +1,47 @@
 ---
 title: 开始使用
-description: 电脑装好 Herdr 和 pairfob，配对一次就能在另一台设备上接着操作。
+description: 装好 Herdr 和 Pairfob，让手机与电脑加入同一个 Tailscale 网络后配对。
 ---
 
 # 开始使用
 
-本项目的官方实例是 `https://pairfob.com`。电脑必须能打开本机 Herdr。目前支持 macOS 和 Linux，Windows 还不支持。
+Pairfob 和 Herdr 一起运行在 macOS 或 Linux 电脑上。手机通过电脑的 Tailscale IPv4 地址和 18474 端口连接。两端都要安装 Tailscale，并允许手机访问这个端口。
 
-做完这四步，就可以在另一台设备上看到电脑上的会话：安装 Herdr → 安装 Pairfob → 配对 → 点进列表。
+## 1. 准备电脑
 
-## 你需要什么
+安装 [Herdr](https://herdr.dev) 0.7 或更新版本，让电脑加入 Tailscale。Pairfob 连接 Herdr 的本机 socket；Agent 和会话仍在电脑上运行。
 
-| 需要 | 说明 |
-| --- | --- |
-| 一台 macOS 或 Linux 电脑 | `pairfob` 跑在这里，agent 也跑在这里 |
-| [Herdr](https://herdr.dev) 0.7 或更高 | Pairfob 不自带 agent，也不代替 Herdr |
-| `curl` | 安装脚本用来下载 |
-| 另一台设备的浏览器 | 手机、平板，或另一台电脑都可以 |
-
-## 1. 电脑上装好 Herdr
-
-Pairfob 不代替 Herdr。agent 仍在这台电脑上跑，但安装 Pairfob 前不需要先打开 Herdr。`pairfob` 启动时发现 Herdr 不在线，就会自己拉起它。你之后照常运行 `herdr`，会接到同一个地方，手机上已经打开的会话不会变成副本。
-
-如果自动启动失败，手机会明确提示 Herdr 没有运行；在电脑执行一次 `herdr` 后会自动恢复，不用重启 Pairfob 或重新配对。不必为 Pairfob 做一个额外的「远程模式」。
-
-## 2. 安装 pairfob
+## 2. 安装 Pairfob
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh
+pairfob doctor
 ```
 
-这会下载 `pairfob`、向官方实例 `https://pairfob.com` 登记，并装上登录即启动的用户服务。
+安装脚本校验二进制并安装用户级登录服务，不向中继登记。`doctor` 应显示 **Running yes**、**Herdr ready** 和电脑的 Tailscale 地址。电脑需保持唤醒和登录，用户服务才能运行。安装路径和服务管理见 [安装](/zh/install)。
 
-这是登录后启动，不是开机就活。合盖睡眠或注销会停掉，回到同一次图形会话后再起来。
+## 3. 手机配对
 
-第二台电脑也是这条命令，然后在手机上 **设置 → 添加另一台电脑**。
-
-参数、安装位置、如何卸载见 [安装](/zh/install)。
-
-装好后直接敲 `pairfob`（后面不跟子命令），它会用一段人话告诉你：在不在跑、配了对几台、Herdr 开没开。更完整的检查用 `pairfob doctor`。
-
-## 3. 配对
-
-在**跑 pairfob 的那台电脑**的终端里：
+手机加入同一个 tailnet。在电脑执行：
 
 ```sh
 pairfob pair
 ```
 
-它会优先画出二维码，并保留一串给手输用的码。另一台设备打开 <a href="/pair">pairfob.com/pair</a>：
+用手机的**系统相机**扫描二维码，或者把二维码下方的**完整配对链接**粘贴进 Pairfob 配对页面。仅有 8 位短码无法连接：完整链接含一次性邀请票据。电脑出现提示后，在电脑上确认。链接失效前请当作敏感信息保管。见 [配对](/zh/pair)。
 
-- **能扫码**：直接扫，开始配对
-- **不能扫**：展开手输。必须是 **8 位配对码 + 6 位定位码**（可以一次粘贴 14 个字符）
+## 4. 继续会话
 
-电脑提示对端已经验证之后，在终端里按一次 **Enter**。这是授权，不是账号登录。两边都不会显示安全词。
+在手机浏览器打开 `pairfob doctor` 显示的电脑 Tailscale 地址。已配对的浏览器会用保存的凭证重新连接，无需每次扫码。列表显示 Herdr 的实时会话。Pairfob 读取渲染好的终端画面，把按键送回电脑的 PTY。
 
-细节、过期和报错见 [配对](/zh/pair)。
+Tailscale IP 页面使用 HTTP，浏览器可能显示**不安全**。Tailscale 加密两台设备间的传输，Pairfob 另行对已建立会话的内容做端到端加密。网页内扫码、推送和安装 PWA 等需要 HTTPS 的浏览器功能可能不可用；手机系统相机仍可打开二维码链接。见 [安全说明](/zh/security)。
 
-## 4. 点进去
+## 检查和管理
 
-Herdr 里的会话会出现在 Pairfob 列表里。点一张卡片，打开的是电脑上那个会话，不是副本。
+```sh
+pairfob list          # 已配对设备和最近成功使用时间
+pairfob forget 1      # 按当前列表序号撤销一台设备
+pairfob service status
+```
 
-状态是「等你」时，提示留在终端画面里，**不会替你盲发 Enter**。用按键垫的 ↑/↓ 选择，再按 Enter 确认。对话模式点 **去确认** 会切到控制。底部输入框用系统键盘，听写和自动更正都还在。发出去的字进的是电脑上那个会话。
-
-界面说明见 [手机上怎么用](/zh/app)。出门再打开、坐回来不用同步，见 [出门和回来](/zh/continue)。
-
-## 加到主屏幕
-
-Pairfob 是网页应用，可以加到主屏幕，下次少一层浏览器地址栏。
-
-**iOS / iPadOS（Safari）**
-
-1. 打开 <a href="/pair">pairfob.com/pair</a>（已配对后会直接进列表）
-2. 分享 → 添加到主屏幕
-3. 以后从图标打开
-
-iOS 建议走主屏幕；只停在 Safari 标签里也能用，但通知和全屏会受限。
-
-**Android（Chrome）**
-
-浏览器可能会提示「安装应用」，也可以菜单 → 安装应用 / 添加到主屏幕。
-
-凭证在**这台设备的这个浏览器配置**里。换浏览器、清站点数据、或 iOS 上用「无痕」等于要重新配对。
-
-## 怎样算成功
-
-| 在电脑上 | 在手机上 |
-| --- | --- |
-| `pairfob doctor` 里 Running / Herdr / Origin 都正常 | 打开就能看到同一份会话列表 |
-| `pairfob list` 能看到这台设备 | 点进「等你」的卡片，提示在画面里；用按键垫选择再按 Enter |
-| 电脑 Herdr 窗口还在 | 打的字出现在电脑那个会话里 |
-
-下一步可以看 [多台设备](/zh/devices)、[通知](/zh/push)，或先把 [常见问题](/zh/faq) 扫一遍。
+`never seen` 表示已配对但从未建立会话。每次撤销后应重新查看列表，因为序号会变化。第二台电脑也要安装 Pairfob，再在手机上选择 **设置 → 添加另一台电脑**。见 [多台设备](/zh/devices)和[排查问题](/zh/troubleshoot)。

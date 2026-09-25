@@ -1,105 +1,42 @@
 ---
 title: 电脑上的命令
-description: pair、list、forget、doctor、update。装好后后台跑，敲 pairfob 看状态。
+description: 在 Tailscale 直连部署中配对、查看、撤销设备和管理服务。
 ---
 
 # 电脑上的命令
 
-装好后 Pairfob 在后台跑。终端里直接敲 `pairfob`（后面不跟子命令）会打印一段人话状态：在不在跑、配了对几台、Herdr 开没开。
+Pairfob 在登录后作为用户服务运行。终端直接执行 `pairfob` 会显示本机状态；服务未运行时可在当前终端启动。
 
-```
-Pairfob is running.
-1 device paired.
-Herdr is on.
+| 命令 | 作用 |
+| --- | --- |
+| `pairfob pair` | 打印一次性二维码和完整链接，等待电脑端确认 |
+| `pairfob list` | 显示已配对设备与最近成功使用时间 |
+| `pairfob forget N` | 撤销当前列表中第 N 台设备 |
+| `pairfob doctor` | 只读的本机健康检查 |
+| `pairfob setup` | 检查或启动 Herdr；可选择安装 |
+| `pairfob service status` | 查看用户服务 |
+| `pairfob service restart` | 修改配置后重启 |
+| `pairfob update` | 更新已安装的发行版二进制 |
 
-  pairfob pair     pair a device
-  pairfob list     what's paired
-  pairfob doctor   full check
-```
-
-没在跑时会提示：安装后登录会启动，或在这个终端跑 `pairfob`。睡眠和注销会停掉登录服务，回到同一次会话后再起来。
-
-## 日常命令
-
-```sh
-pairfob pair      # 配对手机、平板或另一台电脑
-pairfob list      # 已经配对的设备
-pairfob forget 1  # 解除第 1 台（序号来自 list）
-pairfob doctor    # 本机检查
-pairfob update    # 换成最新版本并重启用户服务
-pairfob version
-pairfob help
-```
-
-`forget` 也可以写设备名；重名时必须用序号。`unpair` 是 `forget` 的别名。
-
-
-## setup
-
-`pairfob setup` 检查并按需启动 Herdr；未安装时询问是否安装固定版本。`pairfob setup --install-herdr --non-interactive` 明确允许补齐依赖且不询问。已安装的 Herdr 不会被自动升级或替换。`doctor` 保持只读。
+`forget` 也接受不重名的设备名。撤销后列表序号会变化。`never seen` 表示设备已配对，但从未成功建立会话。
 
 ## doctor
 
-```
-Pairfob <version>
+健康的直连安装应显示 `Running yes`、`Herdr ready` 和电脑的 Tailscale IPv4 地址及 18474 端口。命令还显示 Pairfob 的安装版本、运行版本和已配对数量。服务、Herdr 或 Tailscale 监听不可用时会以非零状态退出。
 
-  Installed   <version>
-  Process     <version> (PID 1234)
-  Running     yes
-  Paired      1
-  Herdr       ready (0.8.2, protocol 20)
-  Origin      pairfob.com
-```
+如果 Herdr 不在服务的 PATH 中，在执行 `pairfob service install` 前设置绝对路径 `HERDR_BIN`。交互式 `doctor` 也需要同样设置才能找到该可执行文件；它不会更改服务。
 
-| 项 | 正常 | 不正常时 |
-| --- | --- | --- |
-| Running | yes | 登录服务没起来，看 `pairfob service status` |
-| Paired | ≥ 1 | 还没配对，跑 `pairfob pair` |
-| Herdr | `ready` | `not installed` / `installed but not running` / `incompatible server` / `unavailable` |
-| Origin | `pairfob.com` | 还没登记 |
-
-`doctor` 在 Running 或 Herdr 不正常时会以失败退出，方便脚本检测。
-
-`Installed` 是当前命令的版本，`Process` 是实际响应本机请求的后台进程版本。两者不一致时执行 `pairfob service restart`。很旧的 daemon 无法报告真实版本，手机会显示版本未知，不再把旧接口固定返回的 `0.1.0` 当成发行版本。
-
-## 服务
-
-安装脚本默认会装用户服务。需要手调时：
+## 服务和更新
 
 ```sh
+pairfob service install
 pairfob service status
 pairfob service restart
 pairfob service stop
 pairfob service start
 pairfob service uninstall
-pairfob service install
 ```
 
-推送相关的环境变量不会自动写进服务文件，需要的话见 [通知](/zh/push)。
+用户服务指向安装时使用的二进制。状态和日志默认位于 `~/.config/pairfob/`。源码构建的 `dev` 版本要重新构建并重启服务；发行版可用 `pairfob update`。配对关系会保留。直连 HTTP 页面可能无法查询 `/dl/VERSION`，也可能不提供手机端发起更新。
 
-## 更新
-
-```sh
-pairfob update
-```
-
-换成最新版本并重启已安装的用户服务。不要把 `install.sh` 再跑一遍当更新。托管的二进制用 SemVer（`pairfob version`）；网站构建号是另一套日期戳。
-
-即使文件已经最新，更新命令也会核对后台进程的版本、程序文件与用户服务 PID。安装和重启同样等待对应进程稳定就绪后才报告成功。独立运行的旧进程只有在所属用户、可执行文件和状态目录都能核实时才会被接管，否则会指出冲突，要求明确处理该进程。已有配对会保留。
-
-下载会显示已接收字节数，临时失败后重试一次。每次最多十分钟，连续 45 秒没有进展则中止；替换文件前仍校验 SHA-256。如果代理反复卡住下载，需要检查当前终端的代理配置，更新命令不会自行修改代理设置。
-
-手机会检查电脑端新版本并显示更新提醒。设置页中，支持的用户服务安装会提供“更新电脑端”按钮。确认后连接会短暂中断，校验过的新二进制启动后自动重连；只有确认运行版本后才显示完成。新版本启动失败时可恢复旧二进制。旧 daemon 需要先手动执行一次 `pairfob update` 才能启用此流程。应用不会自动安装更新。
-
-
-## 进阶（日常帮助里不列）
-
-这些仍然可用，主要给自动化和排障：
-
-| 命令 | 用途 |
-| --- | --- |
-| `pairfob pair new` | 只开配对、打印码，不进入交互确认 |
-| `pairfob pair accept` / `deny` | 不按 Enter、用命令确认或拒绝 |
-| `pairfob enroll` | 再登记一次。安装脚本已经做过 |
-| `pairfob relay rekey` | 轮换重连凭据 |
-| `pairfob device revoke <id>` | 按设备 id 吊销（`forget N` 更常用） |
+供本机自动化使用的 `pairfob pair new`、`pairfob pair accept` / `deny`、`pairfob device revoke <id>` 仍然可用。见[环境变量](/zh/env)和[排查问题](/zh/troubleshoot)。

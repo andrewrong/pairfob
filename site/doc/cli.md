@@ -1,105 +1,42 @@
 ---
 title: Computer commands
-description: pair, list, forget, doctor, update. After install it runs in the background; type pairfob for status.
+description: Pair, inspect, revoke, and manage the direct Tailscale service.
 ---
 
 # Computer commands
 
-After install, Pairfob runs in the background. Typing `pairfob` with no subcommand prints status: running or not, how many devices, whether Herdr is open.
+Pairfob runs as a user service after login. Running `pairfob` with no subcommand prints local status or starts it in the current terminal when needed.
 
-```
-Pairfob is running.
-1 device paired.
-Herdr is on.
+| Command | Use |
+| --- | --- |
+| `pairfob pair` | Create a one-use QR and complete pairing link; wait for computer approval |
+| `pairfob list` | Show paired devices and their last successful use |
+| `pairfob forget N` | Revoke the device at the current list number |
+| `pairfob doctor` | Read-only local health check |
+| `pairfob setup` | Check or start Herdr; optionally install it |
+| `pairfob service status` | Inspect the user service |
+| `pairfob service restart` | Restart after configuration changes |
+| `pairfob update` | Update an installed release binary |
 
-  pairfob pair     pair a device
-  pairfob list     what's paired
-  pairfob doctor   full check
-```
+`forget` also accepts an unambiguous device name. Its list numbers change after a revocation. `never seen` means a device paired but has never completed a session handshake.
 
-If it is not running: it starts at login after install, or run `pairfob` in this terminal. Sleep and logout stop the login service until you are back in that session.
+## Doctor
 
-## Daily commands
+A healthy direct installation reports `Running yes`, `Herdr ready`, and the computer's Tailscale IPv4 address with port 18474. It also reports the installed and running Pairfob versions and the number of paired devices. It exits nonzero if the service, Herdr, or Tailscale listener is not ready.
 
-```sh
-pairfob pair      # pair a phone, tablet, or another computer
-pairfob list      # paired devices
-pairfob forget 1  # unpair #1 (index from list)
-pairfob doctor    # local checklist
-pairfob update    # latest binary and restart the user service
-pairfob version
-pairfob help
-```
+If Herdr lives outside the service PATH, set `HERDR_BIN` to its absolute executable path before `pairfob service install`. An interactive `doctor` needs the same setting to find that executable. It does not change the service.
 
-`forget` also accepts a device name; collisions require the index. `unpair` is an alias of `forget`.
-
-
-## setup
-
-`pairfob setup` checks and starts Herdr when needed, asking before installing a missing dependency. `pairfob setup --install-herdr --non-interactive` explicitly permits installation without prompting. Existing Herdr installations are not upgraded or replaced. `doctor` remains read-only.
-
-## doctor
-
-```
-Pairfob <version>
-
-  Installed   <version>
-  Process     <version> (PID 1234)
-  Running     yes
-  Paired      1
-  Herdr       ready (0.8.2, protocol 20)
-  Origin      pairfob.com
-```
-
-| Field | Healthy | When it is not |
-| --- | --- | --- |
-| Running | yes | Login service did not start. See `pairfob service status` |
-| Paired | ≥ 1 | Nothing paired yet. Run `pairfob pair` |
-| Herdr | `ready` | `not installed` / `installed but not running` / `incompatible server` / `unavailable` |
-| Origin | `pairfob.com` | Not enrolled |
-
-`doctor` exits non-zero when Running or Herdr is unhealthy, so scripts can branch on it.
-
-`Installed` describes this command's version; `Process` describes the daemon answering local requests. A mismatch calls for `pairfob service restart`. Very old daemons cannot report their actual version; the phone shows it as unknown instead of treating the old `0.1.0` placeholder as a release.
-
-## Service
-
-The installer puts a user service in place. When you need to touch it:
+## Service and updates
 
 ```sh
+pairfob service install
 pairfob service status
 pairfob service restart
 pairfob service stop
 pairfob service start
 pairfob service uninstall
-pairfob service install
 ```
 
-Push environment variables are not written into the service file automatically. See [Notifications](/push).
+The user service points to the binary used during installation. Its state and log default to `~/.config/pairfob/`. A source-built `dev` binary is updated by rebuilding it and restarting the service. Release binaries can use `pairfob update`; pairings survive. The direct HTTP page may not be able to check `/dl/VERSION` or offer a phone-initiated update.
 
-## Update
-
-```sh
-pairfob update
-```
-
-Replaces the binary and restarts an installed user service. Do not rerun `install.sh` to update. Hosted binaries use SemVer (`pairfob version`); the site build stamp is separate.
-
-Even when the file is already current, the command verifies the responding daemon's version and image against the user service's PID. Install and restart also wait for the matching daemon to stay ready before reporting success. An independent old daemon is stopped only when its user, executable and state directory can be verified; otherwise the command identifies the conflict for manual resolution. Pairings are preserved.
-
-Downloads report bytes received and retry once after a transient failure. Each attempt allows ten minutes total, with a 45-second limit without progress. SHA-256 verification still runs before replacement. If a proxy repeatedly stalls, inspect the terminal's proxy configuration; the updater does not change it.
-
-The phone checks for new computer versions and shows an update reminder. In Settings, supported service-managed installations offer **Update computer**. Confirming briefly disconnects the phone while the verified binary starts; completion is shown only after the running version is confirmed. Failed startup can restore the previous binary. Older daemons require one manual `pairfob update` to enable this flow. Updates are never installed automatically.
-
-
-## Advanced (omitted from default help)
-
-Still available for automation and debugging:
-
-| Command | Use |
-| --- | --- |
-| `pairfob pair new` | Open pairing and print the code; no interactive confirm |
-| `pairfob pair accept` / `deny` | Confirm or refuse without Enter |
-| `pairfob enroll` | Retry enroll. The installer already does this |
-| `pairfob relay rekey` | Rotate the reconnect credential |
-| `pairfob device revoke <id>` | Revoke by device id (`forget N` is the usual path) |
+Advanced commands `pairfob pair new`, `pairfob pair accept` / `deny`, and `pairfob device revoke <id>` remain available for local automation. See [Environment](/env) and [Troubleshooting](/troubleshoot).

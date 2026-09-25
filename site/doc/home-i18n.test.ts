@@ -91,24 +91,22 @@ describe("homepage i18n", () => {
     expect(html.toLowerCase()).not.toContain("markdown");
   });
 
-  test("computer visitors are not sent to /pair as the primary action", () => {
+  test("homepage sends visitors to the direct pairing instructions", () => {
     expect(html).toContain('class="btn btn-dark bar-cta cta-desk" href="#how"');
     expect(html).toContain('class="btn btn-dark cta-desk" href="#how"');
-    expect(html).toContain('class="btn btn-dark bar-cta cta-phone" href="/pair"');
-    expect(html).not.toMatch(/class="[^"]*bar-cta(?![^"]*cta-phone)[^"]*"[^>]*href="\/pair"/);
-    expect(html).toContain('class="copy cta-desk" data-copy="https://pairfob.com/pair"');
-    expect(html).toContain("Don't open it on this computer.");
-    expect(html).not.toMatch(/<a[^>]*href="\/pair"[^>]*>https:\/\/pairfob.com\/pair/);
-    expect(zh["s3.hint"]).toContain("不要在这台电脑");
+    expect(html).toContain('class="btn btn-dark bar-cta cta-phone" href="/doc/start"');
+    expect(html).not.toContain('href="/pair"');
+    expect(html).not.toContain('data-copy="https://pairfob.com/pair"');
+    expect(zh["s3.hint"]).toContain("完整链接");
     expect(en["cta.start"]).toBe("Get started");
     expect(zh["cta.start"]).toBe("开始使用");
   });
 
-  test("phone visitors get a same-tab /pair button in the hero, how-to and closing bands", () => {
-    expect(html).toMatch(/class="btn btn-dark cta-phone" href="\/pair"/);
-    expect(html).toMatch(/class="step-open cta-phone"><a class="btn btn-dark" href="\/pair"/);
-    expect(html).toMatch(/class="cta-phone close-open"><a class="btn btn-dark" href="\/pair"/);
-    expect(html).not.toMatch(/href="\/pair"[^>]*target="_blank"/);
+  test("phone visitors get a same-tab setup guide in the hero, how-to and closing bands", () => {
+    expect(html).toMatch(/class="btn btn-dark cta-phone" href="\/doc\/start"/);
+    expect(html).toMatch(/class="step-open cta-phone"><a class="btn btn-dark" href="\/doc\/start"/);
+    expect(html).toMatch(/class="cta-phone close-open"><a class="btn btn-dark" href="\/doc\/start"/);
+    expect(html).not.toMatch(/href="\/doc\/start"[^>]*target="_blank"/);
     expect(html).toContain('class="step-host-note" data-i18n="how.p"');
     expect(zh["how.p"]).toContain("电脑终端");
     expect(en["how.p"]).toContain("terminal on the computer");
@@ -146,18 +144,18 @@ describe("homepage i18n", () => {
     expect(zh["foot.blurb"]).not.toContain("官方实例");
     expect(en["hero.sub"]).not.toContain("screenshot");
     expect(zh["hero.sub"]).not.toContain("截图");
-    expect(en.description).toContain("phone surface for Herdr");
-    expect(zh.description).toContain("Herdr 的手机端");
+    expect(en.description).toContain("Tailscale network");
+    expect(zh.description).toContain("Tailscale");
     expect(html).toContain(en.description);
   });
 
-  test("the security band leads with P2P and keeps the relay as the fallback", () => {
-    expect(html.indexOf('class="route route-p2p"')).toBeLessThan(html.indexOf('class="route route-relay"'));
-    expect(en["safe.p"]).toContain("never passes through pairfob.com");
-    expect(zh["safe.p"]).toContain("不经过 pairfob.com");
-    // security.md: finding a direct path asks Cloudflare's lookup service once.
-    expect(en["safe.fine"]).toContain("Cloudflare");
-    expect(zh["safe.fine"]).toContain("Cloudflare");
+  test("the security band describes the direct Tailscale route", () => {
+    expect(html).toContain('class="route route-p2p"');
+    expect(html).not.toContain('class="route route-relay"');
+    expect(en["safe.p"]).toContain("does not relay this connection");
+    expect(zh["safe.p"]).toContain("不通过 pairfob.com 中转");
+    expect(en["safe.fine"]).toContain("HTTP");
+    expect(zh["safe.fine"]).toContain("HTTP");
   });
 });
 

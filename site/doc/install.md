@@ -1,116 +1,59 @@
 ---
 title: Install
-description: install.sh downloads pairfob, verifies checksums, enrolls, and installs a login service.
+description: Install the verified Pairfob binary and a user service for Tailscale direct access.
 ---
 
 # Install
 
-Install pulls binaries from this project's official instance at `https://pairfob.com/dl`. `curl` is required. macOS and Linux. Windows is rejected.
+Pairfob runs on macOS or Linux with [Herdr](https://herdr.dev) and Tailscale. Join the computer to a tailnet before installing. The phone must join the same tailnet and be allowed to reach the computer on TCP port 18474.
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh
+pairfob doctor
 ```
 
-The same command on a second computer. Then pair it from the phone: **Settings → Add another computer**. Do not set `PAIRFOB_JOIN_TOKEN`.
+The installer downloads the Pairfob binary from `https://pairfob.com/dl`, checks its SHA-256 checksum, checks Herdr, and installs a user-level service. It does not enroll with a hosted relay. The website serves the installer and binaries; it is not the active phone-to-computer transport.
 
+## Herdr
 
-## Herdr checks and installation
-
-Before replacing Pairfob, enrolling, or installing its service, the installer checks Herdr. It reuses a ready server, starts an installed server when needed, and waits for its API. If Herdr is missing, it asks in the terminal before installing pinned version 0.8.2 into `~/.local/bin/herdr`, with SHA-256 verification and without replacing an existing Herdr.
-
-For unattended installation, explicitly allow the missing dependency:
+The installer reuses a ready Herdr server or starts an installed one when allowed. If Herdr is missing, it can offer to install a pinned version. For unattended installation:
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-interactive
 ```
 
-`--non-interactive` never prompts and fails when Herdr is missing unless `--install-herdr` is also set. `--skip-herdr-check` installs Pairfob without claiming session readiness. `--no-service` still checks Herdr; for offline preparation use `--no-service --no-enroll --skip-herdr-check`.
+If the Herdr executable is outside the service's normal PATH, set `HERDR_BIN` to its absolute path before installing the service. `pairfob setup` checks Herdr and can install it with `--install-herdr`. `pairfob doctor` only diagnoses.
 
-Later, run `pairfob setup` to check and start Herdr, or `pairfob setup --install-herdr` to install a missing dependency. `pairfob doctor` only diagnoses; it never installs or starts anything. Incompatible protocols, startup failures, and invalid `HERDR_BIN` or socket settings must be resolved before continuing. Existing Herdr sessions are never automatically upgraded or restarted. With `PAIRFOB_HERDR_AUTOSTART=0` or multi-session mode, start the configured Herdr server yourself.
+## Installer options
 
-## What the script does
-
-1. Downloads the `pairfob` binary for this OS
-2. Verifies the checksum and refuses to overwrite on mismatch
-3. Checks Herdr, optionally installs it with consent, starts it if needed, and verifies its API
-4. Enrolls
-5. Unless `--no-service`, installs a **user-level** login service
-
-## Flags
-
-| Flag | Role |
+| Flag | Effect |
 | --- | --- |
-| `--prefix DIR` | Install directory. A writable `/usr/local/bin` uses that; otherwise `~/.local/bin` |
-| `--no-service` | Binary and enroll only; no login service |
-| `--no-enroll` | Skip enrollment; service and Herdr checks still apply |
-| `--install-herdr` | Install pinned Herdr if missing, without prompting |
-| `--non-interactive` | Never prompt; missing dependencies fail unless installation is allowed |
-| `--skip-herdr-check` | Skip Herdr checks without claiming session readiness |
+| `--prefix DIR` | Install the binary in DIR; default is a writable `/usr/local/bin` or `~/.local/bin` |
+| `--no-service` | Install the binary without a user service |
+| `--install-herdr` | Install pinned Herdr if missing |
+| `--non-interactive` | Never prompt |
+| `--skip-herdr-check` | Prepare Pairfob without claiming Herdr readiness |
 
-Also valid:
+The installer also keeps the `pairfobd` compatibility command. Existing pairings live in the state directory and survive a reinstall.
 
-```sh
-curl -fsSL https://pairfob.com/install.sh | sh -s -- --prefix "$HOME/bin"
-```
+## Service and local files
 
-Machines that already enrolled: rerunning the installer refreshes the binary and leaves existing pairings alone.
-
-The service retains the checked Herdr executable, socket, configuration paths, and startup options so a different login PATH does not break the connection.
-
-The installer checks and starts Herdr from the home directory, matching the login service. Relative Herdr configuration paths are also interpreted from home.
-
-## Where it lands
-
-| Condition | Binary |
-| --- | --- |
-| Writable `/usr/local/bin` | Default `/usr/local/bin/pairfob` |
-| Ordinary user | Default `~/.local/bin/pairfob` |
-
-`pairfob` is the command shown in this documentation. The installer also creates
-`pairfobd → pairfob` in the same directory as a compatibility alias.
-
-If `~/.local/bin` is not on `PATH`, the script tells you to add it. For zsh:
-
-```sh
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-## After install
-
-After a login, the service starts on its own. It is a login service, not a boot daemon: sleep and logout stop it; coming back to the same graphical session starts it again. In the current graphical session you can run `pairfob` in a terminal, or:
+On macOS the user service is a launchd agent; on Linux it is a systemd user unit. It starts after login, while the computer is awake. The default state, local admin socket, and logs live in `~/.config/pairfob/`. The service binds only the computer's Tailscale IPv4 address and port 18474. It does not expose Herdr's socket.
 
 ```sh
 pairfob service status
 pairfob service restart
+pairfob doctor
 ```
 
-Day to day you should not need those. `pairfob update` replaces the binary and restarts an installed user service.
+The service configuration and log are owner-readable. Keep state files, pairing links, and local deployment `.env` files out of commits. A custom service directory may contain a build script and binary; it is not the active state directory unless `PAIRFOB_STATE_DIR` says so.
 
-## Update
+## Update or uninstall
 
-```sh
-pairfob update
-```
-
-Replaces the binary and restarts the user service. Do not rerun the installer as an “update”.
-
-## Uninstall
+`pairfob update` is the CLI update command for an installed release. A source-built `dev` binary is updated by rebuilding and restarting its user service. The phone's release check may be unavailable on a direct host.
 
 ```sh
 pairfob service uninstall
-prefix="$(dirname "$(command -v pairfob)")"
-rm -f "$prefix/pairfob" "$prefix/pairfobd"
 ```
 
-Uninstalling the service does not delete the state directory. To drop pairings too, remove `~/.config/pairfob` after you are sure you do not need those device credentials.
-
-## From source
-
-Clone [the repository](https://github.com/arronKler/pairfob) for local comparison. Herdr still needs to be installed. Everyday use still follows the install command above.
-
-```sh
-go run ./cmd/pairfob
-```
-
-Local pairing and checks are in the repository README.
+Uninstalling the service keeps pairings. Remove `~/.config/pairfob/` only when you intend to discard that identity and every paired-device credential. Source and build instructions are in the [repository](https://github.com/arronKler/pairfob).

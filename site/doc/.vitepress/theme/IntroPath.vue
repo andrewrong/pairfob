@@ -13,17 +13,16 @@ type Node = {
 const { lang } = useData();
 const zh = computed(() => lang.value.startsWith("zh"));
 
-// P2P is the preferred path; the relay is the fallback (docs security.md).
 const copy = computed(() =>
   zh.value
     ? {
-        aria: "会话从另一台设备到你的电脑：优先直连，连不上时经 pairfob.com 中转",
+        aria: "会话通过 Tailscale 从另一台设备直连你的电脑",
         nodes: [
           {
             k: "设备",
             title: "另一台设备上的 Pairfob",
             detail: "手机、平板或另一台电脑。密钥在这一端。",
-            hop: "P2P 直连 · 密文 · 默认优先",
+            hop: "Tailscale 直连 · 18474 端口 · 会话端到端加密",
           },
           {
             k: "电脑",
@@ -32,20 +31,15 @@ const copy = computed(() =>
             chain: ["pairfob", "Herdr", "CLI"],
           },
         ],
-        fallback: {
-          k: "直连不通时",
-          title: "经 pairfob.com 中转",
-          detail: "只转发密文，不看内容，不跑 agent。中转也负责帮两边找到对方。",
-        },
       }
     : {
-        aria: "A session travels from another device to your computer: direct first, through pairfob.com when direct fails",
+        aria: "A session travels directly from another device to your computer through Tailscale",
         nodes: [
           {
             k: "Device",
             title: "Pairfob on another device",
             detail: "Phone, tablet, or another computer. Keys stay here.",
-            hop: "P2P direct · ciphertext · preferred",
+            hop: "Tailscale direct · port 18474 · end-to-end session encryption",
           },
           {
             k: "Computer",
@@ -54,11 +48,6 @@ const copy = computed(() =>
             chain: ["pairfob", "Herdr", "CLI"],
           },
         ],
-        fallback: {
-          k: "If direct fails",
-          title: "Through the pairfob.com relay",
-          detail: "Forwards ciphertext only. Does not read content or run agents. It also helps the two sides find each other.",
-        },
       },
 );
 </script>
@@ -76,11 +65,6 @@ const copy = computed(() =>
       <p v-if="n.hop" class="hop">{{ n.hop }}</p>
     </li>
   </ol>
-  <div class="pf-fallback">
-    <p class="k">{{ copy.fallback.k }}</p>
-    <p class="t">{{ copy.fallback.title }}</p>
-    <p class="d">{{ copy.fallback.detail }}</p>
-  </div>
   </div>
 </template>
 
@@ -166,17 +150,6 @@ const copy = computed(() =>
   content: "→";
   margin-left: 6px;
   color: var(--vp-c-text-3);
-}
-
-.pf-fallback {
-  margin-top: 8px;
-  padding: 12px 20px 14px 44px;
-  border: 1px dashed var(--vp-c-border);
-}
-
-.pf-fallback .t {
-  color: var(--vp-c-text-2);
-  font-weight: 600;
 }
 
 .hop {

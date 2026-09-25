@@ -35,7 +35,7 @@ const SHOTS: Shot[] = [
   { name: "guided-expanded", scene: "guided-expanded", ...PHONE },
   { name: "workspace-diff", scene: "workspace-diff", ...PHONE },
   { name: "chat-complete", scene: "chat-complete", ...PHONE },
-  { name: "settings", scene: "settings", ...PHONE },
+  { name: "settings", scene: "settings-tailnet", ...PHONE },
   // iPad landscape: above the PWA's 900px breakpoint, so the two-column desk layout.
   { name: "tablet", scene: "desktop-guided", width: 1180, height: 820 },
 ];

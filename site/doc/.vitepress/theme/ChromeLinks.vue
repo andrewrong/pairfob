@@ -25,5 +25,5 @@ const go = switchDocsLanguage;
     target="_blank"
     rel="noreferrer"
   >{{ zh ? "反馈" : "Feedback" }}</a>
-  <a class="pf-nav-app" href="/pair" target="_self">{{ zh ? "打开 Pairfob" : "Open Pairfob" }}</a>
+  <a class="pf-nav-app" :href="zh ? '/zh/start' : '/start'" target="_self">{{ zh ? "开始使用" : "Get started" }}</a>
 </template>

@@ -24,8 +24,8 @@ pageClass: pf-intro
     <p>New conversations, splits, worktrees, and Auto / Control / Terminal / Chat follow the computer. If it cannot do it, the phone does not draw it and does not pretend it succeeded.</p>
   </article>
   <article>
-    <p class="pf-claim-t">No inbound ports, direct when possible</p>
-    <p>The computer dials out. No Tailscale. Herdr is not exposed to the public internet. Phone and computer connect directly (P2P) when they can, so the session skips pairfob.com; otherwise it goes through the relay. Either way it is encrypted.</p>
+    <p class="pf-claim-t">Direct through Tailscale</p>
+    <p>Both devices join your tailnet. Pairfob listens on the computer's Tailscale IP and port 18474; Herdr stays on its local socket. The paired session is end-to-end encrypted.</p>
   </article>
 </div>
 
@@ -63,9 +63,9 @@ pageClass: pf-intro
     <p class="pf-vs-is">Pairing is authorization; the credential stays in this browser</p>
   </div>
   <div class="pf-vs-row">
-    <p class="pf-vs-not" data-not="Not">A VPN / Tailscale</p>
+    <p class="pf-vs-not" data-not="Not">A public internet listener</p>
     <span class="pf-vs-arrow" aria-hidden="true">→</span>
-    <p class="pf-vs-is">The computer dials out; you do not open ports at home</p>
+    <p class="pf-vs-is">Access stays on your Tailscale network</p>
   </div>
 </div>
 
@@ -77,16 +77,16 @@ You already run coding agents in Herdr 0.7 or newer on a computer, and you want 
 
 - Keep typing, confirm in the terminal, read diffs, and open worktrees from the phone after you leave the desk
 - Sit back down with nothing to merge
-- Skip port forwarding and extra overlay networks just for this
+- Use your existing Tailscale network without public port forwarding
 
 **macOS and Linux** are supported. Windows cannot host `pairfob` yet.
 
 ## Shortest path
 
 <ol class="pf-track">
-<li><p>Herdr is installed on the computer; pairfob starts it on launch</p></li>
+<li><p>Herdr and Tailscale are installed on the computer; the phone joins the same tailnet</p></li>
 <li><p><a href="./install">Install</a> <code>pairfob</code> with <code>curl -fsSL https://pairfob.com/install.sh | sh</code></p></li>
-<li><p>Run <code>pairfob pair</code> on the computer; open <a href="/pair">pairfob.com/pair</a> on the other device</p></li>
+<li><p>Run <code>pairfob pair</code> on the computer; scan its QR with the phone's system camera</p></li>
 <li><p>After the other device scans, press Enter once on the computer</p></li>
 </ol>
 

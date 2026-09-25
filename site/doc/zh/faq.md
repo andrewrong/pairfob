@@ -1,129 +1,62 @@
 ---
 title: 常见问题
-description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows、收费、和远程桌面的差别。
+description: Pairfob Tailscale 直连部署的常见问题。
 ---
 
 # 常见问题
 
-## 要不要注册 Pairfob 账号？
+## 需要 Pairfob 账号吗？
 
-不要。没有邮箱登录。电脑跑安装脚本时完成登记，设备用配对拿到凭证。凭证分别在电脑和这台浏览器里。
+不需要。电脑提供 Pairfob 页面，手机经电脑确认配对后得到设备凭证。电脑不向托管中继登记。
 
-## Pairfob 能单独跑 agent 吗？
+## 需要 Tailscale 吗？
 
-不能。它是 [Herdr](https://herdr.dev) 的手机端。电脑上要装 Herdr 0.7 或更高；`pairfob` 会在启动时自动拉起 Herdr。自动启动失败时列表会显示 Herdr 离线，手动运行 `herdr` 后会自动恢复。
+需要。电脑和手机加入同一个 tailnet，ACL 要允许手机访问电脑的 Tailscale IPv4 地址和 TCP 18474 端口。Pairfob 不在路由器上开放公网端口。
+
+## Pairfob 能自己运行 Agent 吗？
+
+不能。Agent 由电脑上的 [Herdr](https://herdr.dev) 运行，Pairfob 把实时会话呈现在另一台设备上。
 
 ## 这是远程桌面吗？
 
-不是。它不投屏、不搬鼠标、不打开你的 IDE 窗口。它只接电脑上已经打开的会话。见 [同一块屏幕](/zh/model)。
+不是。Pairfob 读取 Herdr 渲染的 pane，把按键送回 PTY，不镜像整个桌面。
 
-## 手机上的能力和电脑上一样吗？
+## 手机上的是会话副本吗？
 
-电脑当时做得到的，手机上才会出现对应控件；做不到的不画，也不会假装成功。网页还故意少了一批能力（任意命令、删 worktree、抢焦点）。
+不是。手机打开的是电脑上的实时会话，坐回电脑前无需同步。
 
-## 出门再打开，是同一个会话还是拷贝？
+## 电脑睡眠或网络断了怎么办？
 
-同一个。没有「同步到手机」。坐回来也不用同步回桌面。见 [出门和回来](/zh/continue)。
+唤醒电脑或恢复 Tailscale，再打开电脑的 Tailscale 地址。已配对浏览器会用保存的凭证重连。Pairfob 无法唤醒睡眠中的电脑。
 
-## 锁屏或合盖之后还能用吗？
+## 为什么手机浏览器提示“不安全”？
 
-锁屏可以。Pairfob 不需要桌面保持解锁。登录会话、`pairfob`、Herdr 都会在锁屏后面继续跑。
+页面使用 Tailscale IP 上的 HTTP。Tailscale 加密设备间传输，Pairfob 另行对已建立会话内容做端到端加密；但 HTTP 仍不是浏览器安全上下文，网页相机、推送、service worker 和 PWA 安装可能不可用。配对请用手机系统相机。见[安全说明](/zh/security)。
 
-合盖只有系统**没有真的睡眠**才行。笔记本默认合盖就是睡眠：进程冻住、网络断开，手机上会看到 **电脑现在不在线**。Pairfob 唤不醒已经睡着的电脑，也不能远程解锁。
+## 其他 tailnet 成员能读取我的会话吗？
 
-出门还想接着用：
+ACL 允许的成员可以加载 Pairfob 页面，但进入会话还需要已配对的设备凭证。请限制 tailnet 访问，丢失设备后执行 `pairfob forget N`。
 
-- 锁屏。盖子保持打开，或确认系统合盖后不会睡再合
-- macOS：`Control-Command-Q` 锁屏。电池设置里，至少在接通电源时不要在显示器关闭后自动睡眠。合盖 + 电源 + 外接显示器是 clamshell，机器会保持醒着
-- Linux：桌面电源设置里把合盖设成「什么都不做」或「锁屏」
-- macOS 上临时保活用 `caffeinate` 这类系统命令，不是 Pairfob 的功能。不要合盖塞进包里还强制不睡
+## 为什么只输短配对码不行？
 
-电脑醒来后，`pairfob` 会自己重连，不用重新配对。睡着的电脑仍留在手机名单上，这和解除配对不是一回事。见 [出门和回来](/zh/continue)。
+完整二维码或链接还包含电脑地址和一次性票据。不能扫码时粘贴整个链接；仅有 8 位短码无法连接直连网关。
 
-## 断网了要重新配对吗？
+## 手机丢了，或清除了浏览器数据？
 
-不要。凭证还在浏览器里。网络恢复后会重连。只有清站点数据、换浏览器、或电脑上 `forget` 了，才需要重新配对。
+在电脑用 `pairfob list`、`pairfob forget N` 撤销丢失的设备。浏览器数据清除后要重新 `pairfob pair`。显示 `never seen` 的设备已配对，但从未成功建立会话。
 
-## 支持 Windows 吗？
+## 一部手机能管理多台电脑吗？
 
-还不能在 Windows 上装 `pairfob`。另一台 Windows 电脑可以用浏览器打开 <a href="/pair">pairfob.com/pair</a> 当「第二块屏幕」，宿主仍然必须是 macOS 或 Linux。
+可以。每台电脑分别安装 Pairfob，在手机上选择 **设置 → 添加另一台电脑**。每台电脑各有配对关系和 Tailscale 地址。
 
-## 要不要 Tailscale / 端口转发？
+## 推送和文件上传在哪里？
 
-不要。`pairfob` 只往外连。家里路由器不用为 Pairfob 开端口。
-
-## 中继能看到我的代码吗？
-
-看不到会话画面、你打的字和对话内容。走 P2P 直连时，pairfob.com 同样看不到会话；用来尝试直连的公网地址查询会看到这台设备的公网地址。见 [中继看不到什么](/zh/security)。
-
-## P2P 直连失败了怎么办？
-
-会话不会断，会继续走 Relay。到 **设置 → 网络连接方式** 可以固定 **Relay**，不再自动试直连；选 **自动** 会在能直连时再升上去。当前站点未开放 P2P 时，只能走中继。
-
-## 二维码被别人拍到了怎么办？
-
-电脑还没按 Enter 之前，对方配不上。已经按了 Enter、对方已经出现在 `pairfob list` 里，就立刻 `forget` 那一台。码本身用过即废。
-
-## 手机丢了怎么办？
-
-电脑上 `pairfob list`，对对应序号 `pairfob forget N`。那台手机上的凭证作废。丢失的手机如果还能打开 Pairfob，也可以从设置里解除其他设备，所以要立刻在电脑上 forget。
-
-## 清掉 Safari 数据之后？
-
-等于这台设备没配对过。重新 `pairfob pair`。电脑上的其他设备不受影响。
-
-## 一部手机能连两台电脑吗？
-
-可以。同一个浏览器配置能为多台电脑分别保存一条配对凭证。另一台电脑先跑同一条安装命令，再 `pairfob pair`，然后在手机上 **设置 → 添加另一台电脑**。下次打开连回最近用的那台。主页 **电脑** 可以切换。电脑不在线时名单还在，这和解除配对不是一回事。见 [多台设备](/zh/devices)。
-
-## 手输为什么要 14 位？
-
-8 位是秘密，6 位只用来找到你的电脑。只输 8 位页面不会发出去。扫码不走这 6 位。见 [配对](/zh/pair)。
-
-## 安装命令能在第二台电脑再用吗？
-
-能。每台电脑各自跑 `curl -fsSL https://pairfob.com/install.sh | sh`。然后在手机上：**设置 → 添加另一台电脑**。更新用 `pairfob update`。
-
-## 安装时登记失败？
-
-先看网络和 `pairfob doctor`。如果这个网络今天登记的电脑太多，明天再试。
-
-## 列表是空的？
-
-按顺序查：电脑 `pairfob doctor` 里 Herdr 是否 `on`。空标题 **还没有读到会话** 表示 Herdr 没开；**还没有会话** 表示已经连上但还没有会话。Pairfob 是否已经配对成功（不是停在扫码页）。
-
-## 为什么没有「新建 / 分屏 / Worktree」？
-
-电脑当时的 Herdr 还不支持那一项。升级并**重启正在跑的 Herdr** 后再看，不是只装一个新的命令行工具。没有可选 Agent 时，**新建**、**新建标签页** 和 **分屏** 仍可用来开纯终端。
-
-## 点了按钮但不确定电脑做了没有？
-
-不要连点。先看画面或回列表刷新。Pairfob 不会自动再试一次。
-
-## 通知为什么开不了？
-
-默认关。先在电脑上打开推送，再 `pairfob service restart`。然后到手机设置里订阅。见 [通知](/zh/push)。
-
-## 可以给同事也扫这个码吗？
-
-不要把当前码当团队邀请。配对的是**你的电脑**上的 Herdr。每个要连的人 / 设备都应在你知情下单独 `pair`，并且你在电脑上按 Enter。不该连的用 `forget`。
+当前直连 HTTP 页面不提供浏览器推送。现有附件上传流程依赖旧 P2P 传输，在这套直连部署中不可用。读取会话、发送按键和查看工作区改动仍可使用。见[手机上怎么用](/zh/app)。
 
 ## 收费吗？
 
-不收费。源码是 Apache-2.0，在 <https://github.com/arronKler/pairfob>。`https://pairfob.com` 是本项目的官方实例：网页和你登记用的中转都在这里。没有账号，也不承诺容量。
+Pairfob 免费，源码以 Apache-2.0 发布在 <https://github.com/arronKler/pairfob>。Tailscale 和所用 Agent 各有自己的条款。
 
-## 文档只有中文吗？
+## 如何反馈？
 
-有英文。[English docs](/)。文档右上角切的是文档语言。Pairfob 页面（`/pair`）自己的语言在 **设置 → 语言**。
-
-## 问题怎么反馈？
-
-去 GitHub 开 issue：<https://github.com/arronKler/pairfob/issues/new>
-
-功能和体验问题走这条公开渠道。安全漏洞请走 [GitHub Security Advisories](https://github.com/arronKler/pairfob/security/advisories/new)，不要开公开 issue。
-
-## 频繁断开、重连，怎么保留诊断？
-
-在 Pairfob 页面打开 **设置 → 导出连接诊断**。浏览器在本标签页保留最近 24 小时、最多 200 条连接事件；刷新后仍保留，关闭标签页后可能清除。存储不可用时只保留当前页面内存中的记录。日志不会自动上传。
-
-诊断包含会话路由、连接状态、心跳等待时间和断开分类，不含终端内容、密钥、SDP 或原始异常文本。电脑端的 `audit.log` 同时记录 `session_closed` / `p2p_closed`；用相同的 `route_id` 对齐两端。`reason` 是会话关闭原因，`transport_reason` 是底层首先观察到的原因，不能单凭它认定网络故障根因。
+普通问题请到 [GitHub Issues](https://github.com/arronKler/pairfob/issues/new)；安全漏洞请走 [GitHub Security Advisories](https://github.com/arronKler/pairfob/security/advisories/new)。不要公开配对链接、设备凭证或私有终端内容。可以附上去掉个人路径与地址后的 `pairfob doctor` 输出。

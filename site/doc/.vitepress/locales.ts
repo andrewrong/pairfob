@@ -68,7 +68,7 @@ const enSidebar: DefaultTheme.Sidebar = [
     text: "Design",
     items: [
       { text: "The same screen", link: "/model" },
-      { text: "What the relay cannot see", link: "/security" },
+      { text: "Security and privacy", link: "/security" },
     ],
   },
   {
@@ -106,7 +106,7 @@ const zhSidebar: DefaultTheme.Sidebar = [
     text: "设计",
     items: [
       { text: "同一块屏幕", link: "/zh/model" },
-      { text: "中继看不到什么", link: "/zh/security" },
+      { text: "安全与隐私", link: "/zh/security" },
     ],
   },
   {

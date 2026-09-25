@@ -15,7 +15,7 @@ On the computer:
 pairfob pair
 ```
 
-Scan with the **new** device (or type this printout’s 14 glyphs). Do not scan again from a device that is already paired — that opens a new pairing and invalidates whoever else was using the current code.
+Scan with the **new** device's system camera, or paste the complete pairing link printed by the command into that device's Pairfob pairing page. The short code alone lacks the one-use invitation ticket. Confirm the pairing on the computer. Do not share the link while it is valid.
 
 A handful of phones is enough. When the cap is hit, a new device fails until you `forget` one.
 
@@ -57,16 +57,15 @@ To drop a phone you can no longer hold, prefer the computer:
 ## Lost or sold phone
 
 1. `forget` the row on the computer immediately
-2. If push was on, those subscriptions die with it
-3. If the computer itself may be compromised, see [What the relay cannot see](/security)
+2. If the computer itself may be compromised, see [Security](/security)
 
 ## One phone, several computers
 
-Each computer enrolls and pairs on its own. Same installer, new pairing:
+Each computer runs Pairfob on its own Tailscale address and pairs separately. Same installer, new pairing:
 
 1. On the other computer: `curl -fsSL https://pairfob.com/install.sh | sh`
 2. There: `pairfob pair`
-3. On this phone: **Settings → Add another computer**, then scan that computer’s current code
+3. On this phone: **Settings → Add another computer**, then scan that computer’s QR or open its complete pairing link
 
 The phone keeps one credential per computer and reconnects to the last one you used. Home shows **Computers** when more than one credential is stored.
 

@@ -1,88 +1,34 @@
 ---
 title: Pairing
-description: Scan or type a code. After the computer confirms, the device may read and write.
+description: Use the one-use QR or complete pairing link, then approve on the computer.
 ---
 
 # Pairing
 
-Pairing is **authorization**, not an account login. Pairfob has no username, email, or cloud account. Until it completes, the device cannot operate. After the computer confirms, this device holds a credential.
+Pairing authorizes one browser on one device. Pairfob has no account login. The browser stores a device credential only after the computer approves pairing.
 
-The credential stays in **this browser on this device**. Another browser, cleared site data, removing the PWA, or a private window means pairing again.
-
-## Opening pairing on the computer
-
-On the computer that already runs `pairfob`:
+## On the computer
 
 ```sh
 pairfob pair
 ```
 
-It will:
+The terminal prints a QR code and a **complete pairing link**. Both expire, and the invitation ticket is usable once. Leave the command running until the phone reaches the approval step. Only the current offer can be used.
 
-1. Prefer a QR code
-2. Also print a manual code
-3. Wait for the other device to prove the pairing secret
-4. Ask for one Enter
+## On the phone
 
-There is no web confirm page. Do not look for an “Accept pairing” button in another machine’s browser — accept happens in this computer’s terminal.
+The phone must be connected to the same Tailscale network. Scan the QR using the phone's **system camera**; it opens the Pairfob page served by the computer. If you cannot scan, open Pairfob at the computer's Tailscale address and paste the complete link into the pairing form.
 
-::: warning Only one pairing at a time
-If another computer also runs `pairfob pair`, the old code dies. The phone may say another computer started pairing, or that the code expired. Use the code **this** computer just printed.
-:::
+The browser's in-page camera may be unavailable because the direct page uses HTTP. The eight-glyph short code alone is incomplete: the complete link also carries the computer address and a one-use ticket.
 
-## Connecting the other device
+The ticket is in the link's URL fragment, which is not sent in an HTTP request. Treat the whole link as sensitive until it expires; do not post it in chat or a screenshot.
 
-Open <a href="/pair">pairfob.com/pair</a>. The pairing page follows the same language as Pairfob (**Connect your computer** in English). A device that is already paired goes straight to the session list.
+## Approve on the computer
 
-### Scan (preferred) — **Scan to connect**
+Once the phone proves the pairing code, the computer asks for confirmation. Press Enter only if this is your device. Ctrl-C or expiry denies the attempt. Pairing is not complete before this approval.
 
-Point the camera at the QR on the computer. Camera permission is only for that scan.
+## Later use
 
-### Type it — **Can't scan? Type the pairing code**
+Open the computer's Tailscale address again in the same browser profile. Its saved credential reconnects without another QR. Another browser profile, cleared site data, or a new phone needs a fresh pairing. Use **Settings → Add another computer** to pair a second computer, or `pairfob list` and `pairfob forget N` to manage devices.
 
-Typing needs **8 secret glyphs + 6 locator glyphs**. There is no 8-glyph-only hand entry.
-
-- One field; paste all 14 glyphs (spaces and hyphens allowed; `O` → `0`, `I`/`L` → `1`)
-- Eight glyphs only: the page asks for the rest and **does not send**
-
-The two parts are different jobs:
-
-| Part | Length | Job |
-| --- | ---: | --- |
-| Pairing code | 8 | Secret. Proves you saw the computer screen |
-| Locator | 6 | Finds that computer. Not the same class of secret |
-
-## Enter on the computer
-
-**Only Enter on the computer actually admits the device.** After the phone scans it still waits. Neither side shows security words. That stops a screenshot of the QR from pairing without you.
-
-If it is not your device, refuse on the computer (Ctrl-C or wait for expiry) and run `pairfob pair` again.
-
-## Expired or wrong codes
-
-A code is **spent when used**, and it also expires. Do not use a code from chat or last week’s screenshot.
-
-Match the string on screen (English Pairfob):
-
-| You see | Meaning | Do this |
-| --- | --- | --- |
-| That pairing code is spent or expired | Slot rotated, or the code is dead | Use the code the computer is **printing now** |
-| Enter the full pairing code / 14 glyphs needed | Locator missing | Paste 8+6 together |
-| That pairing code is incorrect | Does not match | New code; do not permute the old one |
-| Pairing timed out | Network, or the computer left the wait | Scan or type the current code again |
-| Too many attempts | This side is rate-limited | Wait |
-| Another computer started pairing | A newer `pair` took the slot | Open pairing on the computer you mean to use |
-
-## After pairing
-
-- Opening <a href="/pair">pairfob.com/pair</a> reconnects to the last computer this browser used
-- Another computer on this phone: install pairfob there with the same command, run `pairfob pair`, then **Settings → Add another computer** — [Multiple devices](/devices)
-- Another device: run `pairfob pair` again and scan with the **new** device — [Multiple devices](/devices)
-- On the phone, **Settings → Paired devices** can unpair other devices. The computer can also `pairfob forget N`
-
-## Do not
-
-- Paste pairing codes into someone else’s page or a group chat
-- Clone a paired browser profile onto another phone
-- Assume pairing finished before the computer confirmed
-- Keep using an old code while two computers have pairing open
+If pairing fails, create a fresh offer with `pairfob pair`; spent and expired links cannot be retried. See [Troubleshooting](/troubleshoot).

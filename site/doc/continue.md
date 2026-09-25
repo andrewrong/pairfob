@@ -20,10 +20,10 @@ The Herdr window on the computer is already the primary. The phone is another pa
 1. Herdr and `pairfob` keep running on the computer
 2. Lock the screen if you want — Pairfob does not need it unlocked
 3. Leave the lid open, or close it only if the machine will stay awake
-4. Open Pairfob (browser or Home Screen icon)
+4. Open the computer's Pairfob address in the same browser profile used for pairing
 5. Open the session you were in
 
-Confirms in the terminal, typing, and worktrees go back to the machine. If [notifications](/push) are on, needs-you and completion pushes open that session on the correct computer, not only the home list.
+Confirms in the terminal, typing, and worktrees go back to the machine. Browser [push notifications](/push) are unavailable on the current direct HTTP page, so open Pairfob to check for agents needing you.
 
 The lock screen is not the problem. Sleep is. Closing the lid in a bag is not a Pairfob scenario: the phone cannot attach, and Pairfob cannot power the machine back on. When the computer wakes, it reconnects without a new pairing. Lock versus lid: [FAQ](/faq).
 
@@ -56,4 +56,4 @@ Two windows of the **same** phone steal from each other — [Using the app](/app
 | --- | --- |
 | Another session or the whole desktop | The session already running |
 | Two states to merge when you return | One state when you return |
-| Often needs open ports or an overlay | Computer dials out only |
+| Often needs open ports or an overlay | Phone connects over your tailnet to port 18474 |

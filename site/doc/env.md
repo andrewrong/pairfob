@@ -1,46 +1,23 @@
 ---
 title: Environment
-description: Install, enroll, path roots, push. Do not set PAIRFOB_JOIN_TOKEN.
+description: Direct Tailscale listener, local state, and Herdr configuration.
 ---
 
 # Environment
 
-Operator-facing variables only. Leave unspecified variables unset. Do not put secrets in a global `~/.zshrc` you then paste into logs.
+Pairfob discovers the computer's Tailscale IPv4 address and listens on port 18474. A user service keeps only the runtime environment it needs; it does not inherit every variable from your interactive shell.
 
-## Enroll and origin
-
-| Variable | When |
+| Variable | Use |
 | --- | --- |
-| `PAIRFOB_ORIGIN` | Default `https://pairfob.com` (this project's official instance). Leave unset |
-| `PAIRFOB_JOIN_TOKEN` | **Forbidden**. Setting it fails startup |
+| `PAIRFOB_ORIGIN` | Optional advertised `http://<tailscale-ip>:18474` origin; must match the listener |
+| `PAIRFOB_LISTEN_ADDR` | Optional `<tailscale-ip>:18474` bind address; never use a wildcard or LAN address |
+| `PAIRFOB_STATE_DIR` | State, paired-device credentials, admin socket, and logs; default `~/.config/pairfob` |
+| `PAIRFOB_ALLOWED_ROOTS` | Additional allowed workspace roots; paths outside a live snapshot root or allowed roots fail closed |
+| `HERDR_BIN` | Absolute Herdr executable path when it is outside the service PATH |
+| `HERDR_SOCKET_PATH` | Local Herdr socket path when using a nondefault socket |
+| `PAIRFOB_DOWNLOAD_BASE` | Optional release download root for installation and updates |
+| `PAIRFOB_INSTALL_PREFIX` | Binary directory used by `install.sh` |
 
-## Local state
+Set required values before `pairfob service install`, then restart the service. Keep local state and service configuration private. `PAIRFOB_JOIN_TOKEN` is not used; it must not be set.
 
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `PAIRFOB_STATE_DIR` | `~/.config/pairfob` | Identity, devices, logs |
-| `PAIRFOB_ALLOWED_ROOTS` | user Home | Allowed roots for web paths. Setting it replaces Home |
-
-## Install
-
-| Variable | Notes |
-| --- | --- |
-| `PAIRFOB_DOWNLOAD_BASE` | Binary download root, default `https://pairfob.com/dl` |
-| `PAIRFOB_INSTALL_PREFIX` | Same as `install.sh --prefix` |
-
-## Push
-
-| Variable | Notes |
-| --- | --- |
-| `PAIRFOB_PUSH` | `1` enables. Off by default |
-| `PAIRFOB_VAPID_SUBJECT` | A `mailto:` or `https:` URL you control |
-
-The user service does not inherit your current shell. Write these into the service file, then `pairfob service restart`. See [Notifications](/push).
-
-## Keep off
-
-| Variable | Why |
-| --- | --- |
-| `PAIRFOB_HERDR_AUTOSTART` | `0` skips starting Herdr automatically |
-| `PAIRFOB_DEV_FAKE_RUNTIME` | Demo data, not real Herdr |
-| `PAIRFOB_DEV_AUTO_ADMIT` | Skips computer confirm. Outside isolated tests this hands the computer to anyone with the code |
+The direct HTTP origin is not a browser secure context. Push notification configuration cannot enable push in this deployment. See [Security](/security) and [Notifications](/push).

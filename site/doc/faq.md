@@ -1,129 +1,62 @@
 ---
 title: FAQ
-description: Accounts, Herdr, lock screen, a closed lid, offline, a lost phone, Windows, cost, and how this differs from remote desktop.
+description: Answers for Pairfob's direct Tailscale connection.
 ---
 
 # FAQ
 
 ## Do I need a Pairfob account?
 
-No. There is no email login. The computer enrolls when you run the installer. Devices get a credential from pairing. Credentials live on the computer and in this browser.
+No. The computer hosts Pairfob, and the phone receives a device credential after you approve pairing. Pairfob does not enroll the computer with a hosted relay.
+
+## Do I need Tailscale?
+
+Yes. Join the computer and phone to the same tailnet. Its ACL must allow the phone to reach the computer's Tailscale IPv4 address on TCP port 18474. Pairfob does not open a public router port.
 
 ## Can Pairfob run agents by itself?
 
-No. It is the phone surface for [Herdr](https://herdr.dev). The computer needs Herdr 0.7 or newer installed. `pairfob` starts Herdr when needed. If automatic startup fails, the list shows Herdr offline and recovers after you run `herdr` manually.
+No. [Herdr](https://herdr.dev) runs the agents on your computer. Pairfob presents those live sessions on another device.
 
 ## Is this remote desktop?
 
-No. It does not stream pixels, move the mouse, or open your IDE window. It attaches to a session already open on the computer. See [The same screen](/model).
+No. Pairfob reads Herdr's rendered pane and sends keys to its PTY. It does not mirror the whole desktop.
 
-## Are phone capabilities the same as the computer?
+## Is the phone session a copy?
 
-They follow what the computer can do right now. Missing ones are not drawn and are not faked. The web surface also refuses a set of operations on purpose (arbitrary commands, deleting worktrees, stealing focus).
+No. It is the computer's live session. There is no sync step when you return to the computer.
 
-## When I open the phone on the road, is it a copy?
+## What if the computer sleeps or the network drops?
 
-No. There is no “sync to phone”. Sitting down does not need a sync back. See [Leave and return](/continue).
+Wake the computer or restore Tailscale. Reopen the computer's Tailscale address; a paired browser reconnects with its saved credential. Pairfob cannot wake a sleeping computer.
 
-## Does locking the screen or closing the lid still work?
+## Why does the phone browser say Not Secure?
 
-Locking the screen is fine. Pairfob does not need the desktop unlocked. The login session, `pairfob`, and Herdr keep running behind the lock.
+The page uses HTTP on a Tailscale IP. Tailscale encrypts traffic between devices, while Pairfob encrypts established session content end to end. HTTP is still not a browser secure context, so the web camera, push, service workers, and PWA installation may be unavailable. Use the phone's system camera for QR pairing. See [Security](/security).
 
-Closing the lid only works if the machine does **not** actually sleep. A laptop’s default lid-close is sleep: processes freeze, the network drops, and the phone shows **The computer is offline**. Pairfob cannot wake a sleeping computer, and it cannot unlock the machine.
+## Can another tailnet member read my sessions?
 
-To leave and keep using the phone:
+Someone permitted by your Tailscale ACL may load the Pairfob page, but session access still requires a paired device credential. Restrict tailnet access and revoke lost devices with `pairfob forget N`.
 
-- Lock the screen. Leave the lid open, or close it only if the machine will stay awake
-- macOS: Control-Command-Q locks. Under Battery, stop automatic sleep when the display is off, at least on power. Lid closed plus power plus an external display is clamshell mode — the machine stays up
-- Linux: in the desktop power settings, set lid close to do nothing or to lock
-- A short keep-awake such as `caffeinate` on macOS is an OS command, not a Pairfob feature. Do not leave a closed lid in a bag while forcing the machine awake
+## Why is a short pairing code rejected?
 
-When the computer wakes, `pairfob` reconnects by itself. You do not pair again. An asleep computer stays on the phone’s list; that is not unpaired. See [Leave and return](/continue).
+The complete QR or link also contains the computer address and a one-use ticket. Paste the entire link if you cannot scan. An eight-glyph code alone cannot attach to the direct gateway.
 
-## If the network drops, do I pair again?
+## I lost the phone or cleared browser data.
 
-No. The credential is still in the browser. It reconnects when the network returns. Pair again only after clearing site data, switching browsers, or `forget` on the computer.
+Run `pairfob list` and `pairfob forget N` on the computer to revoke a lost device. Cleared browser data requires a fresh `pairfob pair`. A row marked `never seen` paired but has never completed a session handshake.
 
-## Windows?
+## Can one phone manage several computers?
 
-`pairfob` does not install on Windows yet. A Windows machine can still open <a href="/pair">pairfob.com/pair</a> as a second screen. The host still has to be macOS or Linux.
+Yes. Install Pairfob on each computer, then use **Settings → Add another computer** on the phone. Each computer has its own pairing and Tailscale address.
 
-## Tailscale / port forwarding?
+## Where are push and file uploads?
 
-No. `pairfob` only dials out. The home router does not need a Pairfob port.
-
-## Can the relay see my code?
-
-It cannot see the session, what you type, or the conversation. On a P2P path, pairfob.com still cannot see the session; the public-address lookup used to try a direct path sees this device’s public address. See [What the relay cannot see](/security).
-
-## What if P2P cannot connect?
-
-The session stays on Relay. In **Settings → Network path**, pin **Relay** to stop automatic direct attempts, or **Auto** to try again when a direct path is possible. If the site has P2P off, only Relay is available.
-
-## Someone photographed the QR code.
-
-Until you press Enter on the computer, they cannot pair. If you already pressed Enter and they show up in `pairfob list`, `forget` that row immediately. A used code is spent.
-
-## I lost the phone.
-
-`pairfob list` on the computer, then `pairfob forget N` for that row. Credentials on the phone are then useless. A lost phone that can still open Pairfob can also unpair others from Settings, so forget it on the computer immediately.
-
-## I cleared Safari data.
-
-This device is unpaired. Run `pairfob pair` again. Other devices on the computer are unchanged.
-
-## Can one phone talk to two computers?
-
-Yes. Install pairfob on the other computer with the same command, run `pairfob pair` there, then **Settings → Add another computer**. The phone keeps both credentials and reconnects to the last one you used. Switch from **Computers** on the home screen. A computer that is offline stays on the list; that is not the same as unpaired. See [Multiple devices](/devices).
-
-## Why 14 glyphs when typing?
-
-8 glyphs are the secret and 6 only find your computer. Typing 8 alone is not sent. Scanning does not use those 6. See [Pairing](/pair).
-
-## Can I reuse the install command?
-
-Yes. Each computer runs `curl -fsSL https://pairfob.com/install.sh | sh` on its own. Then pair it from the phone: **Settings → Add another computer**. Update with `pairfob update`.
-
-## Install failed on enroll.
-
-Check the network and `pairfob doctor`. If this network has enrolled too many computers today, try again tomorrow.
-
-## The list is empty.
-
-In order: `pairfob doctor` — is Herdr `on`? **Herdr is not running on the computer** means Herdr is closed; **No sessions yet** with a create hint means you are connected but there is no session yet. Did pairing finish (not still on the scan page)?
-
-## Why is there no New / Split / Worktree?
-
-The live Herdr does not support that yet. Upgrade and **restart the running Herdr**, not only install another CLI binary. With no agent kinds listed, **New**, **New tab**, and **Split** still open a terminal pane.
-
-## I tapped and I am not sure the computer did it.
-
-Do not tap again. Look at the frame or refresh the list. Pairfob does not retry on its own.
-
-## Notifications will not turn on.
-
-They are off by default. Enable push on the computer, then `pairfob service restart`. Subscribe in **Settings → Notifications**. See [Notifications](/push).
-
-## Can I let a coworker scan this code?
-
-Do not treat the current code as a team invite. Pairing attaches to **your** computer’s Herdr. Every person / device should `pair` with you watching, and you press Enter. `forget` anyone who should not stay.
+The current direct HTTP page does not offer browser push. The existing attachment upload flow requires the legacy P2P transport and is unavailable in this direct deployment. Reading sessions, sending keys, and viewing workspace changes remain available. See [Using the app](/app).
 
 ## Does it cost money?
 
-No. The source is Apache-2.0 at <https://github.com/arronKler/pairfob>. `https://pairfob.com` is this project's official instance: the web app and the relay you enroll against. There is no account and no capacity promise.
-
-## Is the documentation Chinese-only?
-
-No. [Chinese docs](/zh/). The language menu in the docs top bar switches the docs. Pairfob (`/pair`) has its own control under **Settings → Language**. Both remember the same `pairfob_lang` preference.
+Pairfob is free, Apache-2.0 source at <https://github.com/arronKler/pairfob>. Tailscale and any agents you use have their own terms.
 
 ## How do I report a problem?
 
-Open a GitHub issue: <https://github.com/arronKler/pairfob/issues/new>
-
-That is the public channel for bugs and product feedback. A security vulnerability goes to [GitHub Security Advisories](https://github.com/arronKler/pairfob/security/advisories/new), not a public issue.
-
-## How can I diagnose repeated disconnects?
-
-Open **Settings → Export connection diagnostics** in Pairfob. The browser keeps up to 200 connection events from the last 24 hours in this tab, including across reloads. Closing the tab may clear them. If browser storage is unavailable, only the current page's in-memory records remain. Records are not uploaded automatically.
-
-Diagnostics contain route IDs, connection states, heartbeat wait times and failure classifications, but no terminal content, keys, SDP or raw exception text. The daemon also writes `session_closed` / `p2p_closed` to `audit.log`; correlate both sides by `route_id`. `reason` describes session closure and `transport_reason` the transport's first observed cause, not a proven network root cause.
+Use [GitHub Issues](https://github.com/arronKler/pairfob/issues/new) for bugs and feedback. Report security issues privately through [GitHub Security Advisories](https://github.com/arronKler/pairfob/security/advisories/new). Do not paste pairing links, device credentials, or private terminal content into an issue. Include the output of `pairfob doctor` after removing personal paths and addresses.
