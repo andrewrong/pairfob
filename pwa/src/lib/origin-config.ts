@@ -2,6 +2,7 @@ import { t } from "./i18n.ts";
 import { ProtocolError } from "./protocol/errors.ts";
 import type { MuxProtocol } from "./protocol/mux.ts";
 import { fetchWithTimeout, type FetchLike } from "./request-timeout.ts";
+import { isTailnetIPv4 } from "./tailnet-ip.ts";
 
 export type { MuxProtocol };
 export type OriginConfig = { protocol: MuxProtocol; build: string; p2p: boolean };
@@ -61,4 +62,18 @@ export function clientWsURL(
   if (query?.daemonId) url.searchParams.set("daemon_id", query.daemonId);
   if (query?.pairTicket) url.searchParams.set("pair_ticket", query.pairTicket);
   return url.toString();
+}
+
+export function clientWsURLForOrigin(origin: string, daemonId: string): string {
+	let site: URL;
+	try {
+		site = new URL(origin);
+	} catch {
+		throw new ProtocolError("bad_relay", "电脑地址无效");
+	}
+	const directIP = isTailnetIPv4(site.hostname);
+	if (site.origin !== origin || site.protocol !== "http:" || !directIP || site.port !== "18474") {
+		throw new ProtocolError("bad_relay", "电脑不是 Tailscale 直连地址");
+	}
+	return clientWsURL(2, site, { daemonId });
 }

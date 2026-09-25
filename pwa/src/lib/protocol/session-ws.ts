@@ -44,7 +44,7 @@ import {
   type UploadState,
   type UploadWriteInput,
 } from "./attachments.ts";
-import { relayOrigin } from "./frame-socket.ts";
+import { endpointOrigin } from "./frame-socket.ts";
 import type { PairResult } from "./pair-ws.ts";
 import { reconnectDelay } from "./reconnect-policy.ts";
 import { parseNetworkMode, type NetworkMode } from "../network-mode.ts";
@@ -720,7 +720,7 @@ class ReconnectingSession implements LiveSession {
 
 export async function sessionOverWS(relayWS: string, pair: PairResult, options: SessionOptions = {}): Promise<LiveSession> {
   if (pair.psk.length !== 32 || pair.daemonPk.length !== 32 || !validDaemonId(pair.daemonId) || !validDeviceId(pair.deviceId)) throw new ProtocolError("invalid_credential", "本机凭证不完整或标识非法");
-  if (pair.relayOrigin !== relayOrigin(relayWS)) throw new ProtocolError("bad_relay", "凭证不属于当前 relay");
+  if (pair.endpointOrigin !== endpointOrigin(relayWS)) throw new ProtocolError("bad_relay", "凭证不属于当前 relay");
   if (pair.fp !== fingerprint16(pair.daemonPk)) throw new ProtocolError("fp_mismatch", "已存 daemon 指纹不匹配");
   return ReconnectingSession.create(relayWS, pair, options);
 }

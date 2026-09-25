@@ -222,7 +222,17 @@ func installUserServiceLayout(layout serviceLayout) error {
 		return err
 	}
 	body := []byte(unitBody(layout))
-	if err := os.WriteFile(layout.UnitPath, body, 0o644); err != nil {
+	if err := writePrivateServiceUnit(layout.UnitPath, body); err != nil {
+		return err
+	}
+	logFile, err := os.OpenFile(layout.LogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	if err := logFile.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(layout.LogPath, 0o600); err != nil {
 		return err
 	}
 	if err := applyService(layout, "install"); err != nil {
@@ -241,6 +251,22 @@ func installUserServiceLayout(layout serviceLayout) error {
 	}
 	fmt.Printf("installed user service %s\nlogs: %s\n", layout.UnitPath, layout.LogPath)
 	return nil
+}
+
+func writePrivateServiceUnit(path string, body []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".pairfob-service-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(body); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 func uninstallUserService() error {

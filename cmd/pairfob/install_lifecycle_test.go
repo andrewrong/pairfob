@@ -27,7 +27,7 @@ func TestInstallerLifecycleFailuresDoNotClaimReady(t *testing.T) {
 			payload = installerFixturePayload(payload)
 			server := httptest.NewServer(updateFixture(artifactName(runtime.GOOS, runtime.GOARCH), "v1.1.1", payload))
 			defer server.Close()
-			cmd := exec.Command("sh", filepath.Join(repoRoot(t), "scripts/install.sh"), "--skip-herdr-check", "--no-enroll", "--prefix", prefix)
+			cmd := exec.Command("sh", filepath.Join(repoRoot(t), "scripts/install.sh"), "--skip-herdr-check", "--prefix", prefix)
 			cmd.Env = append(os.Environ(), "PAIRFOB_DOWNLOAD_BASE="+server.URL, "PAIRFOB_TEST_FAIL_PHASE="+phase)
 			out, err := cmd.CombinedOutput()
 			if err == nil || strings.Contains(string(out), "Pairfob is running") || strings.Contains(string(out), "Installation complete") {

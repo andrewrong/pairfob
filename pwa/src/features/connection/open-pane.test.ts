@@ -20,7 +20,7 @@ function credential(): PairResult {
     daemonPk: new Uint8Array(32),
     daemonId: "d_aaaaaaaaaaaaaaaaaaaa",
     fp: "fp_1",
-    relayOrigin: "https://pairfob.com",
+    endpointOrigin: "https://pairfob.com",
     label: "test",
     createdAt: 1,
   };

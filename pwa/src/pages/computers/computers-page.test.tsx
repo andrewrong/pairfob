@@ -32,7 +32,7 @@ function sample(id: string, hostname: string): PairResult {
     daemonPk: new Uint8Array(32),
     daemonId: id,
     fp: "0".repeat(16),
-    relayOrigin: "https://pairfob.com",
+    endpointOrigin: "https://pairfob.com",
     label: "iPhone",
     createdAt: 1_700_000_000_000,
     hostname,

@@ -80,14 +80,6 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
           defaultTermMode: preferences.defaultTermMode,
           defaultComposeLive: preferences.defaultComposeLive,
           composeEnterSends: preferences.composeEnterSends,
-          notification: {
-            loading: runtime.settingsLoading,
-            connected,
-            supported: "serviceWorker" in navigator && "PushManager" in window && "Notification" in window,
-            pushEnabled: runtime.pushEnabled,
-            pushSubscribed: runtime.pushSubscribed,
-            error: runtime.pushConfigError,
-          },
           desk: withBack,
         }} />
       )}

@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -75,17 +76,22 @@ func (e *Engine) OpenPairing(code string) (PairingStatus, error) {
 		return PairingStatus{}, err
 	}
 	ref := canon.PairRefHex(pairRef)
-	if _, err := e.pairingOffer(ref, norm, ""); err != nil {
+	ticketRaw := make([]byte, 16)
+	if _, err := rand.Read(ticketRaw); err != nil {
+		return PairingStatus{}, err
+	}
+	ticket := hex.EncodeToString(ticketRaw)
+	if _, err := e.pairingOffer(ref, norm, ticket, ""); err != nil {
 		return PairingStatus{}, err
 	}
 	record := spake2plus.DeriveRecord(norm, e.DaemonID, ref)
 	ttl := e.pairingTTL()
 	pair := &pairingSlot{
-		ref: ref, code: norm, record: record,
+		ref: ref, code: norm, ticket: ticket, record: record,
 		admitCh: make(chan struct{}), readyCh: make(chan struct{}),
 		expiresAt: time.Now().Add(ttl),
 	}
-	if e.muxVersion() == 2 {
+	if e.muxVersion() == 2 && !e.DirectMux {
 		pair.openWait = make(chan error, 1)
 	}
 
@@ -96,15 +102,17 @@ func (e *Engine) OpenPairing(code string) (PairingStatus, error) {
 	if oldRef != "" {
 		e.sendPairClose(oldRef)
 	}
-	if err := e.Conn.Send(envelope.JSON(envelope.TypPAIR_OPEN, [16]byte{}, e.pairOpenPayload(ref))); err != nil {
-		e.mu.Lock()
-		if e.pair != nil && e.pair.ref == ref {
-			e.burnPairLocked(e.pair)
+	if !e.DirectMux && e.Conn != nil {
+		if err := e.Conn.Send(envelope.JSON(envelope.TypPAIR_OPEN, [16]byte{}, e.pairOpenPayload(ref))); err != nil {
+			e.mu.Lock()
+			if e.pair != nil && e.pair.ref == ref {
+				e.burnPairLocked(e.pair)
+			}
+			e.mu.Unlock()
+			return PairingStatus{}, err
 		}
-		e.mu.Unlock()
-		return PairingStatus{}, err
 	}
-	if e.muxVersion() == 2 {
+	if e.muxVersion() == 2 && !e.DirectMux {
 		if err := e.waitPairOpenAck(pair); err != nil {
 			return PairingStatus{}, err
 		}
@@ -123,7 +131,7 @@ func (e *Engine) OpenPairing(code string) (PairingStatus, error) {
 	expires := pair.expiresAt
 	devices := e.pairedCountLocked()
 	e.mu.Unlock()
-	offer, err := e.pairingOffer(ref, norm, loc)
+	offer, err := e.pairingOffer(ref, norm, ticket, loc)
 	if err != nil {
 		return PairingStatus{}, err
 	}
@@ -146,8 +154,10 @@ func (e *Engine) pairOpenPayload(ref string) map[string]any {
 		"pair_ref": ref, "ttl_s": ttl,
 	}
 }
-
-func (e *Engine) pairingOffer(ref, code, loc string) (pairingqr.Offer, error) {
+func (e *Engine) pairingOffer(ref, code, ticket, loc string) (pairingqr.Offer, error) {
+	if e.DirectMux {
+		return pairingqr.NewTailnetOffer(e.Origin, e.DaemonID, ref, code, ticket, canon.Fingerprint16(e.PK))
+	}
 	return pairingqr.NewOffer(e.Origin, e.DaemonID, ref, code, canon.Fingerprint16(e.PK), e.muxVersion(), loc)
 }
 
@@ -268,13 +278,15 @@ func (e *Engine) RefreshPairing() {
 		e.mu.Unlock()
 		return
 	}
-	if e.muxVersion() == 2 && !pair.locReady {
+	if e.muxVersion() == 2 && !e.DirectMux && !pair.locReady {
 		e.mu.Unlock()
 		return
 	}
 	ref := pair.ref
 	e.mu.Unlock()
-	_ = e.Conn.Send(envelope.JSON(envelope.TypPAIR_OPEN, [16]byte{}, e.pairOpenPayload(ref)))
+	if !e.DirectMux && e.Conn != nil {
+		_ = e.Conn.Send(envelope.JSON(envelope.TypPAIR_OPEN, [16]byte{}, e.pairOpenPayload(ref)))
+	}
 }
 
 func (e *Engine) expirePairing(pair *pairingSlot) {
@@ -356,12 +368,47 @@ func (e *Engine) pairingStatusLocked(pair *pairingSlot) PairingStatus {
 	if pair.locReady {
 		loc = pair.loc
 	}
-	offer, _ := e.pairingOffer(pair.ref, pair.code, loc)
+	offer, _ := e.pairingOffer(pair.ref, pair.code, pair.ticket, loc)
 	return PairingStatus{
 		Ref: pair.ref, Code: pair.code, URL: offer.URL, Loc: loc,
 		Admitted: pair.admitted, Ready: pair.confirmVerified,
 		Devices: e.pairedCountLocked(), ExpiresAt: pair.expiresAt,
 	}
+}
+
+// ClaimTailnetPairing atomically consumes the opaque invitation ticket and
+// binds the supplied route to the active pairing. It deliberately reuses the
+// existing PAKE state machine after the gateway has authenticated the outer
+// direct-control attachment.
+func (e *Engine) ClaimTailnetPairing(ref, ticket, attempt string, routeID [16]byte) bool {
+	e.mu.Lock()
+	pair := e.pair
+	ok := e.DirectMux && pair != nil && !pair.closed && !pair.ticketClaimed && pair.ref == ref &&
+		len(ticket) == len(pair.ticket) && subtle.ConstantTimeCompare([]byte(ticket), []byte(pair.ticket)) == 1
+	if ok {
+		pair.ticketClaimed = true
+	}
+	e.mu.Unlock()
+	if !ok {
+		return false
+	}
+	body := map[string]any{"v": 2, "attempt_id": attempt, "route_id": hex.EncodeToString(routeID[:])}
+	e.Handle(envelope.JSON(envelope.TypPAIR_ATTACHED, routeID, body))
+	return true
+}
+
+// DropTailnetRoute burns an in-progress pairing when its one-use browser
+// socket closes. A consumed invitation never becomes reusable after a drop.
+func (e *Engine) DropTailnetRoute(routeID [16]byte) {
+	e.mu.Lock()
+	pair := e.pair
+	if pair == nil || pair.closed || pair.routeID != routeID {
+		e.mu.Unlock()
+		return
+	}
+	ref := e.burnPairLocked(pair)
+	e.mu.Unlock()
+	e.sendPairClose(ref)
 }
 
 func (e *Engine) PairingStatus() PairingStatus {

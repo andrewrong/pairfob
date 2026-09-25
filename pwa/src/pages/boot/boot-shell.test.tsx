@@ -31,7 +31,7 @@ const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 function computer(): PairResult {
   return {
     deviceId: "dev_abcdefgh", psk: new Uint8Array(32), daemonPk: new Uint8Array(32), daemonId: "d_aaaaaaaaaaaaaaaaaaaa",
-    fp: "0".repeat(16), relayOrigin: "https://pairfob.com", label: "iPhone", createdAt: 1, hostname: "Studio", lastSeen: 0,
+    fp: "0".repeat(16), endpointOrigin: "https://pairfob.com", label: "iPhone", createdAt: 1, hostname: "Studio", lastSeen: 0,
   };
 }
 

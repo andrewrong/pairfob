@@ -22,6 +22,7 @@ const (
 
 type webRTCAcceptor struct {
 	configuration webrtc.Configuration
+	api           *webrtc.API
 }
 
 func newWebRTCAcceptor() *webRTCAcceptor {
@@ -36,7 +37,11 @@ func (a *webRTCAcceptor) Accept(
 	onFrame func(mux.Conn, envelope.Frame),
 	onClose func(mux.Conn),
 ) (string, mux.Conn, error) {
-	peer, err := webrtc.NewPeerConnection(a.configuration)
+	api := a.api
+	if api == nil {
+		api = webrtc.NewAPI()
+	}
+	peer, err := api.NewPeerConnection(a.configuration)
 	if err != nil {
 		return "", nil, err
 	}

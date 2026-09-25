@@ -14,7 +14,7 @@ function credential(daemonId: string): PairResult {
     deviceId: "dev_phone01",
     psk: new Uint8Array(32),
     daemonPk: new Uint8Array(32),
-    relayOrigin: "https://pairfob.com",
+    endpointOrigin: "https://pairfob.com",
     fp: "fp_test",
     label: "Phone",
     createdAt: 1,

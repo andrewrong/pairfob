@@ -27,7 +27,7 @@ import { pairCodeDraft, setPairCodeDraft } from "../pairing/form-store";
 function pair(daemonId: string): PairResult {
   return {
     daemonId, deviceId: "phone", psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
-    relayOrigin: "https://pairfob.com", fp: "fp", label: "Owned", createdAt: 1,
+    endpointOrigin: "https://pairfob.com", fp: "fp", label: "Owned", createdAt: 1,
   };
 }
 

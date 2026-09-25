@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+bash "$ROOT/scripts/embed-pwa.sh"
+
 if [[ "${1:-}" == "--pwa-only" && $# == 2 ]]; then
   bun "$ROOT/scripts/pwa-release-scope.ts" "$2"
   exec bash "$ROOT/scripts/verify-web.sh"

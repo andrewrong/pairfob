@@ -29,7 +29,7 @@ const pair = (daemonId: string): PairResult => ({
   psk: new Uint8Array(32),
   daemonPk: new Uint8Array(32),
   fp: "0".repeat(16),
-  relayOrigin: "https://pairfob.com",
+  endpointOrigin: "https://pairfob.com",
   label: "phone",
   createdAt: 1_700_000_000_000,
 });

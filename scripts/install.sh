@@ -4,11 +4,10 @@ set -eu
 
 usage() {
   cat <<'EOF'
-usage: install.sh [--origin URL] [--prefix DIR] [--no-service] [--no-enroll] [--install-herdr] [--non-interactive] [--skip-herdr-check]
+usage: install.sh [--prefix DIR] [--no-service] [--install-herdr] [--non-interactive] [--skip-herdr-check]
 
-Downloads the pairfob binary for this machine, verifies SHA-256, enrolls
-against pairfob.com (or --origin), and installs a user-level service that
-starts at login.
+Downloads the pairfob binary for this machine, verifies SHA-256, and installs
+a user-level service that listens on this machine's Tailscale IPv4 address.
 
   --install-herdr     Install pinned Herdr if missing (no prompt)
   --non-interactive   Never prompt; missing Herdr fails unless --install-herdr
@@ -18,10 +17,8 @@ starts at login.
 EOF
 }
 
-ORIGIN=""
 PREFIX="${PAIRFOB_INSTALL_PREFIX:-}"
 NO_SERVICE=0
-NO_ENROLL=0
 INSTALL_HERDR=0
 NON_INTERACTIVE=0
 SKIP_HERDR_CHECK=0
@@ -33,15 +30,6 @@ while [ "$#" -gt 0 ]; do
     --grant | --grant=*)
       echo "install.sh: this setup does not use a join grant" >&2
       exit 1
-      ;;
-    --origin)
-      [ "$#" -ge 2 ] || { echo "install.sh: --origin needs a value" >&2; exit 1; }
-      ORIGIN="$2"
-      shift 2
-      ;;
-    --origin=*)
-      ORIGIN="${1#--origin=}"
-      shift
       ;;
     --prefix)
       [ "$#" -ge 2 ] || { echo "install.sh: --prefix needs a value" >&2; exit 1; }
@@ -57,10 +45,6 @@ while [ "$#" -gt 0 ]; do
     --skip-herdr-check) SKIP_HERDR_CHECK=1; shift ;;
     --no-service)
       NO_SERVICE=1
-      shift
-      ;;
-    --no-enroll)
-      NO_ENROLL=1
       shift
       ;;
     -h | --help)
@@ -166,11 +150,11 @@ mkdir -p "$PREFIX"
 dest="${PREFIX}/pairfob"
 legacy="${PREFIX}/pairfobd"
 
-# One lock covers preflight, file replacement, enroll and service readiness.
-"${workdir}/${name}" service with-install-lock sh -s -- "$workdir" "$name" "$dest" "$legacy" "$NO_SERVICE" "$NO_ENROLL" "$ORIGIN" "$SKIP_HERDR_CHECK" <<'INSTALL_TRANSACTION'
+# One lock covers preflight, file replacement, and service readiness.
+"${workdir}/${name}" service with-install-lock sh -s -- "$workdir" "$name" "$dest" "$legacy" "$NO_SERVICE" "$SKIP_HERDR_CHECK" <<'INSTALL_TRANSACTION'
 set -eu
 workdir="$1" name="$2" dest="$3" legacy="$4"
-NO_SERVICE="$5" NO_ENROLL="$6" ORIGIN="$7" SKIP_HERDR_CHECK="$8"
+NO_SERVICE="$5" SKIP_HERDR_CHECK="$6"
 
 # A reinstall is also the supported migration from the pre-release pairfobd
 # command. The verified new binary owns cleanup, so an older uninstaller cannot
@@ -185,14 +169,6 @@ chmod 0755 "$dest"
 ln -s pairfob "${workdir}/pairfobd"
 mv -f "${workdir}/pairfobd" "$legacy"
 echo "installed ${dest}"
-
-if [ "$NO_ENROLL" -eq 0 ]; then
-  set --
-  if [ -n "$ORIGIN" ]; then
-    set -- "$@" --origin "$ORIGIN"
-  fi
-  "$dest" enroll "$@"
-fi
 
 if [ "$NO_SERVICE" -eq 0 ]; then
   "$dest" service install
@@ -220,5 +196,5 @@ if [ "$SKIP_HERDR_CHECK" -eq 1 ] || [ "$NO_SERVICE" -eq 1 ]; then
 fi
 
 echo "On this computer:     pairfob pair"
-echo "On the other device:  https://pairfob.com/pair"
-echo "Scan or type the code, then press Enter here."
+echo "On the other device:  install Tailscale, then scan Pairfob's QR code"
+echo "Confirm pairing once on this computer."

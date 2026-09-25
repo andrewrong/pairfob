@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ProtocolError } from "./protocol/client.ts";
-import { clientWsURL, loadOriginConfig, originConfigErrorIsRecoverable, parseOriginConfig } from "./origin-config.ts";
+import { clientWsURL, clientWsURLForOrigin, loadOriginConfig, originConfigErrorIsRecoverable, parseOriginConfig } from "./origin-config.ts";
 
 describe("origin config", () => {
   test("parses protocol 2 only", () => {
@@ -78,5 +78,10 @@ describe("origin config", () => {
     expect(() => clientWsURL(1, site)).toThrow(ProtocolError);
     expect(clientWsURL(2, site)).not.toContain("/v1/ws");
     expect(clientWsURL(2, site, { daemonId: "d_0123456789abcdefabcd" })).not.toContain("pair_loc");
+  });
+
+  test("cross-computer WS rejects a domain masquerading as a Tailscale IP", () => {
+    expect(() => clientWsURLForOrigin("http://100.64.1.2.evil.example:18474", "d_0123456789abcdefabcd")).toThrow(ProtocolError);
+    expect(clientWsURLForOrigin("http://100.64.1.2:18474", "d_0123456789abcdefabcd").startsWith("ws://100.64.1.2:18474/v2/ws")).toBeTrue();
   });
 });

@@ -26,7 +26,12 @@ const ROUTE_COPY: Record<NetworkMode, { title: "set.routeAuto" | "set.routeP2P" 
 
 /** Three single-choice rows; choosing P2P again retries the direct path now. */
 function RouteGroup({ connection }: { connection: ConnectionRecord }) {
-  return <SetGroup className="route-group" label={t("set.routeGroup")} note={connection.p2pEnabled ? null : t("settings.networkP2POff")}>
+  if (!connection.p2pEnabled) {
+    return <SetGroup className="route-group" label={t("set.routeGroup")}>
+      <SetItem label={t("settings.networkTailnetLabel")} sub={t("settings.networkTailnetNote")} />
+    </SetGroup>;
+  }
+  return <SetGroup className="route-group" label={t("set.routeGroup")}>
     <SegmentedControl className="set-radios" activation="manual" aria-label={t("settings.networkAria")} aria-busy={connection.transportSwitching || undefined}>
       {NETWORK_MODE_OPTIONS.map(id => {
         const selected = connection.networkMode === id;

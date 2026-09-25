@@ -36,7 +36,7 @@ const { sessionOverWS } = await import("../src/lib/protocol/session-ws.ts");
 const pk = new Uint8Array(32).fill(3);
 const pair = {
   daemonId: "d_" + "a".repeat(20), deviceId: "dev_12345678", daemonPk: pk, psk: new Uint8Array(32).fill(9),
-  fp: fingerprint16(pk), relayOrigin: "https://pairfob.com",
+  fp: fingerprint16(pk), endpointOrigin: "https://pairfob.com",
 };
 
 const URL_ = "wss://pairfob.com/v2/ws";

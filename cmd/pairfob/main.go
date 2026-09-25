@@ -12,10 +12,10 @@ import (
 	"pairfob/internal/admin"
 	"pairfob/internal/audit"
 	"pairfob/internal/daemon"
-	"pairfob/internal/mux"
 	"pairfob/internal/pairingqr"
 	"pairfob/internal/runtime"
 	"pairfob/internal/state"
+	"pairfob/internal/tailnet"
 )
 
 func main() {
@@ -85,39 +85,27 @@ func runDaemon(store *state.Store, sock string) error {
 		go prepareRuntimeAvailability(rt, source, herdrAutostartEnabled(devFake, multiSession))
 	}
 
-	stored, err := store.LoadRelay()
+	origin := getenv("PAIRFOB_ORIGIN", "")
+	if origin == "" {
+		origin, err = tailnet.Endpoint(nil)
+		if err != nil {
+			return err
+		}
+	}
+	listener, err := tailnet.Listen(getenv("PAIRFOB_LISTEN_ADDR", origin))
 	if err != nil {
-		return fmt.Errorf("relay.json: %w", err)
+		return fmt.Errorf("tailnet listener: %w", err)
 	}
-	if err := reconcilePendingEnroll(store, stored); err != nil {
-		return fmt.Errorf("enroll-pending.json: %w", err)
-	}
-	env := muxEnvFromProcess(stored)
-	if pending, ok, pendingErr := store.LoadPendingEnroll(); pendingErr != nil {
-		return fmt.Errorf("enroll-pending.json: %w", pendingErr)
-	} else if ok {
-		env.PendingEnrollOrigin = pending.Origin
-	}
-	plan, err := inferMux(env)
-	if err != nil {
+	defer listener.Close()
+	if err := tailnet.ValidateOrigin(origin, listener); err != nil {
 		return err
 	}
-	if plan.Protocol == 2 && !plan.NeedEnroll {
-		resumedRelay, resumed, err := resumeRekeyV2(store, plan.Origin)
-		if err != nil {
-			return fmt.Errorf("resume relay rekey: %w", err)
-		}
-		if resumed {
-			stored = resumedRelay
-			env = muxEnvFromProcess(stored)
-			plan, err = inferMux(env)
-			if err != nil {
-				return err
-			}
-		}
+	if err := migrateHostedState(store); err != nil {
+		return fmt.Errorf("tailnet migration: %w", err)
 	}
-	engA, hubSide := mux.NewPipePair(128)
-	eng, err := daemon.NewPersistentEngine(nil, engA, rt, store, logger)
+	gateway := tailnet.New(listener, origin)
+	defer gateway.Close()
+	eng, err := daemon.NewPersistentEngine(nil, gateway, rt, store, logger)
 	if err != nil {
 		return fmt.Errorf("engine: %w", err)
 	}
@@ -126,47 +114,26 @@ func runDaemon(store *state.Store, sock string) error {
 	defer eng.CloseUploads()
 	eng.Build = version
 	eng.Updater = newRemoteUpdater(store.Dir)
-	if getenv("PAIRFOB_P2P", "1") != "0" {
-		eng.Direct = newWebRTCAcceptor()
+	if err := eng.EnsureDaemonID(); err != nil {
+		return fmt.Errorf("daemon identity: %w", err)
 	}
 	runtimeConfig := daemon.RuntimeConfig{
-		MuxProtocol: plan.Protocol,
-		PushEnabled: getenv("PAIRFOB_PUSH", "") == "1",
+		MuxProtocol: 2,
+		Origin:      origin,
+		PushEnabled: false,
 		AutoAdmit:   getenv("PAIRFOB_DEV_AUTO_ADMIT", "") == "1",
-	}
-	if plan.Origin != "" {
-		runtimeConfig.Origin = plan.Origin
-	} else if origin := getenv("PAIRFOB_ORIGIN", ""); origin != "" {
-		runtimeConfig.Origin = origin
-	}
-	if plan.NeedEnroll {
-		relay, err := enrollV2(store, plan.Origin)
-		if err != nil {
-			return fmt.Errorf("enroll: %w", err)
-		}
-		runtimeConfig.RelayURL, runtimeConfig.ReconnectToken = relay.URL, relay.ReconnectToken
-		id, _, _, err := store.LoadOrCreateIdentity()
-		if err != nil {
-			return fmt.Errorf("state identity: %w", err)
-		}
-		runtimeConfig.DaemonID = id.DaemonID
-	} else if plan.DialURL != "" {
-		runtimeConfig.RelayURL = plan.DialURL
+		DirectMux:   true,
 	}
 	target := eng.ConfigureRuntime(runtimeConfig)
+	gateway.Attach(eng)
+	go func() {
+		if serveErr := gateway.Serve(); serveErr != nil && !errors.Is(serveErr, net.ErrClosed) {
+			log.Printf("tailnet gateway: %v", serveErr)
+		}
+	}()
 	if runtimeConfig.AutoAdmit {
 		log.Printf("DEV_AUTO_ADMIT accepted the active pairing slot")
 	}
-
-	go eng.RecvLoop(nil)
-	link := newRelayLink(hubSide)
-	go link.sendLoop()
-	ready := make(chan error, 1)
-	go runRelay(link, eng, target.RelayURL, "", ready)
-	if err := <-ready; err != nil {
-		return fmt.Errorf("relay: %w", err)
-	}
-	go eng.MonitorPush(nil, 2*time.Second)
 
 	if err := announceStartup(eng, sock, getenv("PAIRFOB_PAIR_CODE", "")); err != nil {
 		return err
@@ -176,11 +143,34 @@ func runDaemon(store *state.Store, sock string) error {
 		return fmt.Errorf("complete update: %w", err)
 	}
 	log.Printf("pairfob admin %s daemon_id %s", sock, target.DaemonID)
-	err = admin.Serve(ln, liveAdmin{eng: eng, store: store, origin: plan.Origin, process: process, stop: func() { _ = ln.Close() }})
+	err = admin.Serve(ln, liveAdmin{eng: eng, store: store, origin: origin, process: process, stop: func() { _ = ln.Close() }})
 	if errors.Is(err, net.ErrClosed) {
 		return nil
 	}
 	return err
+}
+
+// migrateHostedState invalidates credentials issued for the retired hosted
+// relay. Browser storage lives on the old origin and cannot safely migrate to
+// a new MagicDNS origin, so every device pairs again after this transition.
+func migrateHostedState(store *state.Store) error {
+	relay, err := store.LoadRelay()
+	if err != nil {
+		return err
+	}
+	if relay.URL == "" && relay.ReconnectToken == "" && relay.Protocol == 0 {
+		return nil
+	}
+	if err := store.SaveDevices([]state.Device{}); err != nil {
+		return err
+	}
+	if err := store.SaveRelay(state.Relay{}); err != nil {
+		return err
+	}
+	if err := store.ClearPendingEnroll(); err != nil {
+		return err
+	}
+	return store.ClearPendingRekey()
 }
 
 func prepareRuntimeAvailability(rt runtime.Runtime, source string, autostart bool) {
@@ -221,7 +211,7 @@ func announceStartup(eng *daemon.Engine, sock, explicitCode string) error {
 		if err != nil {
 			return fmt.Errorf("pairing: %w", err)
 		}
-		if err := pairingqr.Print(os.Stdout, pairingqr.Offer{Code: offer.Code, Ref: offer.Ref, URL: offer.URL, Loc: offer.Loc}, time.Until(offer.ExpiresAt)); err != nil {
+		if err := pairingqr.Print(os.Stdout, pairingqr.Offer{Code: offer.Code, Ref: offer.Ref, URL: offer.URL, Loc: offer.Loc, Direct: eng.DirectMux}, time.Until(offer.ExpiresAt)); err != nil {
 			return fmt.Errorf("pairing QR: %w", err)
 		}
 		return nil

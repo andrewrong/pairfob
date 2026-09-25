@@ -28,7 +28,7 @@ const { openComputers, leaveComputers } = await import("../computers/actions");
 
 const credential = {
   daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "device", label: "test",
-  relayOrigin: "https://pairfob.com", createdAt: 1, fp: "fp",
+  endpointOrigin: "https://pairfob.com", createdAt: 1, fp: "fp",
   psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
 };
 

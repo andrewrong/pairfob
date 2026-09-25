@@ -1,6 +1,6 @@
 import { commitView } from "../../app/host";
 import {
-  applyPairingFragment, clearPairingFragment, originProtocol, pairingFragment, phase, setPhase, wsURL,
+  applyPairingFragment, clearPairingFragment, originProtocol, pairingFragment, phase, setPhase, wsURL, wsURLForOrigin,
 } from "../connection/connection-store";
 import {
   addingComputer, computers, liveSession, setAddingComputer, setCredential,
@@ -16,8 +16,7 @@ import type { PairingRecord } from "./form-store";
 import { cancelAddComputer, resumeComputer } from "../../features/computers/actions";
 import { FRIENDLY_ERROR, messageOf } from "../../lib/notices";
 import { t } from "../../lib/i18n";
-import { fragmentUsableOnOrigin, parseCodeAndLocator, parsePairingCode, resolveHandPairing } from "../../lib/pairing-input";
-import { requestPairIntent } from "../../lib/pair-intent";
+import { fragmentUsableOnOrigin, parseCodeAndLocator, parsePairingCode, parsePairingURL, resolveHandPairing } from "../../lib/pairing-input";
 import { PairingScanError, scanPairingCode } from "../../lib/pairing-scanner";
 import { normalizeCrockford } from "../../lib/protocol/bytes";
 import { pairOverWS, ProtocolError, type PairInput } from "../../lib/protocol/client";
@@ -132,7 +131,7 @@ export async function beginPairing(rawCode: string): Promise<void> {
   claimPairingAttempt();
   const work = currentWork();
   const page = pairingPageOwner();
-  const scanned = pairingFragment();
+  const scanned = pairingFragment() ?? parsePairingURL(rawCode.trim(), location.origin);
   setPairCodeDraft(rawCode);
   setPairFailure(null, null);
 
@@ -142,10 +141,10 @@ export async function beginPairing(rawCode: string): Promise<void> {
     return;
   }
 
-  const resolved = resolveHandPairing(2, rawCode, Boolean(scanned));
-  if (!resolved.ok) {
+  const resolved = resolveHandPairing(2, scanned && rawCode.trim().startsWith("http") ? scanned.code : rawCode, Boolean(scanned));
+  if (!resolved.ok || !scanned || (rawCode.trim().startsWith("http") && !scanned.pairToken)) {
     const length = normalizeCrockford(rawCode).length;
-    rejectLocal("code", rawCode ? t("err.pairIncomplete", { n: length }) : FRIENDLY_ERROR.locator_required, work);
+    rejectLocal("code", scanned ? t("err.pairIncomplete", { n: length }) : t("err.pairLink"), work);
     return;
   }
   pairAbortHandle()?.abort();
@@ -170,18 +169,13 @@ export async function beginPairing(rawCode: string): Promise<void> {
   let reached: PairStepKey = "channel";
   try {
     let relay = wsURL();
-    let attach: PairInput = scanned ? { pair_ref: scanned.pairRef } : {};
-    if (scanned?.daemonId) {
-      relay = wsURL({ daemonId: scanned.daemonId });
-      attach = { pair_ref: scanned.pairRef };
-    } else {
-      const intent = await requestPairIntent(resolved.loc!, fetch, abort.signal);
-      if (abort.signal.aborted || work !== currentWork()) {
-        throw new ProtocolError("pairing_cancelled", t("err.pairing_cancelled"));
-      }
-      relay = wsURL({ daemonId: intent.daemonId, pairTicket: intent.pairTicket });
-      attach = { pair_ref: intent.pairRef };
-    }
+		let attach: PairInput = scanned ? { pair_ref: scanned.pairRef, pair_token: scanned.pairToken } : {};
+		if (scanned?.daemonId) {
+			relay = scanned.endpointOrigin ? wsURLForOrigin(scanned.endpointOrigin, scanned.daemonId) : wsURL({ daemonId: scanned.daemonId });
+			attach = { pair_ref: scanned.pairRef, pair_token: scanned.pairToken };
+		} else {
+			throw new ProtocolError("invalid_pair_token", "请扫描这台电脑生成的一次性二维码");
+		}
     const pair = await pairOverWS(relay, attach, resolved.code, {
       protocol: originProtocol(),
       expectedDaemonId: scanned?.daemonId,
@@ -328,8 +322,9 @@ export async function pastePairCode(): Promise<void> {
   try {
     const text = await navigator.clipboard.readText();
     if (work !== currentWork()) return;
+    const link = parsePairingURL(text.trim(), location.origin);
     const both = parseCodeAndLocator(text);
-    const code = both ? `${both.code.slice(0, 4)}-${both.code.slice(4)}-${both.loc}` : parsePairingCode(text);
+    const code = link?.pairToken ? text.trim() : both ? `${both.code.slice(0, 4)}-${both.code.slice(4)}-${both.loc}` : parsePairingCode(text);
     setPairManualOpen(true);
     if (!code) {
       setPairFailure("code", "code");

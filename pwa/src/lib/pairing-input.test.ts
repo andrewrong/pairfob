@@ -76,6 +76,7 @@ describe("pair input validation", () => {
       fingerprint: "AAAAAAAAAAAAAAAAAAAAAA",
     });
     expect(parsePairingFragment(`${V2}&loc=WJ3K9M`)).toMatchObject({ v: 2, loc: "WJ3K9M", code: "7K3M9H2P" });
+    expect(parsePairingURL(`http://100.64.1.2.evil.example:18474/pair${V2}`, "http://100.64.1.2:18474")).toBeNull();
     expect(parsePairingFragment("#v=2&r=4f7a2c9e1b0d88aa55cc3311abde7001&c=7K3M9H2P&fp=AAAAAAAAAAAAAAAAAAAAAA")).toBeNull();
     expect(parsePairingFragment("#v=2&d=d_0123456789abcdefabcd&r=4f7a2c9e1b0d88aa55cc3311abde7001&c=7K3M9H2P")).toBeNull();
   });

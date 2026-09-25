@@ -1,16 +1,17 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"strings"
+	"time"
 
-	"pairfob/internal/admin"
 	"pairfob/internal/runtime"
 	"pairfob/internal/state"
+	"pairfob/internal/tailnet"
 )
 
 type health struct {
@@ -22,10 +23,9 @@ type health struct {
 	Phones         int
 	HerdrOK        bool
 	HerdrNote      string
-	Enrolled       bool
-	Origin         string
-	OriginNote     string
-	P2P            *bool
+	TailnetOK      bool
+	Tailnet        string
+	TailnetNote    string
 }
 
 func doctorCommand(sock string) error {
@@ -34,7 +34,7 @@ func doctorCommand(sock string) error {
 		return err
 	}
 	writeDoctor(os.Stdout, h)
-	if !h.Running || !h.HerdrOK {
+	if !h.Running || !h.HerdrOK || !h.TailnetOK {
 		return errDoctor
 	}
 	return nil
@@ -43,8 +43,7 @@ func doctorCommand(sock string) error {
 var errDoctor = fmt.Errorf("not ready")
 
 func gatherHealth(sock string) (health, error) {
-	configuredP2P := getenv("PAIRFOB_P2P", "1") != "0"
-	h := health{Version: version, Running: daemonIsLive(sock), P2P: &configuredP2P}
+	h := health{Version: version, Running: daemonIsLive(sock)}
 	store, err := state.Open("")
 	if err != nil {
 		return h, err
@@ -78,10 +77,6 @@ func gatherHealth(sock string) (health, error) {
 		} else {
 			h.ProcessNote = "could not verify the running version"
 		}
-		h.P2P = nil
-		if liveP2P, liveErr := loadDaemonP2P(sock); liveErr == nil {
-			h.P2P = liveP2P
-		}
 		if live, liveErr := loadPhones(sock); liveErr == nil {
 			h.Phones = len(live)
 		}
@@ -93,31 +88,24 @@ func gatherHealth(sock string) (health, error) {
 		h.HerdrOK = check.State == "ready"
 		h.HerdrNote = herdrInstallationNote(check)
 	}
-	stored, relayErr := store.LoadRelay()
-	if relayErr != nil {
-		h.OriginNote = relayErr.Error()
-		return h, nil
+	endpoint, endpointErr := tailnet.Endpoint(nil)
+	if configured := getenv("PAIRFOB_ORIGIN", ""); endpointErr == nil && configured != "" && configured != endpoint {
+		endpointErr = fmt.Errorf("configured origin does not match this Tailscale address")
 	}
-	h.Enrolled = stored.ReconnectToken != ""
-	env := muxEnvFromProcess(stored)
-	plan, inferErr := inferMux(env)
-	if inferErr != nil {
-		h.OriginNote = inferErr.Error()
-		return h, nil
-	}
-	h.Origin = originHost(plan.Origin)
-	if h.Origin == "" && plan.DialURL != "" {
-		h.Origin = originHost(originFromWSURL(plan.DialURL))
-	}
-	if plan.Origin != "" {
-		if proto, probeErr := probeOriginProtocol(plan.Origin); probeErr != "" {
-			h.OriginNote = probeErr
-		} else if proto != 0 && proto != plan.Protocol && plan.Protocol != 0 {
-			h.OriginNote = "origin protocol does not match this computer"
+	if endpointErr == nil && h.Running {
+		u, _ := url.Parse(endpoint)
+		conn, dialErr := net.DialTimeout("tcp", u.Host, time.Second)
+		if dialErr != nil {
+			endpointErr = fmt.Errorf("Pairfob is not listening on the Tailscale address: %w", dialErr)
+		} else {
+			_ = conn.Close()
 		}
 	}
-	if !h.Enrolled && plan.Protocol == 2 {
-		h.OriginNote = "not set up — re-run the installer"
+	if endpointErr != nil {
+		h.TailnetNote = endpointErr.Error()
+	} else {
+		h.TailnetOK = true
+		h.Tailnet = originHost(endpoint)
 	}
 	return h, nil
 }
@@ -142,19 +130,10 @@ func writeDoctor(w io.Writer, h health) {
 	fmt.Fprintf(w, "  Running     %s\n", yesNo(h.Running, "yes", "no — it starts at login after install"))
 	fmt.Fprintf(w, "  Paired      %d\n", h.Phones)
 	fmt.Fprintf(w, "  Herdr       %s\n", h.HerdrNote)
-	p2p := "unknown — restart Pairfob to check"
-	if h.P2P != nil {
-		p2p = yesNo(*h.P2P, "on", "off — this computer is relay-only")
-	}
-	fmt.Fprintf(w, "  P2P         %s\n", p2p)
-	origin := h.Origin
-	if origin == "" {
-		origin = "local"
-	}
-	if note := doctorOriginNote(h.OriginNote); note != "" {
-		fmt.Fprintf(w, "  Origin      %s (%s)\n", origin, note)
+	if h.TailnetOK {
+		fmt.Fprintf(w, "  Tailscale   %s\n", h.Tailnet)
 	} else {
-		fmt.Fprintf(w, "  Origin      %s\n", origin)
+		fmt.Fprintf(w, "  Tailscale   unavailable (%s)\n", doctorTailnetNote(h.TailnetNote))
 	}
 	if h.Running {
 		fmt.Fprintln(w, "\n  pairfob pair     pair a device")
@@ -164,16 +143,11 @@ func writeDoctor(w io.Writer, h health) {
 	}
 }
 
-func loadDaemonP2P(sock string) (*bool, error) {
-	resp, err := admin.Call(sock, admin.Request{Op: "pair.status"})
-	if err != nil {
-		return nil, notRunning(err)
+func doctorTailnetNote(note string) string {
+	if note == "" {
+		return "start Tailscale and join your tailnet"
 	}
-	var status admin.Pairing
-	if len(resp.Result) == 0 || json.Unmarshal(resp.Result, &status) != nil {
-		return nil, errors.New("pairfob returned an invalid status")
-	}
-	return status.P2P, nil
+	return "start Tailscale and join your tailnet"
 }
 
 func writeLiveSnapshot(w io.Writer, sock string) error {

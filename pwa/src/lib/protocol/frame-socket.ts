@@ -43,7 +43,7 @@ export function parseExactB64(value: unknown, bytes: number, field: string): Uin
   return decoded;
 }
 
-export function relayOrigin(relayWS: string): string {
+export function endpointOrigin(relayWS: string): string {
   const url = new URL(relayWS);
   if (url.protocol === "ws:") url.protocol = "http:";
   else if (url.protocol === "wss:") url.protocol = "https:";

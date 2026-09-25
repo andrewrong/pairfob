@@ -221,7 +221,7 @@ export async function establish(
     daemonPk: pair.daemonPk,
     daemonId: pair.daemonId,
     fp: pair.fp,
-    relayOrigin: pair.relayOrigin,
+    endpointOrigin: pair.endpointOrigin,
     label: pair.label,
     createdAt: pair.createdAt,
     hostname: pair.hostname,

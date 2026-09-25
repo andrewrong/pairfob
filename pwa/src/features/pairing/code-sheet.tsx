@@ -1,7 +1,6 @@
 import { useId, useRef, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { t } from "../../lib/i18n";
-import { PAIR_CODE_WITH_LOCATOR_PATTERN } from "../../lib/pairing-input";
 import { useDialogLifecycle } from "../../shared/ui/overlay/dialog-lifecycle";
 import { SheetContent } from "../../shared/ui/overlay/sheet-content";
 import { Button } from "../../shared/ui/primitives";
@@ -40,9 +39,9 @@ export function PairCodeSheet({ view, onDismiss, onPaste, onSubmit, onCodeChange
             <Button className="pair-paste" onClick={onPaste}>{t("connect.paste")}</Button>
           </div>
           <input id="pair-code" name="code" type="text" className="pair-code-input" autoComplete="one-time-code"
-            spellCheck={false} autoCapitalize="characters" autoCorrect="off" inputMode="text" enterKeyHint="go"
-            placeholder={t("connect.pairHint")} value={view.pairCodeDraft} maxLength={20} required
-            pattern={PAIR_CODE_WITH_LOCATOR_PATTERN} title={t("connect.pairTitle")}
+            spellCheck={false} autoCapitalize="off" autoCorrect="off" inputMode="url" enterKeyHint="go"
+            placeholder={t("connect.pairHint")} value={view.pairCodeDraft} maxLength={1024} required
+            title={t("connect.pairTitle")}
             aria-invalid={view.pairCodeInvalid ? "true" : undefined} aria-describedby="pair-feedback"
             onChange={event => {
               const field = event.currentTarget;
@@ -51,7 +50,7 @@ export function PairCodeSheet({ view, onDismiss, onPaste, onSubmit, onCodeChange
             }} />
           <div className={`pair-help${error ? " is-error" : ""}`}>
             <span id="pair-feedback" role={error ? "alert" : undefined}>{hint}</span>
-            <span className={`field-count${view.pairCodeComplete ? " ok" : ""}`}>{`${view.pairCodeLength}/14`}</span>
+            {view.pairCodeDraft.startsWith("http") ? null : <span className={`field-count${view.pairCodeComplete ? " ok" : ""}`}>{`${view.pairCodeLength}/14`}</span>}
           </div>
           <Button type="submit" className="btn btn-primary btn-connect">{t("connect.submit")}</Button>
         </SheetContent>

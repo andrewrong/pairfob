@@ -51,10 +51,10 @@ mock.module("../../lib/credentials", () => ({
 }));
 mock.module("../../lib/pairing-scanner", () => ({ ...scanner, scanPairingCode: async () => null }));
 
-const scanned = { v: 2, code: "ABCDEFGH", pairRef: "ref", daemonId: "d_aaaaaaaaaaaaaaaaaaaa", fingerprint: "fingerprint" };
+const scanned = { v: 2, code: "ABCDEFGH", pairRef: "ref", daemonId: "d_aaaaaaaaaaaaaaaaaaaa", fingerprint: "fingerprint", pairToken: "a".repeat(32), endpointOrigin: "http://100.64.1.2:18474" };
 const paired = {
   daemonId: scanned.daemonId, deviceId: "dev_phone", psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
-  relayOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
+  endpointOrigin: "http://100.64.1.2:18474", fp: "fp", label: "Phone", createdAt: 1,
 };
 const deferred = <T,>() => {
   let resolve!: (value: T) => void, reject!: (error: unknown) => void;

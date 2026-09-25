@@ -9,7 +9,7 @@ export interface StoredCredential {
   device_id: string;
   device_psk: string;
   daemon_pk: string;
-  relay_origin: string;
+  endpoint_origin: string;
   fp: string;
   label: string;
   created_at: number;
@@ -58,18 +58,18 @@ export function validateStoredCredential(value: unknown): StoredCredential | nul
   if (
     !validDaemonId(daemonId) ||
     !validDeviceId(deviceId) ||
-    typeof item.relay_origin !== "string" ||
+    typeof item.endpoint_origin !== "string" ||
     typeof item.fp !== "string" ||
     typeof item.label !== "string" ||
     typeof item.created_at !== "number" || !Number.isSafeInteger(item.created_at)
   ) return null;
   let origin: string;
   try {
-    origin = new URL(item.relay_origin).origin;
+    origin = new URL(item.endpoint_origin).origin;
   } catch {
     return null;
   }
-  if (origin !== item.relay_origin) return null;
+  if (origin !== item.endpoint_origin) return null;
   const psk = exactB64(item.device_psk, 32);
   const daemonPk = exactB64(item.daemon_pk, 32);
   if (!psk || !daemonPk || fingerprint16(daemonPk) !== item.fp) return null;
@@ -80,7 +80,7 @@ export function validateStoredCredential(value: unknown): StoredCredential | nul
     device_id: deviceId,
     device_psk: b64url(psk),
     daemon_pk: b64url(daemonPk),
-    relay_origin: origin,
+    endpoint_origin: origin,
     fp: item.fp,
     label: item.label,
     created_at: item.created_at,
@@ -106,7 +106,7 @@ export function migrateLegacyCredential(value: unknown, origin: string): StoredC
     device_id: item.device_id,
     device_psk: b64url(psk),
     daemon_pk: b64url(daemonPk),
-    relay_origin: origin,
+    endpoint_origin: origin,
     fp: fingerprint16(daemonPk),
     label: "Existing browser",
     created_at: Math.floor(Date.now() / 1000),
@@ -120,7 +120,7 @@ export function encodeCredential(pair: PairResult): StoredCredential {
     device_id: pair.deviceId,
     device_psk: b64url(pair.psk),
     daemon_pk: b64url(pair.daemonPk),
-    relay_origin: pair.relayOrigin,
+    endpoint_origin: pair.endpointOrigin,
     fp: pair.fp,
     label: pair.label,
     created_at: pair.createdAt,
@@ -141,7 +141,7 @@ export function decodeCredential(stored: StoredCredential): PairResult {
     deviceId: valid.device_id,
     psk: b64urlDecode(valid.device_psk),
     daemonPk: b64urlDecode(valid.daemon_pk),
-    relayOrigin: valid.relay_origin,
+    endpointOrigin: valid.endpoint_origin,
     fp: valid.fp,
     label: valid.label,
     createdAt: valid.created_at,
@@ -232,7 +232,7 @@ async function readCredentials(origin: string): Promise<PairResult[]> {
     const credentials = values
       .map((value) => {
         const stored = validateStoredCredential(value) || migrateLegacyCredential(value, origin);
-        return stored && stored.relay_origin === origin ? decodeCredential(stored) : null;
+        return stored && stored.endpoint_origin === origin ? decodeCredential(stored) : null;
       })
       .filter((item): item is PairResult => item !== null);
     for (const pair of credentials) {

@@ -55,7 +55,7 @@ export function TerminalMiniature({ stage }: { stage: ConnectStage }) {
           <i className="term-mini-corner is-bl" /><i className="term-mini-corner is-br" />
           <i className="term-mini-sweep" />
         </div>
-        <p className="term-mini-dim">Can't scan? Type this pairing code: <span className="term-mini-mask"><i /><i /><i /></span></p>
+        <p className="term-mini-dim">Can't scan? Paste the complete pairing link: <span className="term-mini-mask"><i /><i /><i /></span></p>
         <div className="term-mini-tail">
           {stage === "approve" ? <>
             <p className="term-mini-dim">Waiting to pair…</p>

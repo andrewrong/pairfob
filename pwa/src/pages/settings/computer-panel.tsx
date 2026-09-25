@@ -32,7 +32,7 @@ export function linkState(status: HerdStatus, network: SettingsNetworkInput, con
   const fail = settingsNetworkP2PFail(network);
   const runtime = status.tone === "live" ? null : status.text;
   return {
-    wire: network.sessionTransport === "p2p" ? "p2p" : "relay",
+    wire: !network.p2pEnabled || network.sessionTransport === "p2p" ? "p2p" : "relay",
     chip: settingsNetworkPath(network),
     note: fail || runtime,
     noteTone: fail || status.tone === "warn" || status.tone === "off" ? "warn" : "muted",

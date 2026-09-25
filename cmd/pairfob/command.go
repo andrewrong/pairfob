@@ -37,8 +37,8 @@ func runCommand(args []string, sock string) error {
 		return setupClaudeQuota(args[1:])
 	case "version", "-v", "--version":
 		return versionCommand()
-	case "enroll":
-		return enrollCommand(args[1:], sock)
+	case "enroll", "relay":
+		return errors.New("Pairfob uses your Tailscale tailnet directly; no relay enrollment is required")
 	case "pair":
 		return pairCommand(args[1:], sock)
 	case "list":
@@ -56,8 +56,6 @@ func runCommand(args []string, sock string) error {
 		return setupCommand(args[1:])
 	case "doctor":
 		return doctorCommand(sock)
-	case "relay":
-		return relayCredentialCommand(args[1:], sock)
 	case "service":
 		return serviceCommand(args[1:])
 	case "update":

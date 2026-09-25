@@ -96,7 +96,7 @@ async function boot(fullTerminal: boolean): Promise<Boot> {
     paneRead: async () => ({ text: "unchanged terminal", hash: "a".repeat(64) }),
   } as unknown as LiveSession;
   await establish(
-    { daemonId, deviceId: "phone", psk: new Uint8Array(32), daemonPk: new Uint8Array(32), relayOrigin: "https://pairfob.com", fp: "test", createdAt: 1 } as PairResult,
+    { daemonId, deviceId: "phone", psk: new Uint8Array(32), daemonPk: new Uint8Array(32), endpointOrigin: "https://pairfob.com", fp: "test", createdAt: 1 } as PairResult,
     async () => session,
   );
   stopPolling();

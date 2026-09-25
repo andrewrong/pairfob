@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,39 @@ import (
 	"pairfob/internal/mux"
 	"pairfob/internal/runtime"
 )
+
+func TestDirectPairingOfferUsesOneTimeTailnetTicket(t *testing.T) {
+	a, _ := mux.NewPipePair(16)
+	eng := NewEngine(nil, a, runtime.NewFake())
+	eng.DaemonID = "d_0123456789abcdef0123"
+	eng.MuxProtocol = 2
+	eng.DirectMux = true
+	eng.Origin = "https://desk.example.ts.net"
+
+	status, err := eng.OpenPairing("ABCDEFGH")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := url.Parse(status.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Scheme+"://"+u.Host != eng.Origin || u.Path != "/pair" {
+		t.Fatalf("offer URL = %s", status.URL)
+	}
+	fragment, err := url.ParseQuery(u.Fragment)
+	if err != nil || len(fragment.Get("t")) != 32 {
+		t.Fatalf("one-time ticket missing from %q", u.Fragment)
+	}
+	var route [16]byte
+	route[0] = 1
+	if !eng.ClaimTailnetPairing(status.Ref, fragment.Get("t"), "tailnet_test", route) {
+		t.Fatal("first tailnet claim was rejected")
+	}
+	if eng.ClaimTailnetPairing(status.Ref, fragment.Get("t"), "tailnet_test_2", route) {
+		t.Fatal("one-time ticket was accepted twice")
+	}
+}
 
 // OpenPairing derives the SPAKE record before it writes PAIR_OPEN. The race
 // detector stretches that Argon2 work far past a short RecvTimeout.

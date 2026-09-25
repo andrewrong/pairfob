@@ -5,6 +5,7 @@ node_modules/
 
 # build / pack (rebuild with bun / scripts/pack-origin-assets.sh / release.sh)
 pwa/dist
+internal/tailnet/ui/generated/
 workers/pairfob-origin/public-dist
 site/doc/.vitepress/dist
 site/doc/.vitepress/cache

@@ -17,7 +17,7 @@ const { adoptDaemonPreferences, preferencesStore, setPaneTermMode } = await impo
 function credential(daemonId: string, label = "Computer"): PairResult {
   return {
     daemonId, deviceId: `dev_${daemonId}`, psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
-    relayOrigin: "https://pairfob.com", fp: "fp_test", label, createdAt: 1,
+    endpointOrigin: "https://pairfob.com", fp: "fp_test", label, createdAt: 1,
   };
 }
 

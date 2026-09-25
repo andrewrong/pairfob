@@ -21,7 +21,7 @@ const {
 } = await import("./daemon-update");
 
 const credential = (id: string) => ({
-  daemonId: id, deviceId: "device", label: "test", relayOrigin: "https://pairfob.com",
+  daemonId: id, deviceId: "device", label: "test", endpointOrigin: "https://pairfob.com",
   createdAt: 1, fp: "fp", psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
 });
 

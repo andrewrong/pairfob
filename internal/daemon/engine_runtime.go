@@ -10,6 +10,7 @@ type RuntimeConfig struct {
 	DaemonID       string
 	PushEnabled    bool
 	AutoAdmit      bool
+	DirectMux      bool
 }
 
 // RuntimeTarget is the connection state the bootstrap needs after applying
@@ -40,6 +41,7 @@ func (e *Engine) ConfigureRuntime(config RuntimeConfig) RuntimeTarget {
 	}
 	e.PushEnabled = config.PushEnabled
 	e.AutoAdmit = config.AutoAdmit
+	e.DirectMux = config.DirectMux
 
 	return RuntimeTarget{RelayURL: e.RelayURL, DaemonID: e.DaemonID}
 }

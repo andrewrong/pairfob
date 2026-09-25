@@ -1,25 +1,23 @@
 # Pairfob agent notes
 
-**Product, protocol, and scale are defined by this repo and `proto/`.** The
-hosted data plane is `pairfob.v2` (Cloudflare Worker + one Durable Object per
-`daemon_id`, origin `https://pairfob.com`). Envelope bytes stay `pairfob.v1`:
+**Product and protocol are defined by this repo and `proto/`.** The active data
+plane is direct `pairfob.v2` over the computer's Tailscale IPv4 address on port
+18474. Envelope bytes stay `pairfob.v1`:
 `proto/envelope.md`, `proto/rpc.schema.json`, `proto/pairfob-vectors.json`. Do
 not change HKDF info, AAD, Argon2id, DeviceHello transcript, or inner RPC
 fields. v2 only adds the mux control plane (`proto/envelope-v2.md`); `pair_loc`
 never enters SPAKE / Argon2.
 
 ```
-phone PWA --HTTPS/WSS pairfob.v2--> pairfob.com (Worker+R2)
-                                      Worker /v2/ws → DaemonRoom DO
-pairfob --outbound WSS--> that DO --opaque FWD-- the phone on the same DO
-pairfob --loopback--> HarnessRuntime
+phone PWA --Tailscale HTTP/WS pairfob.v2--> pairfob daemon
+                                               --loopback--> Herdr
 ```
 
-The relay / DO is frame-level only and does not parse `FWD`. Identity and keys
-live only on the daemon. Reads and writes require an `Established` session. The
-product relay is `workers/pairfob-origin` (`pairfob.v2`). `https://pairfob.com`
-is this project's official instance. User docs do not offer a self-hosted origin. The
-`internal/mux` Hub is an in-process test stand-in, not a deployable origin.
+The direct gateway routes frames and does not parse `FWD`. Identity and keys
+live only on the daemon. Reads and writes require an `Established` session.
+Pairing uses a one-use ticket carried in the QR or complete pairing link;
+the short SPAKE code alone cannot attach. Bind only the computer's Tailscale
+IPv4 address. The `internal/mux` Hub is an in-process test stand-in.
 
 ## File size (hard limit)
 
@@ -68,10 +66,13 @@ from the original module so imports do not churn.
 
 ## Directories
 
+For code navigation or cross-module changes, start with `docs/code-map.md`.
+
 | Path | Duty |
 | --- | --- |
-| `cmd/pairfob` | outbound origin, pairing CLI, local Herdr |
-| `workers/pairfob-origin` | the only relay: Worker + R2 + DaemonRoom DO (production and `wrangler dev`) |
+| `cmd/pairfob` | direct listener, pairing CLI, local Herdr |
+| `internal/tailnet` | daemon-hosted PWA and direct frame gateway |
+| `workers/pairfob-origin` | retained hosted-origin code and compatibility tests; not the active product path |
 | `cmd/genvectors` | generate `proto/pairfob-vectors.json` from the Go crypto |
 | `internal/mux` | frame routing; does not touch FWD plaintext |
 | `internal/daemon` | pairing, session, RPC, push, operation ledger |
@@ -81,7 +82,7 @@ from the original module so imports do not churn.
 | `pwa/src/lib` | UI pure functions and DOM helpers; `main.ts` only orchestrates |
 | `proto/` | frozen envelope, RPC schema, vectors, PGP words |
 | `scripts/verify.sh` | format, vet, Go tests (including race), PWA tests, Worker origin tests, typecheck, production build |
-| `scripts/install.sh` | one-line install of pairfob (checksum, enroll, user-level service) |
+| `scripts/install.sh` | one-line install of pairfob (checksum and user-level service) |
 | `scripts/release.sh` | cross-compile SemVer `dist/dl/pairfob-{os}-{arch}` + SHA256SUMS (`git tag vX.Y.Z`) |
 | `scripts/site-shots.ts` | render the homepage product stills `site/img/home/{en,zh}` from the `pwa/qa` fixtures; rerun after PWA screen changes |
 
@@ -96,7 +97,8 @@ package can express that duty.
   the Go/TS implementations; both ends must be bit-identical. Mux JSON `"v":2`
   is in `proto/envelope-v2.md`. Do not implement a `/v1/ws` origin again.
 - Public paths are default-deny. Do not trust a client-claimed `device_id`, and
-  do not expose the Herdr HTTP/Unix socket to the relay.
+  do not expose the Herdr HTTP/Unix socket to the gateway. Keep the advertised
+  origin and bound listener on the same Tailscale IPv4 address and port.
 - Mutations carry a fresh `operation_id` and are not retried automatically;
   `unknown_outcome` only refreshes, never replays.
 - The `GetConfig.capabilities` keys are the authority for showing and

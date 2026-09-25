@@ -15,7 +15,7 @@ function pair(daemonId: string, extra: Partial<PairResult> = {}): PairResult {
     psk: new Uint8Array(32),
     daemonPk: new Uint8Array(32),
     fp: "fp",
-    relayOrigin: "https://pairfob.com",
+    endpointOrigin: "https://pairfob.com",
     label: "iPhone",
     createdAt: 10,
     ...extra,

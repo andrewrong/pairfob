@@ -12,7 +12,7 @@ const secret = new Uint8Array(32).fill(7);
 const pk = ed25519.getPublicKey(secret);
 export const socketPair = {
   daemonId: "d_" + "a".repeat(20), deviceId: "dev_12345678", daemonPk: pk,
-  psk: new Uint8Array(32).fill(9), fp: fingerprint16(pk), relayOrigin: "https://pairfob.test",
+  psk: new Uint8Array(32).fill(9), fp: fingerprint16(pk), endpointOrigin: "https://pairfob.test",
 } as PairResult;
 
 export class SessionSocket extends EventTarget {

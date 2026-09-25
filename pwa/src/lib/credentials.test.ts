@@ -12,7 +12,7 @@ describe("stored credentials", () => {
       psk: new Uint8Array(32).fill(7),
       daemonPk,
       fp: fingerprint16(daemonPk),
-      relayOrigin: "https://pairfob.com",
+      endpointOrigin: "https://pairfob.com",
       label: "Test phone",
       createdAt: 123,
     };
@@ -22,7 +22,7 @@ describe("stored credentials", () => {
       device_id: "dev_abcdefgh",
       device_psk: b64url(pair.psk),
       daemon_pk: b64url(daemonPk),
-      relay_origin: "https://pairfob.com",
+      endpoint_origin: "https://pairfob.com",
       fp: pair.fp,
       label: "Test phone",
       created_at: 123,
@@ -38,7 +38,7 @@ describe("stored credentials", () => {
       psk: new Uint8Array(32).fill(7),
       daemonPk,
       fp: fingerprint16(daemonPk),
-      relayOrigin: "https://pairfob.com",
+      endpointOrigin: "https://pairfob.com",
       label: "Test phone",
       createdAt: 123,
       hostname: "studio",
@@ -57,7 +57,7 @@ describe("stored credentials", () => {
       device_id: stored.device_id,
       device_psk: stored.device_psk,
       daemon_pk: stored.daemon_pk,
-      relay_origin: stored.relay_origin,
+      endpoint_origin: stored.endpoint_origin,
       fp: stored.fp,
       label: stored.label,
       created_at: stored.created_at,
@@ -71,7 +71,7 @@ describe("stored credentials", () => {
       device_id: "dev",
       device_psk: b64url(new Uint8Array(31)),
       daemon_pk: b64url(new Uint8Array(32)),
-      relay_origin: "https://pairfob.com",
+      endpoint_origin: "https://pairfob.com",
       fp: "wrong",
       label: "phone",
       created_at: 1,
@@ -83,7 +83,7 @@ describe("stored credentials", () => {
       psk: new Uint8Array(32),
       daemonPk,
       fp: fingerprint16(daemonPk),
-      relayOrigin: "https://pairfob.com",
+      endpointOrigin: "https://pairfob.com",
       label: "phone",
       createdAt: 1,
     })).toThrow("invalid credential");
@@ -97,7 +97,7 @@ describe("stored credentials", () => {
       daemon_pk: new Uint8Array(32).fill(2),
       sas: "unused",
     }, "https://pairfob.com");
-    expect(legacy?.relay_origin).toBe("https://pairfob.com");
+    expect(legacy?.endpoint_origin).toBe("https://pairfob.com");
     expect(legacy?.fp).toBe(fingerprint16(new Uint8Array(32).fill(2)));
   });
 });

@@ -1,6 +1,7 @@
 import { b64url, b64urlDecode, normalizeCrockford } from "./protocol/bytes.ts";
 import { validDaemonId } from "./identifiers.ts";
 import type { MuxProtocol } from "./protocol/mux.ts";
+import { isTailnetIPv4 } from "./tailnet-ip.ts";
 
 export interface FragmentPairing {
   v: 1 | 2;
@@ -9,6 +10,8 @@ export interface FragmentPairing {
   daemonId?: string;
   fingerprint?: string;
   loc?: string;
+  pairToken?: string;
+  endpointOrigin?: string;
 }
 
 // HTML pattern is compiled with the RegExp v flag. Its character classes
@@ -81,6 +84,7 @@ export function parsePairingFragment(hash: string): FragmentPairing | null {
   const code = normalizeCrockford(params.get("c") || "");
   const daemonId = params.get("d") || undefined;
   const fingerprintRaw = params.get("fp") || undefined;
+	const pairToken = (params.get("t") || "").toLowerCase();
   if (!/^[0-9a-f]{32}$/.test(pairRef) || !/^[0-9A-HJKMNP-TV-Z]{8}$/.test(code)) return null;
   if (daemonId && !validDaemonId(daemonId)) return null;
   if (version === "1") {
@@ -92,7 +96,7 @@ export function parsePairingFragment(hash: string): FragmentPairing | null {
     }
     return { v: 1, pairRef, code, daemonId, fingerprint };
   }
-  if (!daemonId || !fingerprintRaw) return null;
+	if (!daemonId || !fingerprintRaw || (pairToken && !/^[0-9a-f]{32}$/.test(pairToken))) return null;
   const fingerprint = parseFingerprint(fingerprintRaw);
   if (!fingerprint) return null;
   const locRaw = params.get("loc");
@@ -102,15 +106,17 @@ export function parsePairingFragment(hash: string): FragmentPairing | null {
     if (!parsed) return null;
     loc = parsed;
   }
-  return { v: 2, pairRef, code, daemonId, fingerprint, ...(loc ? { loc } : {}) };
+	return { v: 2, pairRef, code, daemonId, fingerprint, ...(pairToken ? { pairToken } : {}), ...(loc ? { loc } : {}) };
 }
 
 export function parsePairingURL(raw: string, expectedOrigin: string): FragmentPairing | null {
-  try {
-    const url = new URL(raw, expectedOrigin);
-    if (url.origin !== expectedOrigin || url.search) return null;
-    if (url.pathname !== "/pair" && url.pathname !== "/pair/") return null;
-    return parsePairingFragment(url.hash);
+	try {
+		const url = new URL(raw, expectedOrigin);
+		const remoteTailnet = url.protocol === "http:" && isTailnetIPv4(url.hostname) && url.port === "18474";
+		if ((url.origin !== expectedOrigin && !remoteTailnet) || url.search) return null;
+		if (url.pathname !== "/pair" && url.pathname !== "/pair/") return null;
+		const pairing = parsePairingFragment(url.hash);
+		return pairing ? (remoteTailnet ? { ...pairing, endpointOrigin: url.origin } : pairing) : null;
   } catch {
     return null;
   }

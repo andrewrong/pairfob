@@ -54,7 +54,7 @@ function mountLiveOn(screen: "settings" | "quota"): void {
       setCredential({
         daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "dev_phone",
         psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
-        relayOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
+        endpointOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
       });
     });
     mountApp();
@@ -130,7 +130,7 @@ test("quota panel does not fetch while rendering", async () => {
     setCredential({
       daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "dev_phone",
       psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
-      relayOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
+      endpointOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
     });
     attachLiveSession({ isConnected: () => true, agentQuota: async () => { calls += 1; return [sample()]; } } as LiveSession);
     batch(() => { setPhase("live"); setScreen("quota"); });

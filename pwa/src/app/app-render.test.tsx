@@ -26,7 +26,7 @@ const { applyRuntimeIdentity } = await import("../features/connection/runtime-st
 function computer(hostname: string): PairResult {
   return {
     daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "dev_phone", psk: new Uint8Array(32),
-    daemonPk: new Uint8Array(32), relayOrigin: "https://pairfob.com", fp: "fp", label: "Phone",
+    daemonPk: new Uint8Array(32), endpointOrigin: "https://pairfob.com", fp: "fp", label: "Phone",
     createdAt: 1, hostname,
   };
 }

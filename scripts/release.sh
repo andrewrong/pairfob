@@ -23,6 +23,8 @@ if [[ -z "$COMMIT" ]] && command -v git >/dev/null 2>&1 && git -C "$ROOT" rev-pa
 fi
 pairfob_require_shipable_version "$VERSION" "release.sh VERSION"
 
+bash "$ROOT/scripts/embed-pwa.sh"
+
 OUT="${OUT:-$ROOT/dist/dl}"
 rm -rf "$OUT"
 mkdir -p "$OUT"

@@ -24,11 +24,12 @@ export function helloClientBody(protocol: MuxProtocol): { v: MuxProtocol; protoc
   return { v: protocol, protocol };
 }
 
-export function pairAttachBody(protocol: MuxProtocol, pairRef?: string): { v: MuxProtocol; pair_ref?: string } {
-  if (protocol === 2) {
-    if (!pairRef) throw new ProtocolError("invalid_pair_ref", "v2 PAIR_ATTACH requires pair_ref");
-    return { v: 2, pair_ref: pairRef };
-  }
+export function pairAttachBody(protocol: MuxProtocol, pairRef?: string, pairToken?: string): { v: MuxProtocol; pair_ref?: string; pair_token?: string } {
+	if (protocol === 2) {
+		if (!pairRef) throw new ProtocolError("invalid_pair_ref", "v2 PAIR_ATTACH requires pair_ref");
+		if (pairToken !== undefined && !/^[0-9a-f]{32}$/.test(pairToken)) throw new ProtocolError("invalid_pair_token", "pair_token 格式错误");
+		return pairToken ? { v: 2, pair_ref: pairRef, pair_token: pairToken } : { v: 2, pair_ref: pairRef };
+	}
   return pairRef ? { v: 1, pair_ref: pairRef } : { v: 1 };
 }
 

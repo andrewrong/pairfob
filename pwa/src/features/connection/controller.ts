@@ -44,7 +44,7 @@ import { clearNotice, showError, showStatus } from "../../app/notices-store";
 import { leavePaneScreen } from "../../app/navigation-store";
 import { messageOf, sessionEventNotice } from "../../lib/notices";
 import { resetPaneView } from "../session/session-store";
-import { wsURL } from "./connection-store";
+import { wsURLForOrigin } from "./connection-store";
 import { track } from "../../lib/telemetry";
 import { applyComposeDraft, bumpViewIncarnation, captureComposeDraft, currentViewIncarnation, parkComposeView } from "../session/drafts/compose-drafts";
 import { clearAgentTraceCache } from "../../lib/agent-trace-cache";
@@ -123,8 +123,8 @@ const livePolling = createLivePolling({
 });
 const computerSessions = new ComputerSessions(3);
 const connectComputerSession: SessionConnector = (credential, observeP2PAttempt) =>
-  sessionOverWS(wsURL({ daemonId: credential.daemonId }), credential, {
-    p2p: connectionStore.get().p2pEnabled,
+  sessionOverWS(wsURLForOrigin(credential.endpointOrigin, credential.daemonId), credential, {
+	 p2p: false,
     networkMode: connectionStore.get().networkMode,
     onP2PAttempt: (observation) => {
       const { result, extra } = observation;

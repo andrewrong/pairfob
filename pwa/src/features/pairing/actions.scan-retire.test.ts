@@ -87,6 +87,17 @@ test("an ordinary scan starts exactly one handshake with the scanned code", asyn
   expect(pairCodeDraft()).toBe("ABCDEFGH");
 });
 
+test("a pasted direct pairing link starts the same one-use handshake", async () => {
+  const link = "http://100.64.1.2:18474/pair#v=2&d=d_aaaaaaaaaaaaaaaaaaaa&r=4f7a2c9e1b0d88aa55cc3311abde7001&c=ABCDEFGH&fp=AAAAAAAAAAAAAAAAAAAAAA&t=0123456789abcdef0123456789abcdef";
+  await pairing.beginPairing(link);
+  expect(handshakes).toBe(1);
+});
+
+test("a short code alone cannot start direct pairing", async () => {
+  await pairing.beginPairing("ABCDEFGH");
+  expect(handshakes).toBe(0);
+});
+
 test("a scan retired at the fragment publication neither handshakes nor overwrites the replacement draft", async () => {
   const stop = connectionStore.subscribe(() => {
     if (pairingFragmentGuard()) return;

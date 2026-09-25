@@ -45,7 +45,7 @@ function pair(daemonId: string, deviceId = `phone_${daemonId}`): PairResult {
     deviceId,
     psk: new Uint8Array(32),
     daemonPk: new Uint8Array(32),
-    relayOrigin: "https://pairfob.com",
+    endpointOrigin: "https://pairfob.com",
     fp: `fp_${daemonId}`,
     label: "test",
     createdAt: 1,

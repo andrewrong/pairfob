@@ -1,5 +1,5 @@
 import { parsePairingFragment, type FragmentPairing } from "../../lib/pairing-input";
-import { clientWsURL, type OriginConfig } from "../../lib/origin-config";
+import { clientWsURL, clientWsURLForOrigin, type OriginConfig } from "../../lib/origin-config";
 import { NETWORK_MODE_KEY, parseNetworkMode, persistNetworkMode, type NetworkMode } from "../../lib/network-mode";
 import { parseNotificationTarget, type NotificationTarget } from "../../lib/notification-target";
 import type { MuxProtocol } from "../../lib/protocol/mux";
@@ -288,5 +288,9 @@ export function clearPairingFragment(): void {
 }
 
 export function wsURL(query?: { daemonId?: string; pairTicket?: string }): string {
-  return clientWsURL(read().originProtocol, location, query);
+	return clientWsURL(read().originProtocol, location, query);
+}
+
+export function wsURLForOrigin(origin: string, daemonId: string): string {
+	return clientWsURLForOrigin(origin, daemonId);
 }

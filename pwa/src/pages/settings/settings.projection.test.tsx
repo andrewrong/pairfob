@@ -22,7 +22,7 @@ const { appRoot } = await import("../../app/dom-root");
 const { registerSessionOwnerPreparer } = await import("../../app/frame");
 const { registerSessionView } = await import("../../features/session/register");
 const { batch } = await import("../../shared/model/domain-store");
-const { connectionStore, setNetworkOnline, setPhase } = await import("../../features/connection/connection-store");
+const { applyOriginConfig, connectionStore, setNetworkOnline, setPhase } = await import("../../features/connection/connection-store");
 const { setScreen } = await import("../../app/navigation-store");
 const { attachLiveSession, setCredential, setComputers } = await import("../../features/computers/catalog-store");
 const { applyRuntimeIdentity, resetRuntime } = await import("../../features/connection/runtime-store");
@@ -75,7 +75,7 @@ function mountSettingsLive(): void {
       setCredential({
         daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "dev_phone",
         psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
-        relayOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
+        endpointOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
       } as never);
       attachLiveSession({ isConnected: () => true, listDevices: async () => ({ devices: [] }), getConfig: async () => ({ capabilities: {} }), agentQuota: async () => [] } as never);
       applyRuntimeIdentity({ herdHost: "Test Host", runtimeKind: "fake" });
@@ -149,6 +149,7 @@ test("mobile settings is a tab root: a page title, no back bar, and the tab bar"
 });
 
 test("a domain-driven re-render keeps focus on the network radio", () => {
+  act(() => applyOriginConfig({ protocol: 2, p2p: true }));
   mountSettingsLive();
   const app = appRoot();
   act(() => app.querySelector<HTMLButtonElement>("button.cp-main")!.click());

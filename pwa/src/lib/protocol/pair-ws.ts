@@ -13,7 +13,7 @@ import {
   heartbeatPayload,
   openWS,
   parseExactB64,
-  relayOrigin,
+  endpointOrigin,
   requireHeartbeatPayload,
   sameBytes,
   send,
@@ -34,7 +34,7 @@ export interface PairResult {
   daemonPk: Uint8Array;
   daemonId: string;
   fp: string;
-  relayOrigin: string;
+  endpointOrigin: string;
   label: string;
   createdAt: number;
   hostname?: string;
@@ -43,6 +43,7 @@ export interface PairResult {
 
 export interface PairInput {
   pair_ref?: string;
+  pair_token?: string;
 }
 
 export interface PairOptions {
@@ -77,7 +78,11 @@ export function normalizePairInput(input: PairInput, code: string): { input: Pai
   if (ref && !/^[0-9a-f]{32}$/.test(ref)) {
     throw new ProtocolError("invalid_pair_ref", "二维码中的 pair_ref 格式错误");
   }
-  return { input: { pair_ref: ref }, code: normalizedCode };
+	const token = input.pair_token?.trim().toLowerCase();
+	if (token && !/^[0-9a-f]{32}$/.test(token)) {
+		throw new ProtocolError("invalid_pair_token", "二维码中的配对 token 格式错误");
+	}
+	return { input: { pair_ref: ref, ...(token ? { pair_token: token } : {}) }, code: normalizedCode };
 }
 
 export function confirmationTagMatches(localTag: string, remoteTag: unknown): boolean {
@@ -123,18 +128,18 @@ export async function pairOverWS(
 ): Promise<PairResult> {
   const normalized = normalizePairInput(rawInput, rawCode);
   const label = normalizeDeviceLabel(options.label);
-  const origin = relayOrigin(relayWS);
+  const origin = endpointOrigin(relayWS);
   const protocol = options.protocol ?? muxProtocolFromRelayURL(relayWS);
   let socket: FrameSocket | null = null;
   let pairHeartbeat: ReturnType<typeof setInterval> | null = null;
   let attachedReceived = false;
   try {
-    if (protocol === 2 && !normalized.input.pair_ref) {
-      throw new ProtocolError("invalid_pair_ref", "v2 PAIR_ATTACH 必须带 pair_ref");
+	if (protocol === 2 && !normalized.input.pair_ref) {
+		throw new ProtocolError("invalid_pair_ref", "v2 PAIR_ATTACH 必须带 pair_ref");
     }
     socket = await openWS(relayWS, muxSubprotocol(protocol), options.signal);
     send(socket.ws, jsonFrame(Typ.HELLO_CLIENT, Z16, helloClientBody(protocol)));
-    send(socket.ws, jsonFrame(Typ.PAIR_ATTACH, Z16, pairAttachBody(protocol, normalized.input.pair_ref)));
+		send(socket.ws, jsonFrame(Typ.PAIR_ATTACH, Z16, pairAttachBody(protocol, normalized.input.pair_ref, normalized.input.pair_token)));
     const attached = await socket.next(8_000);
     if (attached.typ === Typ.ERROR) {
       const error = envelopeError(attached);
@@ -223,7 +228,9 @@ export async function pairOverWS(
     if (params.fp !== fp) throw new ProtocolError("fp_mismatch", "daemon 公钥指纹校验失败");
     if (options.expectedFingerprint && options.expectedFingerprint !== fp) throw new ProtocolError("fp_mismatch", "daemon 公钥与二维码指纹不一致");
     if (!validDeviceId(params.device_id)) throw new ProtocolError("bad_message", "ConfirmPairing device_id 非法");
-    if (params.relay_origin && params.relay_origin !== origin) throw new ProtocolError("bad_relay", "daemon 返回的 relay origin 与当前站点不一致");
+    // `relay_origin` is part of the frozen inner ConfirmPairing RPC. Its value
+    // is now the daemon's tailnet endpoint, but the wire field cannot change.
+    if (params.relay_origin && params.relay_origin !== origin) throw new ProtocolError("bad_relay", "daemon 返回的地址与当前站点不一致");
     const ack = c2s.seal(routeId, new TextEncoder().encode(JSON.stringify({ v: 1, id: confirm.id, ok: true, result: { label } })));
     send(socket.ws, { version: 1, typ: Typ.FWD, flags: 0, routeId, payload: ack });
     return {
@@ -232,7 +239,7 @@ export async function pairOverWS(
       daemonPk,
       daemonId,
       fp,
-      relayOrigin: origin,
+      endpointOrigin: origin,
       label,
       createdAt: Math.floor(Date.now() / 1000),
     };

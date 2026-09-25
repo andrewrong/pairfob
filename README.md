@@ -8,9 +8,8 @@
 
 **Your [Herdr](https://herdr.dev) agents, on your phone.** Codex, Claude, Grok
 and the rest keep running on your computer; after pairing once, a phone, tablet
-or another computer opens **the same live sessions**, not copies. The computer
-dials out, so there are no inbound ports and no VPN, and the session is
-end-to-end encrypted.
+or another computer opens **the same live sessions**, not copies. Pairfob uses
+your Tailscale tailnet and keeps the session end-to-end encrypted.
 
 ![Pairfob on a phone: the session list, a live session, and a diff review](site/img/readme/en.webp)
 
@@ -24,9 +23,12 @@ curl -fsSL https://pairfob.com/install.sh | sh
 pairfob pair
 ```
 
-On the phone, open [pairfob.com/pair](https://pairfob.com/pair) and scan, then
-press Enter once on the computer to admit it. Add it to your Home Screen and you
-are done. Full walkthrough: [Get started](https://pairfob.com/doc/start).
+Install Tailscale on the phone and join the same tailnet. Run `pairfob pair`,
+scan its one-time QR code (or paste its complete pairing link), then press Enter
+once on the computer to admit it. The browser can add the page to the Home
+Screen when it supports installation from this HTTP address.
+See [Tailscale direct deployment](docs/tailscale-direct.md) for service setup,
+device cleanup, and browser limitations.
 
 Already living in Herdr? `herdr plugin install arronKler/pairfob` adds
 **Pairfob: Pair a device** to Herdr's action menu and installs the same verified
@@ -42,7 +44,7 @@ binary on first use. See [`plugin/herdr/`](plugin/herdr/README.md).
   read its replies).
 - **Review changes.** Browse files, read git status and diffs, comment on diff
   lines and send the comments to the agent.
-- **Hand files to the agent.** Upload photos, PDFs and other files over P2P and
+- **Hand files to the agent.** Upload photos, PDFs and other files over the encrypted session and
   insert their workspace paths into the draft.
 - **Shape the workspace.** Start conversations, tabs, splits and worktrees, and
   see a tab's real pane layout on the **Board**. Controls only appear when the
@@ -52,20 +54,18 @@ binary on first use. See [`plugin/herdr/`](plugin/herdr/README.md).
 - **Keep an eye on quota.** Subscription allowance for Codex, Claude Code,
   Copilot, Cursor, Grok and more, collected on the computer.
 
-The phone UI speaks English and 中文. Details: [Using the app](https://pairfob.com/doc/app).
+The phone UI speaks English and 中文.
 
 ## Security
 
 - **Pairing** uses SPAKE2+ with a code both sides confirm; session keys are
   hardened with Argon2id.
-- **Keys** live only on the computer and the paired device. The relay at
-  `pairfob.com` forwards ciphertext frames it cannot read.
-- **Direct when possible.** An established session upgrades to a WebRTC
-  DataChannel and keeps the relay as fallback.
-- **Nothing exposed.** The computer only dials out; Herdr is never reachable
-  from the internet.
+- **Keys** live only on the computer and the paired device.
+- **Private network.** Phone and computer communicate through your Tailscale
+  tailnet; there is no Pairfob relay or WebRTC fallback.
+- **Nothing exposed.** Herdr is never reachable from the internet.
 
-See [What the relay cannot see](https://pairfob.com/doc/security) and report
+See [privacy and browser limits](docs/tailscale-direct.md#privacy-and-browser-limits) and report
 vulnerabilities privately via [SECURITY.md](SECURITY.md).
 
 ## Requirements
@@ -93,28 +93,25 @@ pairfob service status      # login service: start / stop / restart / install / 
 ```
 
 A second computer runs the same installer; pair it from the phone with
-**Settings → Add another computer**. Everything else: [Computer commands](https://pairfob.com/doc/cli).
+**Settings → Add another computer**. See [service and device management](docs/tailscale-direct.md)
+for direct deployments.
 
 ## How it works
 
 ```
-phone  --HTTPS/WSS pairfob.v2-->  pairfob.com (Worker + Durable Object)
-pairfob --outbound WSS---------->  same room  --opaque FWD-->  phone
-          \-- WebRTC DataChannel after authenticated setup --/
-pairfob --loopback-------------->  Herdr
+phone --Tailscale HTTP/WS--> pairfob daemon --loopback--> Herdr
 ```
 
 The phone reads the rendered pane and sends keys back to the PTY; it is not a
-terminal emulator of its own. `pairfob.com` is the project's official instance.
-Protocol specs live in [`proto/`](proto/), including
-[direct transport](proto/direct-transport.md).
+terminal emulator of its own. Protocol specs live in [`proto/`](proto/), including
+[mux control plane](proto/envelope-v2.md).
 
 | Path | What it is |
 | --- | --- |
 | `cmd/pairfob` | the computer daemon and CLI |
 | `internal/` | pairing, sessions, RPC, Herdr adapter, protocol primitives |
 | `pwa/` | the phone app (React + TypeScript, built with bun) |
-| `workers/pairfob-origin` | the relay: Cloudflare Worker + Durable Object |
+| `internal/tailnet` | daemon-hosted PWA and direct WebSocket gateway on the Tailscale IPv4 address |
 | `site/` | homepage and [documentation](https://pairfob.com/doc/) sources |
 | `proto/` | frozen envelope, RPC schema and test vectors |
 | `plugin/herdr` | Herdr plugin entrypoints |

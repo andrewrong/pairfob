@@ -85,11 +85,30 @@ function rejectionLine(
  * the same name/size are both adopted, while a repeated File object — in this
  * selection or already held as a queued row's source — is skipped.
  */
+const pickOrder = new Map<string, Promise<void>>();
+
 export async function addPickedFiles(scope: AttachmentScope, files: ArrayLike<File>): Promise<IncomingRejection[]> {
   const key = attachmentScopeKey(scope);
   const picked = Array.from(files);
   if (!picked.length) return [];
   const session = liveSession();
+  // Keep selections for one pane in the order the user made them. The port
+  // lookup may resolve later for a newer selection, reversing who gets the
+  // remaining local capacity unless admission is serialized.
+  const previous = pickOrder.get(key);
+  let release!: () => void;
+  const turn = new Promise<void>(resolve => { release = resolve; });
+  pickOrder.set(key, turn);
+  if (previous) await previous;
+  try {
+    return await adoptPickedFiles(scope, key, picked, session);
+  } finally {
+    release();
+    if (pickOrder.get(key) === turn) pickOrder.delete(key);
+  }
+}
+
+async function adoptPickedFiles(scope: AttachmentScope, key: string, picked: File[], session: ReturnType<typeof liveSession>): Promise<IncomingRejection[]> {
   // Warm/reuse the shared transfer port. Limits used HERE are the local
   // intake limits, not the port's network limits; awaiting the port also keeps
   // an async boundary before gates/queue are re-read (behavior preserved from

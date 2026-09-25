@@ -94,6 +94,20 @@ func TestV2FragmentIncludesLocAndV1OmitsIt(t *testing.T) {
 	}
 }
 
+func TestDirectOfferPrintsCompleteLinkInsteadOfUnusableShortCode(t *testing.T) {
+	offer, err := NewTailnetOffer("http://100.64.1.2:18474", "d_test", "4f7a2c9e1b0d88aa55cc3311abde7001", "7K3M9H2P", "0123456789abcdef0123456789abcdef", "AAAAAAAAAAAAAAAAAAAAAA")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := Print(&out, offer, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), offer.URL) || strings.Contains(out.String(), "Type this pairing code") {
+		t.Fatal("direct pairing must offer a pastable ticket-bearing link")
+	}
+}
+
 func TestOfferRejectsNonOriginBase(t *testing.T) {
 	for _, origin := range []string{"", "ftp://pairfob.example", "https://user@pairfob.example", "https://pairfob.example/path", "https://pairfob.example?q=1"} {
 		if _, err := NewOffer(origin, "d_test", "4f7a2c9e1b0d88aa55cc3311abde7001", "7K3M9H2P", "AAAAAAAAAAAAAAAAAAAAAA", 1, ""); err == nil {

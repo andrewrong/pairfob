@@ -46,6 +46,8 @@ type Device struct {
 
 type pairingSlot struct {
 	ref, code       string
+	ticket          string
+	ticketClaimed   bool
 	record          spake2plus.Record
 	expiresAt       time.Time
 	expiry          *time.Timer
@@ -180,6 +182,7 @@ type Engine struct {
 	runtimeMonitorWake    chan struct{}
 
 	AutoAdmit  bool // explicit development/test injection
+	DirectMux  bool // Tailscale gateway owns v2 control-plane routing.
 	Banner     io.Writer
 	Origin     string
 	PairingTTL time.Duration
@@ -215,6 +218,27 @@ type PairingStatus struct {
 	Ready               bool
 	Devices             int
 	ExpiresAt           time.Time
+}
+
+// EnsureDaemonID gives a direct daemon the same stable public identifier used
+// by the frozen pairing and DeviceHello transcripts. Hosted enrollment used to
+// mint this value; the Tailscale gateway has no hosted control plane.
+func (e *Engine) EnsureDaemonID() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.DaemonID != "" {
+		return nil
+	}
+	raw := make([]byte, 10)
+	if _, err := rand.Read(raw); err != nil {
+		return err
+	}
+	e.DaemonID = "d_" + fmt.Sprintf("%x", raw)
+	e.Identity.DaemonID = e.DaemonID
+	if e.Store != nil {
+		return e.Store.SaveIdentity(e.Identity)
+	}
+	return nil
 }
 
 func newEngine(hub *mux.Hub, conn mux.Conn, rt runtimeapi.Runtime, pk ed25519.PublicKey, sk ed25519.PrivateKey) *Engine {

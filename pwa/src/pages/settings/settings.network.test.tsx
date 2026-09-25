@@ -44,7 +44,7 @@ function mountSettings(): void {
       setCredential({
         daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "dev_phone",
         psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
-        relayOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
+        endpointOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
       });
       // Default to the P2P-enabled origin; individual tests override with
       // applyOriginConfig({ p2p: false }) for the kill-switch case.
@@ -188,14 +188,12 @@ describe("settings network transport (actual App)", () => {
     expect(networkMode()).toBe("auto");
   });
 
-  test("disables P2P when the origin kill switch is off", () => {
+  test("shows one direct Tailscale route when P2P upgrade is unavailable", () => {
     attachLiveSession(fakeSession(() => {}));
     mountSettings();
     act(() => applyOriginConfig({ protocol: 2, p2p: false }));
-    expect(choice("仅 P2P").disabled).toBeTrue();
-    expect(choice("自动").disabled).toBeFalse();
-    expect(choice("仅 Relay").disabled).toBeFalse();
-    expect(appRoot().querySelector(".route-group .set-foot")?.textContent).toContain("当前站点未开放 P2P");
+    expect(appRoot().querySelectorAll(".route-group button[role=radio]")).toHaveLength(0);
+    expect(appRoot().querySelector(".route-group")?.textContent).toContain("Tailscale 直连");
   });
 
   test("keeps Relay usable and reports a failed manual P2P attempt", async () => {

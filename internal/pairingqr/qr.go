@@ -6,16 +6,18 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 
 	qrcode "github.com/skip2/go-qrcode"
 )
 
 type Offer struct {
-	Code string
-	Ref  string
-	URL  string
-	Loc  string
+	Code   string
+	Ref    string
+	URL    string
+	Loc    string
+	Direct bool
 }
 
 func NewOffer(origin, daemonID, ref, code, fingerprint string, protocol int, loc string) (Offer, error) {
@@ -57,6 +59,32 @@ func NewOffer(origin, daemonID, ref, code, fingerprint string, protocol int, loc
 	return offer, nil
 }
 
+// NewTailnetOffer creates a QR-only invitation for the daemon's Tailscale
+// HTTPS endpoint. The ticket is an opaque, one-use gateway credential; the
+// existing code and pair_ref still drive the frozen SPAKE2+ transcript.
+func NewTailnetOffer(origin, daemonID, ref, code, ticket, fingerprint string) (Offer, error) {
+	if len(ticket) != 32 {
+		return Offer{}, errors.New("pairing ticket must be 128 bits of hex")
+	}
+	offer, err := NewOffer(origin, daemonID, ref, code, fingerprint, 2, "")
+	if err != nil {
+		return Offer{}, err
+	}
+	u, err := url.Parse(offer.URL)
+	if err != nil {
+		return Offer{}, err
+	}
+	fragment, err := url.ParseQuery(u.Fragment)
+	if err != nil {
+		return Offer{}, err
+	}
+	fragment.Set("t", ticket)
+	u.Fragment = fragment.Encode()
+	offer.URL = u.String()
+	offer.Direct = true
+	return offer, nil
+}
+
 func FormatCode(code string) string {
 	if len(code) != 8 {
 		return code
@@ -91,6 +119,10 @@ func Print(w io.Writer, offer Offer, remaining time.Duration) error {
 	if seconds < 1 {
 		seconds = 1
 	}
-	_, err = fmt.Fprintf(w, "Scan from the other device:\n\n%s\nCan't scan? Type this pairing code:  %s\nOne use · expires in %d seconds\n\n", terminal, FormatManualCode(offer.Code, offer.Loc), seconds)
+	if offer.Direct || strings.Contains(offer.URL, "&t=") {
+		_, err = fmt.Fprintf(w, "Scan from the other device:\n\n%s\nCan't scan? Paste this complete pairing link on the phone:\n%s\nOne use · expires in %d seconds\n\n", terminal, offer.URL, seconds)
+	} else {
+		_, err = fmt.Fprintf(w, "Scan from the other device:\n\n%s\nCan't scan? Type this pairing code:  %s\nOne use · expires in %d seconds\n\n", terminal, FormatManualCode(offer.Code, offer.Loc), seconds)
+	}
 	return err
 }

@@ -16,6 +16,9 @@ export type SettingsNetworkInput = {
 };
 
 export function settingsNetworkPath(input: SettingsNetworkInput): string {
+  if (!input.p2pEnabled) {
+    return input.relayRttMs === null ? t("settings.networkTailnetPending") : t("settings.networkTailnet", { ms: input.relayRttMs });
+  }
   if (input.sessionTransport === "p2p") {
     return input.relayRttMs === null ? t("settings.networkP2PPending") : t("settings.networkRttP2P", { ms: input.relayRttMs });
   }

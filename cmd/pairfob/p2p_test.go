@@ -12,8 +12,17 @@ import (
 	"pairfob/internal/mux"
 )
 
+func localP2PTestAPI() *webrtc.API {
+	var settings webrtc.SettingEngine
+	settings.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4})
+	settings.SetIncludeLoopbackCandidate(true)
+	settings.SetInterfaceFilter(func(name string) bool { return name == "lo0" || name == "lo" })
+	return webrtc.NewAPI(webrtc.WithSettingEngine(settings))
+}
+
 func TestWebRTCAcceptorCarriesPairfobFramesBothWays(t *testing.T) {
-	caller, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	api := localP2PTestAPI()
+	caller, err := api.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +64,7 @@ func TestWebRTCAcceptorCarriesPairfobFramesBothWays(t *testing.T) {
 		t.Fatal("caller ICE gathering timed out")
 	}
 
-	acceptor := &webRTCAcceptor{configuration: webrtc.Configuration{}}
+	acceptor := &webRTCAcceptor{configuration: webrtc.Configuration{}, api: api}
 	daemonFrames := make(chan envelope.Frame, 1)
 	closed := make(chan struct{}, 1)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -171,7 +180,8 @@ type p2pTestPair struct {
 
 func openP2PTestPair(t *testing.T) *p2pTestPair {
 	t.Helper()
-	caller, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	api := localP2PTestAPI()
+	caller, err := api.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +214,7 @@ func openP2PTestPair(t *testing.T) *p2pTestPair {
 	}
 	pair := &p2pTestPair{closed: make(chan struct{}, 1)}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	acceptor := &webRTCAcceptor{configuration: webrtc.Configuration{}}
+	acceptor := &webRTCAcceptor{configuration: webrtc.Configuration{}, api: api}
 	answer, link, err := acceptor.Accept(ctx, caller.LocalDescription().SDP, func(mux.Conn, envelope.Frame) {}, func(mux.Conn) {
 		if pair.onCloseHook != nil {
 			pair.onCloseHook()

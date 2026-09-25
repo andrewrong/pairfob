@@ -10,7 +10,7 @@ function pair(id: string, hostname: string, lastSeen = 0, createdAt = 0): PairRe
     daemonPk: new Uint8Array(32),
     daemonId: id,
     fp: "0".repeat(16),
-    relayOrigin: "https://pairfob.com",
+    endpointOrigin: "https://pairfob.com",
     label: "iPhone",
     createdAt,
     hostname,

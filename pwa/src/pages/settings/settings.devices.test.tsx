@@ -47,7 +47,7 @@ function mountSettingsDevices(session: Partial<LiveSession>): void {
       setCredential({
         daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "dev_selfphone01",
         psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
-        relayOrigin: "https://pairfob.com", fp: "fp_test", label: "Phone", createdAt: 1,
+        endpointOrigin: "https://pairfob.com", fp: "fp_test", label: "Phone", createdAt: 1,
       });
       applyOriginConfig({ protocol: 2, p2p: false });
       applyDeviceList([self, stale, gone]);

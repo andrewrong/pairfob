@@ -51,6 +51,27 @@ func TestLaunchdPlistEscapesXML(t *testing.T) {
 	}
 }
 
+func TestWritePrivateServiceUnitReplacesPublicFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "pairfob.service")
+	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writePrivateServiceUnit(path, []byte("new")); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("service unit mode = %o, want 600", info.Mode().Perm())
+	}
+	content, err := os.ReadFile(path)
+	if err != nil || string(content) != "new" {
+		t.Fatalf("service unit content = %q, err = %v", content, err)
+	}
+}
+
 func TestServiceCommandsDarwinInstallBootstrapsUserAgent(t *testing.T) {
 	cmds := serviceCommands(serviceLayout{GOOS: "darwin", UID: 501, UnitPath: "/Users/x/Library/LaunchAgents/com.pairfob.pairfob.plist"}, "install")
 	joined := fmtCmds(cmds)

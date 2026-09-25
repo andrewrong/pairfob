@@ -49,7 +49,7 @@ export function computers(): PairResult[] {
     { daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "dev_aaaaaaaaaaaa", hostname: "MacBook Pro", label: "This phone", lastSeen: FIXED_NOW - 60000 },
     { daemonId: "d_bbbbbbbbbbbbbbbbbbbb", deviceId: "dev_bbbbbbbbbbbb", hostname: "Studio Mac", label: "This phone", lastSeen: FIXED_NOW - 3600000 },
     { daemonId: "d_cccccccccccccccccccc", deviceId: "dev_cccccccccccc", hostname: "Linux workstation", label: "This phone", lastSeen: FIXED_NOW - 86400000 },
-  ].map((item) => ({ ...item, psk: new Uint8Array(32), daemonPk: new Uint8Array(32), relayOrigin: location.origin,
+  ].map((item) => ({ ...item, psk: new Uint8Array(32), daemonPk: new Uint8Array(32), endpointOrigin: location.origin,
     fp: "0123456789abcdef", createdAt: FIXED_NOW - 7 * 86400000 }));
 }
 
