@@ -4,7 +4,7 @@ import { t } from "../../lib/i18n";
 import { useDialogLifecycle } from "../../shared/ui/overlay/dialog-lifecycle";
 import { SheetContent } from "../../shared/ui/overlay/sheet-content";
 import { Button } from "../../shared/ui/primitives";
-import { formatPairCodeDraft, type ConnectViewModel } from "./model";
+import type { ConnectViewModel } from "./model";
 
 /**
  * The typed-code fallback as a bottom sheet (a centered modal on desk). Its
@@ -43,14 +43,9 @@ export function PairCodeSheet({ view, onDismiss, onPaste, onSubmit, onCodeChange
             placeholder={t("connect.pairHint")} value={view.pairCodeDraft} maxLength={1024} required
             title={t("connect.pairTitle")}
             aria-invalid={view.pairCodeInvalid ? "true" : undefined} aria-describedby="pair-feedback"
-            onChange={event => {
-              const field = event.currentTarget;
-              const atEnd = field.selectionStart === field.value.length;
-              onCodeChange(atEnd ? formatPairCodeDraft(field.value) : field.value);
-            }} />
+            onChange={event => onCodeChange(event.currentTarget.value)} />
           <div className={`pair-help${error ? " is-error" : ""}`}>
             <span id="pair-feedback" role={error ? "alert" : undefined}>{hint}</span>
-            {view.pairCodeDraft.startsWith("http") ? null : <span className={`field-count${view.pairCodeComplete ? " ok" : ""}`}>{`${view.pairCodeLength}/14`}</span>}
           </div>
           <Button type="submit" className="btn btn-primary btn-connect">{t("connect.submit")}</Button>
         </SheetContent>

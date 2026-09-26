@@ -11,7 +11,8 @@ Pairfob discovers the computer's Tailscale IPv4 address and listens on port 1847
 | --- | --- |
 | `PAIRFOB_ORIGIN` | Optional advertised `http://<tailscale-ip>:18474` origin; must match the listener |
 | `PAIRFOB_LISTEN_ADDR` | Optional `<tailscale-ip>:18474` bind address; never use a wildcard or LAN address |
-| `PAIRFOB_STATE_DIR` | State, paired-device credentials, admin socket, and logs; default `~/.config/pairfob` |
+| `PAIRFOB_STATE_DIR` | State, paired-device credentials, and admin socket; logs also live here unless `PAIRFOB_LOG_DIR` is set; default `~/.config/pairfob` |
+| `PAIRFOB_LOG_DIR` | Optional absolute directory for `pairfob.log` and `audit.log`; defaults to the state directory |
 | `PAIRFOB_ALLOWED_ROOTS` | Additional allowed workspace roots; paths outside a live snapshot root or allowed roots fail closed |
 | `HERDR_BIN` | Absolute Herdr executable path when it is outside the service PATH |
 | `HERDR_SOCKET_PATH` | Local Herdr socket path when using a nondefault socket |

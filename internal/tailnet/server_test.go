@@ -3,6 +3,7 @@ package tailnet
 import (
 	"crypto/rand"
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"testing"
@@ -78,6 +79,38 @@ func TestGatewayServesShellAndUpgradesWebSocket(t *testing.T) {
 	_ = connection.SetReadDeadline(time.Now().Add(time.Second))
 	if _, _, err := connection.ReadMessage(); err == nil {
 		t.Fatal("oversized unpaired WebSocket message remained connected")
+	}
+}
+
+func TestGatewayCachesOnlyFingerprintedStaticAssets(t *testing.T) {
+	listener, err := Listen("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	origin := "http://" + listener.Addr().String()
+	gateway := New(listener, origin)
+	go func() { _ = gateway.Serve() }()
+	t.Cleanup(gateway.Close)
+
+	assets, err := fs.ReadDir(uiFiles, "ui/generated/assets")
+	if err != nil || len(assets) == 0 {
+		t.Fatalf("embedded assets: %v", err)
+	}
+	assetPath := "/assets/" + assets[0].Name()
+	for _, request := range []struct{ path, cache string }{
+		{"/", "no-store"},
+		{"/api/config", "no-store"},
+		{assetPath, "public, max-age=31536000, immutable"},
+	} {
+		response, err := http.Get(origin + request.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := response.Header.Get("Cache-Control"); got != request.cache {
+			response.Body.Close()
+			t.Fatalf("%s cache = %q, want %q", request.path, got, request.cache)
+		}
+		response.Body.Close()
 	}
 }
 

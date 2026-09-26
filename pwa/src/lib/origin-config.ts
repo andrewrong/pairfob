@@ -5,7 +5,7 @@ import { fetchWithTimeout, type FetchLike } from "./request-timeout.ts";
 import { isTailnetIPv4 } from "./tailnet-ip.ts";
 
 export type { MuxProtocol };
-export type OriginConfig = { protocol: MuxProtocol; build: string; p2p: boolean };
+export type OriginConfig = { protocol: MuxProtocol; build: string; p2p: boolean; releaseCheck: boolean; telemetry: boolean };
 
 export function parseOriginConfig(value: unknown): OriginConfig {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -21,7 +21,21 @@ export function parseOriginConfig(value: unknown): OriginConfig {
   if (record.p2p !== undefined && typeof record.p2p !== "boolean") {
     throw new ProtocolError("bad_message", t("err.originShape"));
   }
-  return { protocol: record.protocol, build: record.build, p2p: record.p2p === true };
+  if (record.release_check !== undefined && typeof record.release_check !== "boolean") {
+    throw new ProtocolError("bad_message", t("err.originShape"));
+  }
+  if (record.telemetry !== undefined && typeof record.telemetry !== "boolean") {
+    throw new ProtocolError("bad_message", t("err.originShape"));
+  }
+  return {
+    protocol: record.protocol,
+    build: record.build,
+    p2p: record.p2p === true,
+    // Older hosted origins retain their prior behavior. Direct origins must
+    // explicitly opt in, so a missing capability never sends phone metadata.
+    releaseCheck: record.release_check !== false,
+    telemetry: record.telemetry === true,
+  };
 }
 
 /** Network failures may recover; invalid origin configuration must remain rejected. */

@@ -45,7 +45,7 @@ export async function handleFetch(req: Request, env: Env): Promise<Response> {
   }
 
   if (path === "/api/config" && req.method === "GET") {
-    return jsonResponse(build, 200, { protocol: PROTOCOL, build, p2p: env.P2P_OPEN === "1" }, noStore());
+    return jsonResponse(build, 200, { protocol: PROTOCOL, build, p2p: env.P2P_OPEN === "1", release_check: true, telemetry: true }, noStore());
   }
 
   if (path === "/v2/enroll") return handleEnroll(req, env);

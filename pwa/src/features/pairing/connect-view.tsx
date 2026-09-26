@@ -1,4 +1,4 @@
-import { Lock, ScanLine } from "lucide-react";
+import { Link, Lock, ScanLine } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { t } from "../../lib/i18n";
 import { BackBar, Brand, Button, Spinner } from "../../shared/ui/primitives";
@@ -29,6 +29,7 @@ export function ConnectView({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCodeChange: (code: string) => void;
 }) {
+	const scannerAvailable = typeof window !== "undefined" && typeof navigator !== "undefined" && window.isSecureContext && Boolean(navigator.mediaDevices?.getUserMedia);
   return (
     <div className={`page connect-page is-${view.stage}`} aria-busy={view.busy}>
       {view.adding
@@ -46,8 +47,10 @@ export function ConnectView({
         {view.busy
           ? <Button className="btn connect-cancel" onClick={onCancel}>{t("cancel")}</Button>
           : <>
-            <Button className="btn btn-primary connect-scan" onClick={onScan}><ScanLine size={18} aria-hidden="true" />{t("connect.scan")}</Button>
-            <Button className="btn btn-ghost connect-manual" onClick={onOpenCode}>{t("connect.manual")}</Button>
+			{scannerAvailable
+				? <><Button className="btn btn-primary connect-scan" onClick={onScan}><ScanLine size={18} aria-hidden="true" />{t("connect.scan")}</Button>
+					<Button className="btn btn-ghost connect-manual" onClick={onOpenCode}>{t("connect.manual")}</Button></>
+				: <Button className="btn btn-primary connect-scan connect-manual" onClick={onOpenCode}><Link size={18} aria-hidden="true" />{t("connect.manual")}</Button>}
           </>}
         <p className="trust"><Lock size={11} aria-hidden="true" />{t("connect.trust")}</p>
       </div>

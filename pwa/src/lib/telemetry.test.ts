@@ -3,6 +3,7 @@ import {
   encodeBeaconBody,
   flushTelemetry,
   resetTelemetry,
+  setTelemetryEnabled,
   sanitizeBeaconEvent,
   setTelemetrySender,
   track,
@@ -11,6 +12,7 @@ import {
 afterEach(() => {
   resetTelemetry();
   setTelemetrySender(null);
+	setTelemetryEnabled(true);
 });
 
 describe("PWA telemetry", () => {

@@ -124,9 +124,16 @@ export class SessionTransport {
     };
     this.unwatchVisibility = watchPageVisibility((hidden) => this.setPageHidden(hidden));
     this.setPageHidden(this.hidden);
-    this.heartbeat = globalThis.setInterval(beat, HEARTBEAT_MS);
-    beat();
+		const startHeartbeat = () => {
+			if (this.stopped || this.hidden || this.heartbeat) return;
+			this.heartbeat = globalThis.setInterval(beat, HEARTBEAT_MS);
+			beat();
+		};
+		this.startHeartbeat = startHeartbeat;
+		startHeartbeat();
   }
+
+	private startHeartbeat: () => void = () => undefined;
 
   private setPageHidden(hidden: boolean): void {
     if (this.stopped) return;
@@ -137,6 +144,10 @@ export class SessionTransport {
     if (this.resumeTimer !== null) clearTimeout(this.resumeTimer);
     this.resumeTimer = null;
     if (hidden) {
+			if (this.heartbeat) {
+				clearInterval(this.heartbeat);
+				this.heartbeat = undefined;
+			}
       this.directChannel()?.pauseIceWatch("page");
     } else if (wasHidden) {
       // Preserve the outstanding PING so a queued PONG is still validated.
@@ -146,6 +157,7 @@ export class SessionTransport {
         this.resumeTimer = null;
         if (!this.stopped && !pageHidden()) this.directChannel()?.resumeIceWatch("page");
       }, DIRECT_RESUME_GRACE_MS);
+		this.startHeartbeat();
     }
   }
 

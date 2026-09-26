@@ -4,7 +4,8 @@ import { bindLegacyGestureBoundary } from "../lib/gesture-boundary";
 import { detectLang, initI18n, langPref, setLang, t } from "../lib/i18n";
 import { messageOf } from "../lib/notices";
 import { loadOriginConfig, originConfigErrorIsRecoverable } from "../lib/origin-config";
-import { track } from "../lib/telemetry";
+import { setTelemetryEnabled, track } from "../lib/telemetry";
+import { setDaemonReleaseChecksEnabled } from "../features/settings/daemon-update";
 import { registerSessionView } from "../features/session/register";
 import { preloadFullTerminalXterm } from "../features/session/full-terminal/full-terminal-loader";
 import { handleFullTerminalVisibility } from "../features/session/full-terminal/full-terminal";
@@ -280,6 +281,8 @@ async function boot(generation: number): Promise<void> {
     const config = await loadOriginConfig();
     if (generation !== bootGeneration) return;
     applyOriginConfig(config);
+		setTelemetryEnabled(config.telemetry);
+		setDaemonReleaseChecksEnabled(config.releaseCheck);
   } catch (error) {
     if (generation !== bootGeneration) return;
     // Keep the existing network lifecycle eligible to resume a failed config read.

@@ -58,15 +58,16 @@ func serviceCommand(args []string) error {
 }
 
 type serviceLayout struct {
-	GOOS         string
-	ExecPath     string
-	Home         string
-	UID          int
-	StateDir     string
-	LogPath      string
-	UnitPath     string
-	LaunchdLabel string
-	SystemdUnit  string
+	GOOS           string
+	ExecPath       string
+	Home           string
+	UID            int
+	StateDir       string
+	LogPath        string
+	StartupLogPath string
+	UnitPath       string
+	LaunchdLabel   string
+	SystemdUnit    string
 }
 
 func currentServiceLayout() (serviceLayout, error) {
@@ -86,16 +87,21 @@ func currentServiceLayout() (serviceLayout, error) {
 	if err != nil {
 		return serviceLayout{}, err
 	}
+	logDir, err := configuredLogDir(stateDir)
+	if err != nil {
+		return serviceLayout{}, err
+	}
 	uid := os.Getuid()
 	layout := serviceLayout{
-		GOOS:         runtime.GOOS,
-		ExecPath:     execPath,
-		Home:         home,
-		UID:          uid,
-		StateDir:     stateDir,
-		LogPath:      filepath.Join(stateDir, serviceLogRel),
-		LaunchdLabel: launchdLabel,
-		SystemdUnit:  systemdUnit,
+		GOOS:           runtime.GOOS,
+		ExecPath:       execPath,
+		Home:           home,
+		UID:            uid,
+		StateDir:       stateDir,
+		LogPath:        filepath.Join(logDir, serviceLogRel),
+		StartupLogPath: filepath.Join(stateDir, serviceStartupLogRel),
+		LaunchdLabel:   launchdLabel,
+		SystemdUnit:    systemdUnit,
 	}
 	switch runtime.GOOS {
 	case "darwin":
@@ -152,6 +158,10 @@ func launchdPlist(execPath, logPath, home string) string {
 }
 
 func systemdUnitFile(execPath, logPath, home string) string {
+	output := "append:" + systemdQuote(logPath)
+	if logPath == "/dev/null" {
+		output = "null"
+	}
 	return `[Unit]
 Description=pairfob (Pairfob daemon)
 After=network-online.target
@@ -162,8 +172,8 @@ ExecStart=` + systemdQuote(execPath) + `
 WorkingDirectory=` + systemdQuote(home) + `
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:` + systemdQuote(logPath) + `
-StandardError=append:` + systemdQuote(logPath) + `
+StandardOutput=` + output + `
+StandardError=` + output + `
 Environment=HOME=` + systemdQuote(home) + `
 Environment=PATH=` + systemdQuote(userServicePATH(home)) + `
 ` + systemdRuntimeEnvironment() + `
@@ -215,6 +225,15 @@ func installUserServiceLayout(layout serviceLayout) error {
 	if err := os.MkdirAll(layout.StateDir, 0o700); err != nil {
 		return err
 	}
+	if err := ensurePrivateLogDir(filepath.Dir(layout.LogPath)); err != nil {
+		return err
+	}
+	if err := prepareServiceLog(layout.LogPath); err != nil {
+		return err
+	}
+	if err := prepareServiceLog(layout.StartupLogPath); err != nil {
+		return err
+	}
 	if err := prepareServiceInstall(layout); err != nil {
 		return err
 	}
@@ -223,16 +242,6 @@ func installUserServiceLayout(layout serviceLayout) error {
 	}
 	body := []byte(unitBody(layout))
 	if err := writePrivateServiceUnit(layout.UnitPath, body); err != nil {
-		return err
-	}
-	logFile, err := os.OpenFile(layout.LogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
-	if err != nil {
-		return err
-	}
-	if err := logFile.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(layout.LogPath, 0o600); err != nil {
 		return err
 	}
 	if err := applyService(layout, "install"); err != nil {
@@ -309,11 +318,15 @@ func statusUserService() error {
 }
 
 func unitBody(layout serviceLayout) string {
+	outputPath := layout.StartupLogPath
+	if outputPath == "" {
+		outputPath = filepath.Join(layout.StateDir, serviceStartupLogRel)
+	}
 	switch layout.GOOS {
 	case "darwin":
-		return launchdPlist(layout.ExecPath, layout.LogPath, layout.Home)
+		return launchdPlist(layout.ExecPath, outputPath, layout.Home)
 	case "linux":
-		return systemdUnitFile(layout.ExecPath, layout.LogPath, layout.Home)
+		return systemdUnitFile(layout.ExecPath, outputPath, layout.Home)
 	default:
 		return ""
 	}

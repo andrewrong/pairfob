@@ -29,14 +29,16 @@ numbers change after revocation.
 
 `pairfob service install` creates a **user-level** launchd agent on macOS or
 systemd user unit on Linux. It points to the executable from which the command
-was run. The default state and log directory is `~/.config/pairfob/`; it holds
-the daemon identity, device credentials, operation records, local admin socket,
-and log. Keep it private and backed up as appropriate. A custom deployment
-directory can hold a build script, binary, and non-secret listen configuration;
-it is separate from the state directory unless `PAIRFOB_STATE_DIR` is set.
+was run. By default `~/.config/pairfob/` holds the daemon identity, device
+credentials, operation records, admin socket, `pairfob.log`, `audit.log`, and
+`pairfob-startup.log`. The startup log remains in the state directory so an
+invalid external log path does not hide service startup errors.
+Set the absolute `PAIRFOB_LOG_DIR` before `pairfob service install` to put both
+logs in a separate private directory. The state and paired-device keys remain
+in the state directory. Keep both directories private.
 
-Restart with `pairfob service restart` and inspect `pairfob doctor` and
-`~/.config/pairfob/pairfob.log`. The listener should bind the Tailscale IPv4
+Restart with `pairfob service restart` and inspect `pairfob doctor` and the
+configured `pairfob.log`. The listener should bind the Tailscale IPv4
 address only, never `0.0.0.0`. A local health check is
 `curl http://<tailscale-ip>:18474/v2/health`.
 

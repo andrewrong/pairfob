@@ -226,6 +226,21 @@ func TestRuntimeRPCNewOperationsAndDeduplication(t *testing.T) {
 	}
 }
 
+func TestDirectGatewayDoesNotAdvertiseP2PUploads(t *testing.T) {
+	fake := runtime.NewFake()
+	engine, client := runtimeRPCClient(t, fake)
+	engine.DirectMux = true
+
+	configRaw, err := client.RPC("GetConfig", map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	capabilities := decodeResult(t, configRaw)["capabilities"].(map[string]any)
+	if capabilities["upload_file"] != false || capabilities["upload_file_v2"] != false {
+		t.Fatalf("direct gateway advertised unavailable uploads: %s", configRaw)
+	}
+}
+
 func TestGetConfigTracksRecoveringRuntimeAvailability(t *testing.T) {
 	rt := &recoveringTestRuntime{Runtime: runtime.NewFake()}
 	_, client := runtimeRPCClient(t, rt)

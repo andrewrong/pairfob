@@ -119,12 +119,15 @@ func (g *Gateway) handler() http.Handler {
 		g.securityHeaders(w)
 		switch r.URL.Path {
 		case "/api/config":
+			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"protocol":2,"build":"tailnet","p2p":false,"push":false}`))
+			_, _ = w.Write([]byte(`{"protocol":2,"build":"tailnet","p2p":false,"push":false,"release_check":false,"telemetry":false}`))
 		case "/v2/health":
+			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"protocol":2}`))
 		case "/v2/ws":
+			w.Header().Set("Cache-Control", "no-store")
 			g.serveWS(w, r)
 		default:
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -136,13 +139,20 @@ func (g *Gateway) handler() http.Handler {
 				// /index.html would trigger its canonical redirect loop.
 				r.URL.Path = "/"
 			}
+			if strings.HasPrefix(r.URL.Path, "/assets/") {
+				// Vite content-addresses production assets. Keeping these immutable
+				// avoids re-downloading the application on each phone visit while
+				// the HTML shell and all API responses remain private/no-store.
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				w.Header().Set("Cache-Control", "no-store")
+			}
 			files.ServeHTTP(w, r)
 		}
 	})
 }
 
 func (g *Gateway) securityHeaders(w http.ResponseWriter) {
-	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src 'self' wss: https:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("X-Content-Type-Options", "nosniff")

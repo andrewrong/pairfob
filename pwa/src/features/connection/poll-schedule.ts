@@ -1,8 +1,11 @@
 export const SNAPSHOT_FALLBACK_MS = 15_000;
 export const PANE_READ_FALLBACK_MS = 1_500;
 export const AGENT_TRACE_IDLE_MS = 10_000;
+/** Board previews are informational; pokes still refresh them immediately. */
+export const BOARD_PREVIEW_FALLBACK_MS = 15_000;
 
-export function panePollDelayMs(agentChat: boolean, agentWorking: boolean): number {
+export function panePollDelayMs(agentChat: boolean, agentWorking: boolean, board = false): number {
+	if (board) return BOARD_PREVIEW_FALLBACK_MS;
   return agentChat && !agentWorking ? AGENT_TRACE_IDLE_MS : PANE_READ_FALLBACK_MS;
 }
 

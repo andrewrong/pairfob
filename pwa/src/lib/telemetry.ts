@@ -33,6 +33,15 @@ export type TelemetrySender = (body: string) => void;
 let queue: BeaconEvent[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 let sender: TelemetrySender | null = null;
+// Retained hosted builds opt in by default; direct boot applies its explicit
+// false capability before it begins user-facing work.
+let enabled = true;
+
+/** The direct Tailscale gateway never opts in, so it emits no browser events. */
+export function setTelemetryEnabled(next: boolean): void {
+  enabled = next;
+  if (!enabled) resetTelemetry();
+}
 
 export function sanitizeBeaconEvent(name: string, fields?: { result?: string; extra?: string }): BeaconEvent | null {
   if (!ALLOWED.has(name)) return null;
@@ -100,7 +109,8 @@ function schedule(): void {
 }
 
 export function track(name: string, fields?: { result?: string; extra?: string }): void {
-  const event = sanitizeBeaconEvent(name, fields);
+	if (!enabled) return;
+	const event = sanitizeBeaconEvent(name, fields);
   if (!event) return;
   queue.push(event);
   if (queue.length >= MAX_BATCH) flushTelemetry();

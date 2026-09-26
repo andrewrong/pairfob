@@ -114,7 +114,7 @@ const livePolling = createLivePolling({
     (currentScreen() === "pane" && Boolean(openPaneId()) && !isFullTerminal()) ||
     currentScreen() === "board"
   ),
-  paneDelayMs: () => panePollDelayMs(isAgentChat(), selectedAgent()?.status === "working"),
+	 paneDelayMs: () => panePollDelayMs(isAgentChat(), selectedAgent()?.status === "working", currentScreen() === "board"),
   refreshSnapshot: () => refreshSnapshot(),
   refreshPane: async () => {
     if (currentScreen() === "board") await refreshBoardPreviews();

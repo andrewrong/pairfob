@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   AGENT_TRACE_IDLE_MS,
+	BOARD_PREVIEW_FALLBACK_MS,
   PANE_READ_FALLBACK_MS,
   PANE_STATUS_FLOOR_MS,
   SNAPSHOT_FALLBACK_MS,
@@ -59,6 +60,7 @@ describe("pane polling policy", () => {
     expect(panePollDelayMs(true, true)).toBe(PANE_READ_FALLBACK_MS);
     expect(panePollDelayMs(true, false)).toBe(AGENT_TRACE_IDLE_MS);
     expect(panePollDelayMs(false, false)).toBe(PANE_READ_FALLBACK_MS);
+		expect(panePollDelayMs(false, false, true)).toBe(BOARD_PREVIEW_FALLBACK_MS);
     expect(AGENT_TRACE_IDLE_MS).toBeLessThan(SNAPSHOT_FALLBACK_MS);
   });
 });

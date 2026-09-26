@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"pairfob/internal/admin"
@@ -46,6 +47,9 @@ func main() {
 	if err != nil {
 		log.Fatal("state: ", err)
 	}
+	if err := redirectDaemonLog(store.Dir); err != nil {
+		log.Fatal("log: ", err)
+	}
 	sock, err = admin.SocketPathIn(store.Dir)
 	if err != nil {
 		log.Fatal("admin socket: ", err)
@@ -69,7 +73,14 @@ func runDaemon(store *state.Store, sock string) error {
 	if err != nil {
 		return fmt.Errorf("update recovery: %w", err)
 	}
-	logger, err := audit.Open(store.AuditPath())
+	logDir, err := configuredLogDir(store.Dir)
+	if err != nil {
+		return err
+	}
+	if err := ensurePrivateLogDir(logDir); err != nil {
+		return err
+	}
+	logger, err := audit.Open(filepath.Join(logDir, "audit.log"))
 	if err != nil {
 		return fmt.Errorf("audit: %w", err)
 	}

@@ -11,7 +11,8 @@ Pairfob 自动发现电脑的 Tailscale IPv4 地址，并监听 18474 端口。�
 | --- | --- |
 | `PAIRFOB_ORIGIN` | 可选，对外显示的 `http://<tailscale-ip>:18474`；必须与监听地址一致 |
 | `PAIRFOB_LISTEN_ADDR` | 可选，`<tailscale-ip>:18474`；不能使用通配地址或普通 LAN 地址 |
-| `PAIRFOB_STATE_DIR` | 状态、设备凭证、管理 socket 和日志；默认 `~/.config/pairfob` |
+| `PAIRFOB_STATE_DIR` | 状态、设备凭证和管理 socket；未设置 `PAIRFOB_LOG_DIR` 时也存日志；默认 `~/.config/pairfob` |
+| `PAIRFOB_LOG_DIR` | 可选的绝对日志目录，存放 `pairfob.log` 和 `audit.log`；默认使用状态目录 |
 | `PAIRFOB_ALLOWED_ROOTS` | 其他允许的工作区根目录；越界路径拒绝 |
 | `HERDR_BIN` | Herdr 不在服务 PATH 中时，填写可执行文件的绝对路径 |
 | `HERDR_SOCKET_PATH` | Herdr 使用非默认本机 socket 时的路径 |

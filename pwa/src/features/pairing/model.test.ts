@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { setLang } from "../../lib/i18n";
-import { connectViewModel, formatPairCodeDraft } from "./model";
+import { connectViewModel } from "./model";
 
 const empty = {
   phase: "connect",
@@ -58,12 +58,8 @@ describe("connect view model", () => {
     expect(code.lede).not.toBe(notice.text);
   });
 
-  test("an incomplete code is not marked complete; typing groups it 4-4-6", () => {
-    const draft = connectViewModel({ ...empty, pairCodeDraft: "ABCD-EFGH" });
-    expect(draft.pairCodeLength).toBe(8);
-    expect(draft.pairCodeComplete).toBeFalse();
-    expect(formatPairCodeDraft("7k3m9h2pwj3k9m")).toBe("7K3M-9H2P-WJ3K9M");
-    expect(formatPairCodeDraft("7k3mo")).toBe("7K3M-0");
-    expect(formatPairCodeDraft("https://pairfob.com/pair#c=1")).toBe("https://pairfob.com/pair#c=1");
+  test("the manual sheet keeps the complete pairing link verbatim", () => {
+    const draft = connectViewModel({ ...empty, pairCodeDraft: "http://100.64.1.2:18474/pair#token" });
+    expect(draft.pairCodeDraft).toBe("http://100.64.1.2:18474/pair#token");
   });
 });

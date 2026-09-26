@@ -1,5 +1,4 @@
 import { t } from "../../lib/i18n";
-import { normalizeCrockford } from "../../lib/protocol/bytes";
 import type { PairStepKey } from "../../lib/ui-model";
 import type { FragmentPairing } from "../../lib/pairing-input";
 
@@ -44,23 +43,8 @@ export type ConnectViewModel = {
   /** The notice shown inside the code sheet instead of on the page. */
   sheetNotice: ConnectNotice | null;
   pairCodeDraft: string;
-  pairCodeLength: number;
-  pairCodeComplete: boolean;
   pairCodeInvalid: boolean;
 };
-
-/**
- * Group a typed code as the computer prints it (4-4-6) while the reader types at
- * the end of the field. Anything that is not plain code characters (a pasted
- * link) is left for the submit parser.
- */
-export function formatPairCodeDraft(raw: string): string {
-  if (!/^[0-9A-Za-z \-]*$/.test(raw)) return raw;
-  const code = normalizeCrockford(raw).slice(0, 14);
-  if (code.length > 8) return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
-  if (code.length > 4) return `${code.slice(0, 4)}-${code.slice(4)}`;
-  return code;
-}
 
 function stageOf(input: ConnectViewInput): ConnectStage {
   if (input.phase === "pairing") return input.pairAwaitingApproval ? "approve" : "connecting";
@@ -72,7 +56,6 @@ export function connectViewModel(input: ConnectViewInput): ConnectViewModel {
   const busy = stage === "connecting" || stage === "approve";
   const adding = input.addingComputer || input.computerCount > 0;
   const sheetOpen = !busy && input.pairManualOpen;
-  const length = normalizeCrockford(input.pairCodeDraft).length;
   // A code error belongs to the field; the page never repeats it.
   const pageNotice = sheetOpen || input.pairErrorTarget === "code" ? null : input.notice;
   let title = t("connect.title");
@@ -110,8 +93,6 @@ export function connectViewModel(input: ConnectViewInput): ConnectViewModel {
     sheetOpen,
     sheetNotice: sheetOpen ? input.notice : null,
     pairCodeDraft: input.pairCodeDraft,
-    pairCodeLength: length,
-    pairCodeComplete: length === 14,
     pairCodeInvalid: input.pairErrorTarget === "code",
   };
 }

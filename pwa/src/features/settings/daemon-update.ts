@@ -8,9 +8,19 @@ const views = new Map<string, DaemonVersion>();
 let nextCheckAt = 0;
 let releaseTimer: ReturnType<typeof setTimeout> | null = null;
 let observing = false;
+// Compatibility origins retain the historic release check until boot supplies
+// a direct-gateway capability that disables it.
+let releaseChecksEnabled = true;
 const listeners = new Set<() => void>();
 let revision = 0;
 export function daemonUpdateRevision(): number { return revision; }
+export function setDaemonReleaseChecksEnabled(enabled: boolean): void {
+  releaseChecksEnabled = enabled;
+  if (!enabled && releaseTimer) {
+    clearTimeout(releaseTimer);
+    releaseTimer = null;
+  }
+}
 export function subscribeDaemonUpdates(listener: () => void): () => void {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
@@ -34,11 +44,12 @@ function browserLifecycleAvailable(): boolean {
 function scheduleReleaseCheck(): void {
   if (releaseTimer) clearTimeout(releaseTimer);
   releaseTimer = null;
-  if (!browserLifecycleAvailable()) return;
+	if (!releaseChecksEnabled || !browserLifecycleAvailable()) return;
   if (document.visibilityState === "hidden" || !currentDaemonId()) return;
   releaseTimer = setTimeout(() => { releaseTimer = null; void checkDaemonRelease(); }, Math.max(1000, nextCheckAt - Date.now()));
 }
 export function observeDaemonUpdates(): void {
+	if (!releaseChecksEnabled) return;
   if (observing) return;
   // No browser to observe (headless): do not install any listener or timer and
   // leave observing false so a later browser environment can still install.
@@ -90,6 +101,7 @@ export function acceptDaemonVersion(config: unknown): void {
   void checkDaemonRelease();
 }
 export async function checkDaemonRelease(force = false): Promise<void> {
+	if (!releaseChecksEnabled) return;
   if (flight) return flight;
   observeDaemonUpdates();
   if (!force && Date.now() < nextCheckAt) { scheduleReleaseCheck(); return; }

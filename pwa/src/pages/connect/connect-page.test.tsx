@@ -151,7 +151,7 @@ test("one skeleton: miniature, title, lede and one primary action", async () => 
   expect(app.querySelector(".connect-title")?.textContent).toBe(t("connect.title"));
   expect(app.querySelector(".connect-lede")?.textContent).toContain(t("connect.ledeIdle"));
   expect(app.querySelectorAll(".btn-primary")).toHaveLength(1);
-  expect(app.querySelector(".connect-scan")?.textContent).toBe(t("connect.scan"));
+  expect(app.querySelector(".connect-scan")?.textContent).toBe(t("connect.manual"));
   expect(app.querySelector(".connect-manual")?.textContent).toBe(t("connect.manual"));
   expect(app.querySelector("details")).toBeNull();
   expect(sheet()).toBeNull();
@@ -275,7 +275,7 @@ describe("first-run connect chrome (actual App)", () => {
       select!.dispatchEvent(new happy.Event("change", { bubbles: true }));
     });
     expect(app.querySelector(".connect-title")?.textContent).toBe("Connect your computer");
-    expect(app.querySelector(".connect-scan")?.textContent).toBe("Scan to connect");
+    expect(app.querySelector(".connect-scan")?.textContent).toBe("Paste pairing link");
     expect(app.querySelector<HTMLSelectElement>('select[aria-label="Language"]')?.value).toBe("en");
   });
 });

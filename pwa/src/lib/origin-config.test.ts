@@ -4,12 +4,18 @@ import { clientWsURL, clientWsURLForOrigin, loadOriginConfig, originConfigErrorI
 
 describe("origin config", () => {
   test("parses protocol 2 only", () => {
-    expect(parseOriginConfig({ protocol: 2, build: "abc", p2p: true })).toEqual({ protocol: 2, build: "abc", p2p: true });
-    expect(parseOriginConfig({ protocol: 2, build: "old" })).toEqual({ protocol: 2, build: "old", p2p: false });
+    expect(parseOriginConfig({ protocol: 2, build: "abc", p2p: true })).toEqual({ protocol: 2, build: "abc", p2p: true, releaseCheck: true, telemetry: false });
+    expect(parseOriginConfig({ protocol: 2, build: "old" })).toEqual({ protocol: 2, build: "old", p2p: false, releaseCheck: true, telemetry: false });
     expect(() => parseOriginConfig({ protocol: 2, build: "bad", p2p: 1 })).toThrow(ProtocolError);
     expect(() => parseOriginConfig({ protocol: 1, build: "dev" })).toThrow(ProtocolError);
     expect(() => parseOriginConfig({ protocol: 3, build: "x" })).toThrow(ProtocolError);
     expect(() => parseOriginConfig({ protocol: 2 })).toThrow(ProtocolError);
+  });
+
+  test("direct gateways explicitly disable hosted release checks and telemetry", () => {
+    expect(parseOriginConfig({ protocol: 2, build: "tailnet", p2p: false, release_check: false, telemetry: false }))
+      .toEqual({ protocol: 2, build: "tailnet", p2p: false, releaseCheck: false, telemetry: false });
+    expect(() => parseOriginConfig({ protocol: 2, build: "bad", telemetry: "no" })).toThrow(ProtocolError);
   });
 
   test("GET /api/config uses no-store and stores protocol", async () => {
@@ -18,7 +24,7 @@ describe("origin config", () => {
       calls.push(`${init?.cache}:${String(input)}`);
       return new Response(JSON.stringify({ protocol: 2, build: "s11", p2p: false }), { status: 200 });
     });
-    expect(config).toEqual({ protocol: 2, build: "s11", p2p: false });
+    expect(config).toEqual({ protocol: 2, build: "s11", p2p: false, releaseCheck: true, telemetry: false });
     expect(calls).toEqual(["no-store:/api/config"]);
   });
 
