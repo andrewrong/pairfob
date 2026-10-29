@@ -1,2 +1,2 @@
 [test]
-preload = ["./test-support/no-network-telemetry.ts"]
+preload = ["./test-support/no-network-telemetry.ts", "./test-support/pin-update-observer.ts"]
