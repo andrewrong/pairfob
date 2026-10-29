@@ -7,7 +7,7 @@ import type { TermMode } from "../../lib/terminal-mode";
 import { SetGroup, SetItem, SetNavItem } from "../../shared/ui/primitives";
 import { AgentQuotaModule } from "../../pages/quota/quota-summary";
 import { ComputerPanel, type LinkState } from "./computer-panel";
-import { SessionDefaults } from "./settings-defaults";
+import { SessionDefaults, TextSizeControl } from "./settings-defaults";
 
 export type SettingsOverviewInput = {
   computerName: string;
@@ -38,6 +38,7 @@ export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
       <SessionDefaults mode={input.defaultTermMode} live={input.defaultComposeLive} enterSends={input.composeEnterSends} />
       <SetGroup label={t(input.desk ? "set.deviceSection" : "settings.phoneSection")}>
         <SetItem className="language-item" label={t("settings.language")} trailing={<LanguageControl className="set-seg" />} />
+        <SetItem className="text-size-item" label={t("set.textSize")} trailing={<TextSizeControl />} />
       </SetGroup>
     </>
   );

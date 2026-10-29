@@ -35,6 +35,9 @@ export const PANE_ACTIVATED_KEY = "pairfob:paneActivated";
 export const PANE_PINNED_KEY = "pairfob:panePinned";
 export const PANE_TERM_MODE_KEY = "pairfob:paneTermMode";
 export const DEFAULT_TERM_MODE_KEY = "pairfob:defaultTermMode";
+export const TEXT_SIZE_KEY = "pairfob:textSize";
+
+export type TextSize = "small" | "standard" | "large" | "xlarge";
 
 export type TermFit = "pan" | "fit";
 export const TERM_COL_PRESETS = [80, 100, 120] as const;
@@ -78,6 +81,8 @@ export type PreferencesRecord = {
    * a line. Off by default: soft keyboards have no Shift+Enter.
    */
   composeEnterSends: boolean;
+  /** 文字大小 chosen by the owner; null follows the viewport width. */
+  textSize: TextSize | null;
 };
 
 /** Guarded storage read for call-time loaders (a session opening, not an import). */
@@ -216,6 +221,7 @@ export function initialPreferences(): PreferencesRecord {
     defaultComposeLive: false,
     paneComposeLive: {},
     composeEnterSends: false,
+    textSize: null,
   };
 }
 
@@ -241,6 +247,7 @@ export function hydratePreferences(environment: DomainEnvironment): void {
     record.defaultTermMode = loadDefaultTermMode(stored);
     record.defaultComposeLive = loadDefaultComposeLive(stored);
     record.composeEnterSends = loadComposeEnterSends(stored);
+    record.textSize = loadTextSize(stored);
   });
 }
 
@@ -664,4 +671,19 @@ export function setQuickCommands(commands: QuickCommand[]): boolean {
     writeStorage(QUICK_COMMANDS_KEY, JSON.stringify(parsed));
   });
   return true;
+}
+
+export function setTextSize(size: TextSize): void {
+  if (read().textSize === size) return;
+  batch(() => {
+    write((record) => { record.textSize = size; });
+    writeStorage(TEXT_SIZE_KEY, size);
+  });
+}
+
+export const TEXT_SIZES = ["small", "standard", "large", "xlarge"] as const satisfies readonly TextSize[];
+
+export function loadTextSize(read: StoredValueReader = readStorage): TextSize | null {
+  const raw = read(TEXT_SIZE_KEY);
+  return (TEXT_SIZES as readonly string[]).includes(raw ?? "") ? (raw as TextSize) : null;
 }
