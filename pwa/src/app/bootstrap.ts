@@ -27,6 +27,7 @@ import { applyOriginPairingPolicy, beginPairing } from "../features/pairing/acti
 import { commitApp } from "./commit";
 import { registerSessionOwnerPreparer, sessionOwnerPreparer } from "./frame";
 import { hydrateApplicationState } from "./hydrate";
+import { applyTextSize } from "../features/settings/text-size";
 import { mountApp, unmountApp } from "./mount";
 import { computers, lastUsedDaemon, liveSession, setAddingComputer } from "../features/computers/catalog-store";
 import {
@@ -113,6 +114,7 @@ export function startApplication(): () => void {
   running = stop;
   try {
     hydrateApplicationState();
+    applyTextSize();
     initI18n();
     bindLanguageChange(signal);
     capturePairingFragment();

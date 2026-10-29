@@ -1,4 +1,6 @@
 import { setComposeEnterSends, setDefaultComposeLive, setDefaultTermMode } from "../../features/settings/preferences-store";
+import { chooseTextSize, effectiveTextSize, TEXT_SIZES } from "../../features/settings/text-size";
+import { usePreferences } from "../../features/settings/hooks";
 import { t } from "../../lib/i18n";
 import { TERM_MODE_OPTIONS, type TermMode } from "../../lib/terminal-mode";
 import { TERM_MODE_LABEL } from "../../lib/ui-model";
@@ -39,4 +41,14 @@ export function SessionDefaults({ mode, live, enterSends }: { mode: TermMode; li
     <SetItem label={t("set.enterKeySends")} labelId="set-enter-sends"
       trailing={<SetSwitch checked={enterSends} labelledBy="set-enter-sends" onChange={setComposeEnterSends} />} />
   </SetGroup>;
+}
+
+/** 文字大小: four steps of the root font-size; unchosen shows the viewport default. */
+export function TextSizeControl() {
+  const chosen = usePreferences().textSize;
+  const current = effectiveTextSize(chosen, window.innerWidth);
+  return <SegmentedControl className="set-seg" aria-label={t("set.textSize")}>
+    {TEXT_SIZES.map(id => <SegmentedOption key={id} selected={current === id}
+      onClick={() => chooseTextSize(id)}>{t(`set.textSize.${id}`)}</SegmentedOption>)}
+  </SegmentedControl>;
 }

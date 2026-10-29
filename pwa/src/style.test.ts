@@ -9,6 +9,7 @@ const main = await Bun.file(new URL("../src/main.ts", import.meta.url)).text();
 const boot = await Bun.file(new URL("./app/bootstrap.ts", import.meta.url)).text();
 const viewportSrc = await Bun.file(new URL("./app/viewport.ts", import.meta.url)).text();
 const preferencesSrc = await Bun.file(new URL("./features/settings/preferences-store.ts", import.meta.url)).text();
+const tokensSrc = await Bun.file(new URL("./shared/ui/styles/tokens.scss", import.meta.url)).text();
 
 function color(token: string): string {
   const match = css.match(new RegExp(`--${token}:\\s*(#[0-9a-f]{6})`, "i"));
@@ -535,5 +536,17 @@ describe("UI accessibility guardrails", () => {
   test("row actions float over the buffer instead of pushing it", () => {
     expect(rule(".row-bubble")).toMatch(/position:\s*absolute/);
     expect(rule(".term-stage")).toMatch(/position:\s*relative/);
+  });
+});
+
+describe("type scale tokens", () => {
+  test("tokens.scss holds the iOS-sized scale", () => {
+    const tokens = tokensSrc;
+    const value = (name: string) => tokens.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1];
+    expect(value("text-caption")).toBe("0.8125rem");
+    expect(value("text-secondary")).toBe("0.9375rem");
+    expect(value("text-body")).toBe("1.0625rem");
+    expect(value("text-subhead")).toBe("1.1875rem");
+    expect(value("text-title")).toBe("1.3125rem");
   });
 });
