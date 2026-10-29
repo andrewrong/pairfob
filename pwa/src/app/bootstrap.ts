@@ -115,6 +115,7 @@ export function startApplication(): () => void {
   try {
     hydrateApplicationState();
     applyTextSize();
+    window.addEventListener("resize", applyTextSize, { signal });
     initI18n();
     bindLanguageChange(signal);
     capturePairingFragment();
