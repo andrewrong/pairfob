@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
-import { appRoot } from "../../../app/dom-root";
 import { setComposeFocused } from "../compose-store";
 import { finishSessionPaint } from "./view";
 
-const realMatchMedia = window.matchMedia;
+let realMatchMedia: typeof window.matchMedia;
 
 function device(points: number, media: Record<string, boolean>): void {
   Object.defineProperty(navigator, "maxTouchPoints", { value: points, configurable: true });
@@ -17,17 +16,19 @@ const DESKTOP = { "(pointer: coarse)": false, "(min-width: 900px)": true };
 function composeInput(): HTMLTextAreaElement {
   const field = document.createElement("textarea");
   field.className = "full-terminal-compose-input";
-  appRoot().append(field);
+  document.body.append(field);
   return field;
 }
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  realMatchMedia = window.matchMedia;
   setComposeFocused(false);
 });
 
 afterEach(() => {
   setComposeFocused(false);
+  document.body.querySelector(".full-terminal-compose-input")?.remove();
   window.matchMedia = realMatchMedia;
   delete (navigator as { maxTouchPoints?: number }).maxTouchPoints;
 });
