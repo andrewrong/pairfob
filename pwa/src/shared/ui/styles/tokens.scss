@@ -63,12 +63,12 @@
      label shifts by more than half a pixel; micro badges below 0.7rem and hero
      wordmarks above 1.5rem stay deliberate one-offs. Mobile form controls must
      stay at a literal 16px to avoid iOS focus zoom. */
-  --text-caption: 0.72rem;
-  --text-secondary: 0.78rem;
-  --text-body: 0.84rem;
+  --text-caption: 0.8125rem;
+  --text-secondary: 0.9375rem;
+  --text-body: 1.0625rem;
   --text-lead: 0.9rem;
-  --text-subhead: 0.95rem;
-  --text-title: 1.05rem;
+  --text-subhead: 1.1875rem;
+  --text-title: 1.3125rem;
   --text-display: 1.45rem;
 
   --vv-top: 0px;
