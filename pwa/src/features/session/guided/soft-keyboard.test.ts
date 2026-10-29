@@ -3,6 +3,7 @@ import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { unmountTestApp } from "../../../../test-support/react-harness";
 import { releaseVisualViewport } from "../../../app/viewport";
 import { setComposeFocused } from "../compose-store";
+import { resetPaneView } from "../session-store";
 import { finishSessionPaint } from "./view";
 
 let realMatchMedia: typeof window.matchMedia;
@@ -29,6 +30,9 @@ beforeEach(async () => {
   unmountTestApp();
   releaseVisualViewport();
   realMatchMedia = window.matchMedia;
+  // An earlier file can leave the agent-chat page open; finishSessionPaint
+  // returns before it touches the field then.
+  resetPaneView();
   setComposeFocused(false);
 });
 
@@ -46,14 +50,15 @@ describe("finishSessionPaint soft keyboard", () => {
     device(5, IPAD);
     const field = composeInput();
     finishSessionPaint(SCROLL, field);
-    expect(document.activeElement).not.toBe(field);
+    expect(document.activeElement === field).toBe(false);
   });
 
   test("a desktop focuses the compose field on paint", () => {
     device(0, DESKTOP);
     const field = composeInput();
     finishSessionPaint(SCROLL, field);
-    expect(document.activeElement).toBe(field);
+    // Compare as a boolean: a failing toBe would pretty-print the whole DOM.
+    expect(document.activeElement === field).toBe(true);
   });
 
   test("an iPad focuses the field again once the owner has tapped it", () => {
@@ -61,6 +66,7 @@ describe("finishSessionPaint soft keyboard", () => {
     setComposeFocused(true);
     const field = composeInput();
     finishSessionPaint(SCROLL, field);
-    expect(document.activeElement).toBe(field);
+    // Compare as a boolean: a failing toBe would pretty-print the whole DOM.
+    expect(document.activeElement === field).toBe(true);
   });
 });
