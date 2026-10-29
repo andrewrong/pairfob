@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
+import { unmountTestApp } from "../../../../test-support/react-harness";
+import { releaseVisualViewport } from "../../../app/viewport";
 import { setComposeFocused } from "../compose-store";
 import { finishSessionPaint } from "./view";
 
@@ -22,6 +24,10 @@ function composeInput(): HTMLTextAreaElement {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  // A page mounted or a viewport bound by an earlier file reacts to every focus
+  // in the shared document; this file measures focus alone.
+  unmountTestApp();
+  releaseVisualViewport();
   realMatchMedia = window.matchMedia;
   setComposeFocused(false);
 });
