@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,7 +83,9 @@ done
 			t.Fatalf("command log missing %s: %s", fragment, written)
 		}
 	}
-	if err := controller.Close(); err != nil {
+	// The fixture exits on terminal.release, so the read goroutine's Wait can
+	// close stdin before Close does; os.ErrClosed then is a clean close.
+	if err := controller.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
 		t.Fatal(err)
 	}
 	waitForFileText(t, logPath, "terminal.release")
