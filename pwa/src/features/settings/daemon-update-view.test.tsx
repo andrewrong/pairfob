@@ -10,6 +10,7 @@ const { currentDaemonId } = await import("../computers/catalog-store");
 const { setScreen, currentScreen } = await import("../../app/navigation-store");
 const {
   acceptDaemonVersion, daemonVersion, refreshDaemonUpdate, startDaemonUpdate, checkDaemonRelease,
+  setDaemonReleaseChecksEnabled,
 } = await import("./daemon-update");
 const { DaemonUpdate, ManualUpdateHelp } = await import("./daemon-update-view");
 const { setLang, t } = await import("../../lib/i18n");
@@ -36,10 +37,13 @@ function paintManualHelp(): void {
 }
 
 beforeEach(async () => {
+  // Another file may have booted a direct-gateway config, which disables release checks process-wide.
+  setDaemonReleaseChecksEnabled(true);
   await resetBoardTestDOM();
   Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
   setLang("zh");
   globalThis.fetch = (async () => new Response("1.1.0")) as typeof fetch;
+  await act(async () => { await checkDaemonRelease(true); });
   await act(async () => { await checkDaemonRelease(true); });
 });
 const originalFetch = globalThis.fetch;
