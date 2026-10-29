@@ -8,7 +8,7 @@ import { composeFocused } from "../compose-store";
 import { applyPaneRead, isAgentChat, livePaneHash, livePaneText, openPaneId, sessionStore, setPaneFollow, setPaneUnread, termSelect } from "../session-store";
 import { registerSessionView } from "../register";
 import { appRoot } from "../../../app/dom-root";
-import { isDesk } from "../../../app/viewport";
+import { isDesk, prefersSoftKeyboard } from "../../../app/viewport";
 import { composeField, sizeCompose, syncSendButton } from "./compose";
 import { settleEcho } from "./echo";
 import { paneModel } from "./pane-model";
@@ -89,7 +89,7 @@ export function finishSessionPaint(scroll: { top: number; left: number; bottom: 
   const field = input ?? composeField();
   if (field) {
     sizeCompose(field);
-    if (composeFocused() || isDesk()) {
+    if (composeFocused() || (isDesk() && !prefersSoftKeyboard())) {
       field.focus({ preventScroll: true });
       const caret = field.value.length;
       field.setSelectionRange(caret, caret);
