@@ -176,7 +176,14 @@ func TestHealthAuditConcurrentWithTransportCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer logger.Close()
-	for i := 0; i < 20; i++ {
+	auditSeen := func() bool {
+		data, _ := os.ReadFile(path)
+		return strings.Contains(string(data), `"op":"health_ping"`)
+	}
+	// The ping worker skips a ping once the epoch is retired, so run rounds
+	// until one has produced its audit line instead of betting on a fixed count.
+	deadline := time.Now().Add(10 * time.Second)
+	for i := 0; i < 20 || (!auditSeen() && time.Now().Before(deadline)); i++ {
 		e, s, send, _ := pingSession(t, runtime.NewFake())
 		e.Audit = logger
 		newRoute := [16]byte{2}
@@ -202,10 +209,8 @@ func TestHealthAuditConcurrentWithTransportCommit(t *testing.T) {
 			t.Fatal("transport commit failed")
 		}
 	}
-	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		data, _ := os.ReadFile(path)
-		if strings.Contains(string(data), `"op":"health_ping"`) {
+		if auditSeen() {
 			return
 		}
 		time.Sleep(time.Millisecond)

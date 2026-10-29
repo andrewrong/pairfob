@@ -169,6 +169,12 @@ func TestWebRTCAcceptorCarriesPairfobFramesBothWays(t *testing.T) {
 	}
 }
 
+func (c *webRTCConn) acceptorChannelOpen() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.channel != nil && c.channel.ReadyState() == webrtc.DataChannelStateOpen
+}
+
 func boolPointer(value bool) *bool { return &value }
 
 type p2pTestPair struct {
@@ -250,6 +256,18 @@ func openP2PTestPair(t *testing.T) *p2pTestPair {
 		link.Close()
 		caller.Close()
 		t.Fatal("data channel did not open")
+	}
+	// Send checks the acceptor's own channel (from OnDataChannel), which can
+	// open after the caller's channel does.
+	for !rtc.acceptorChannelOpen() {
+		select {
+		case <-ctx.Done():
+			cancel()
+			link.Close()
+			caller.Close()
+			t.Fatal("acceptor data channel did not open")
+		case <-time.After(5 * time.Millisecond):
+		}
 	}
 	pair.cleanup = func() {
 		link.Close()
