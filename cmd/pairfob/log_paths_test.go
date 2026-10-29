@@ -72,8 +72,11 @@ func TestCustomLogDirectoryKeepsStateSeparate(t *testing.T) {
 	for _, osName := range []string{"darwin", "linux"} {
 		layout.GOOS = osName
 		body := unitBody(layout)
-		if strings.Contains(body, logDir+"/pairfob.log") || (!strings.Contains(body, "/dev/null") && !strings.Contains(body, "StandardOutput=null")) {
-			t.Fatalf("custom %s service still asks its manager to open the external log: %s", osName, body)
+		if strings.Contains(body, logDir+"/pairfob.log") {
+			t.Fatalf("custom %s service asks its manager to open the external log: %s", osName, body)
+		}
+		if !strings.Contains(body, filepath.Join(stateDir, "pairfob-startup.log")) {
+			t.Fatalf("custom %s service does not send startup output to the state directory: %s", osName, body)
 		}
 	}
 }
