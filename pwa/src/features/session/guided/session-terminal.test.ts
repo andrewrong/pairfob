@@ -1,5 +1,5 @@
 import { happy, resetBoardTestDOM } from "../../../../test-support/dom";
-import { beforeEach, afterEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, afterEach, describe, expect, test } from "bun:test";
 import { act, createElement, Fragment } from "react";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { ScalarPreferenceState } from "../../../../test-support/preferences-scalar-restore";
@@ -34,7 +34,11 @@ const g = globalThis as unknown as Record<string, unknown>;
 g.HTMLTextAreaElement = happy.HTMLTextAreaElement;
 g.TouchEvent = happy.TouchEvent;
 g.KeyboardEvent = happy.KeyboardEvent;
-window.getSelection = () => ({ isCollapsed: true }) as Selection;
+const stubbedWindow = window;
+const originalGetSelection = stubbedWindow.getSelection;
+stubbedWindow.getSelection = () => ({ isCollapsed: true }) as Selection;
+// The shared Happy DOM window outlives this file: give its real selection back.
+afterAll(() => { stubbedWindow.getSelection = originalGetSelection; });
 
 // boot()/afterEach call the persisting preference setters (setTermWrap), so
 // capture canonical+raw pre-images before any of them runs and restore after

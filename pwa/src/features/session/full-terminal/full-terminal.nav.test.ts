@@ -103,9 +103,19 @@ const { resetComposeDrafts } = await import("../drafts/compose-drafts.ts");
 
 const DRAFT = "keep-draft";
 
+// The terminal open tracker is a module singleton that stays busy until the
+// in-flight open settles, so a never-answered open must be rejected when the test
+// ends or it blocks every later open in this process.
+const unansweredOpens: Array<(error: Error) => void> = [];
+
+function settleUnansweredOpens(): void {
+  for (const reject of unansweredOpens.splice(0)) reject(new Error("test ended before TerminalOpen was answered"));
+}
+
 function live(): LiveSession {
   return {
-    terminalOpen: (_paneId: string, _cols: number, _rows: number) => new Promise(() => undefined),
+    terminalOpen: (_paneId: string, _cols: number, _rows: number) =>
+      new Promise((_resolve, reject) => { unansweredOpens.push(reject); }),
     terminalClose: async () => undefined,
     terminalInput: async () => undefined,
     terminalResize: async () => undefined,
@@ -181,8 +191,15 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  // Disposing while the xterm module is still loading leaves the module's
+  // `mounting` flag set, which blocks every later mount in this process. Let a
+  // started mount finish before tearing down.
+  if (app.querySelector(".full-terminal-root")) {
+    await waitUntil(() => app.querySelector(".full-terminal-root .xterm") !== null, "terminal mount before teardown");
+  }
   await act(async () => {
     visibility = "visible";
+    settleUnansweredOpens();
     await leaveFullTerminal({ rememberGuided: false, paint: false });
     disposeFullTerminal();
     resetComposeDrafts();

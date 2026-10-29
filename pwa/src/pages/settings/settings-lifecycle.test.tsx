@@ -30,8 +30,12 @@ describe("settings lifecycle (isolated child process)", () => {
       const here = dirname(fileURLToPath(import.meta.url));
       const pwaRoot = resolve(here, "../../..");
       const target = resolve(pwaRoot, "test-support", "settings-lifecycle-isolated.test.ts");
+      // Under an AI-agent environment bun test omits the per-test `(pass)` lines
+      // asserted below; the child must report the same way it does in CI.
+      const { AI_AGENT: _agent, CLAUDECODE: _claude, ...childEnv } = process.env;
       const proc = Bun.spawn([process.execPath, "test", target, "--timeout", "20000"], {
         cwd: pwaRoot,
+        env: childEnv,
         stdout: "pipe",
         stderr: "pipe",
       });

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { act, createElement, StrictMode, useLayoutEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { happy, resetBoardTestDOM } from "../../../test-support/dom";
-import { connectionStore, applyPairingFragment, applyOriginConfig, phase, setPhase, p2pEnabled } from "../connection/connection-store";
+import { connectionStore, applyPairingFragment, applyOriginConfig, clearPairingFragment, phase, setConnectFailure, setPhase, p2pEnabled } from "../connection/connection-store";
 import { attachLiveSession, setAddingComputer, setCredential, setComputers } from "../computers/catalog-store";
 import { setScreen } from "../../app/navigation-store";
 import { pairingStore, resetPairingInput, setPairManualOpen, setPairFailure } from "./form-store";
@@ -133,6 +133,9 @@ afterEach(async () => {
     setComputers([]);
     setCredential(null);
     attachLiveSession(null);
+    // The scanned pairing link would otherwise stay pending for the next file.
+    clearPairingFragment();
+    setConnectFailure("");
     setPhase("boot");
     setScreen("home");
   });

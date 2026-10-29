@@ -17,7 +17,7 @@ import { stopPolling } from "../connection/controller";
 
 const {
   acceptDaemonVersion, checkDaemonRelease, daemonVersion, markDaemonConfigIncompatible,
-  needsDaemonUpdate, refreshDaemonUpdate, startDaemonUpdate, subscribeDaemonUpdates,
+  needsDaemonUpdate, refreshDaemonUpdate, setDaemonReleaseChecksEnabled, startDaemonUpdate, subscribeDaemonUpdates,
 } = await import("./daemon-update");
 
 const credential = (id: string) => ({
@@ -29,6 +29,8 @@ let serial = 0;
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
+  // Another file may have booted a direct-gateway config, which disables release checks process-wide.
+  setDaemonReleaseChecksEnabled(true);
   await resetBoardTestDOM();
   Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
   globalThis.fetch = (async () => new Response("2.0.0")) as typeof fetch;
@@ -67,7 +69,10 @@ async function prepareUpdate(): Promise<{ getCalls: () => number }> {
   setCredential(credential(id) as never);
   attachLiveSession(resource as never);
   acceptDaemonVersion({ build: "1.0.0" });
-  await checkDaemonRelease();
+  // A release check another file left in flight, or one that backed off for 60s,
+  // would swallow a plain call: force twice so the second runs against this fetch.
+  await checkDaemonRelease(true);
+  await checkDaemonRelease(true);
   await refreshDaemonUpdate();
   expect(needsDaemonUpdate()).toBeTrue();
   return { getCalls: () => calls };

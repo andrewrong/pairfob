@@ -128,7 +128,8 @@ test("typed draft updates keep the pair-code node without a remount", async () =
   act(() => setPairCodeDraft("ABCD-EFGH-123456"));
   expect(field()).toBe(input);
   expect(input.value).toBe("ABCD-EFGH-123456");
-  expect(sheet()?.querySelector(".field-count")?.textContent).toBe("14/14");
+  // Complete pairing links share this field, so it shows no length counter.
+  expect(sheet()?.querySelector(".field-count")).toBeNull();
 });
 
 test("the code field keeps one input with the full-code placeholder", async () => {
@@ -365,7 +366,7 @@ describe("stages and notices (actual App)", () => {
     expect(document.querySelectorAll('[role="alert"]').length).toBe(1);
   });
 
-  test("typing at the end groups the code 4-4-6 as the computer prints it", async () => {
+  test("typing at the end stores the draft verbatim because pairing links share the field", async () => {
     await mountConnect();
     act(() => setPairManualOpen(true));
     const input = field()!;
@@ -378,6 +379,6 @@ describe("stages and notices (actual App)", () => {
       input.dispatchEvent(new happy.Event("input", { bubbles: true }) as unknown as Event);
       input.dispatchEvent(new happy.KeyboardEvent("keyup", { bubbles: true }) as unknown as Event);
     });
-    expect(pairingStore.get().pairCodeDraft).toBe("7K3M-9H2P-WJ3K9M");
+    expect(pairingStore.get().pairCodeDraft).toBe("7k3m9h2pwj3k9m");
   });
 });

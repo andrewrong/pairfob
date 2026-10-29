@@ -32,6 +32,9 @@ const { openSettings } = await import("../../../features/settings/actions.ts");
 const { openComputers } = await import("../../../features/computers/actions.ts");
 import { happy as happyDom } from "../../../../test-support/dom";
 
+// A file that ran earlier in the same process may have emptied the shared body.
+await resetChatDOM();
+if (!document.getElementById("app")) document.body.innerHTML = '<main id="app"></main>';
 const app = appRoot();
 const trace = () => chatSnapshot();
 const setTrace = (patch: Parameters<typeof applyTrace>[0]): void => { applyTrace(patch); };

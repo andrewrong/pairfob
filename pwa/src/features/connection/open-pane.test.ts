@@ -5,7 +5,7 @@ import { chatStore } from "../session/chat/trace-store";
 import { attachLiveSession, currentDaemonId, setCredential } from "../computers/catalog-store";
 import { setPhase } from "./connection-store";
 import { currentScreen, setScreen } from "../../app/navigation-store";
-import { openPaneId, selectPane, sessionStore } from "../session/session-store";
+import { openPaneId, resetPaneView, selectPane, sessionStore } from "../session/session-store";
 import { preferencesStore } from "../settings/preferences-store";
 import { readStoredDraft, writeStoredDraft } from "../session/drafts/state-drafts";
 import { openPaneWithOwner, type OpenPanePorts } from "./open-pane";
@@ -50,8 +50,17 @@ function ports(over: Partial<OpenPanePorts> = {}): OpenPanePorts {
   };
 }
 
+// These cases publish into the shared domain stores; hand the next file the
+// boot baseline instead of a live session on a selected pane.
 afterEach(() => {
   resetGenerationsForTests();
+  attachLiveSession(null);
+  setCredential(null);
+  setComposeDraft("");
+  selectPane("");
+  resetPaneView();
+  setScreen("home");
+  setPhase("boot");
 });
 
 describe("openPane atomic transition", () => {

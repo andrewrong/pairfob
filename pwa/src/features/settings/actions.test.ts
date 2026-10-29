@@ -1,4 +1,5 @@
-import { afterEach, expect, test } from "bun:test";
+import { resetTestDOM } from "../../../test-support/boot-dom";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { attachLiveSession } from "../computers/catalog-store";
 import { beginSettingsRead, resetRuntime, runtimeStore, setPushEnabled, setPushSubscribed } from "../connection/runtime-store";
 import { setScreen } from "../../app/navigation-store";
@@ -22,7 +23,15 @@ const validConfig = (push = true) => ({
   agent_kinds: [],
 });
 
+beforeEach(async () => { await resetTestDOM(); });
+
 afterEach(() => {
+  // Drop the push globals a test defined on the shared Happy DOM so the next file starts bare.
+  for (const owner of [navigator, window, globalThis] as object[]) {
+    for (const name of ["serviceWorker", "PushManager", "Notification"]) {
+      if (Object.getOwnPropertyDescriptor(owner, name)?.configurable) Reflect.deleteProperty(owner, name);
+    }
+  }
   attachLiveSession(null);
   resetRuntime();
   setScreen("home");
