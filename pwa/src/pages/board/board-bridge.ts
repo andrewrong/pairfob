@@ -63,6 +63,7 @@ import { openCreateSheet } from "../home/create-bridge";
 import { leaveAgentChat } from "../../features/session/chat/agent-chat-controller";
 import { leaveFullTerminal } from "../../features/session/full-terminal/full-terminal";
 import { dropQueuedKeys } from "../../features/session/guided/keys";
+import { prefersSoftKeyboard } from "../../app/viewport";
 import { focusCompose } from "../../features/session/guided/compose";
 import { morphingPane, nextTransition, queuedKind, shareOpening } from "../../app/transition";
 import { herdLivenessModel, herdStatusModel } from "../../features/dashboard/model/herd-status";
@@ -231,6 +232,8 @@ export function openBoardPane(paneId: string, tile?: HTMLElement): void {
   shareOpening(tile);
   nextTransition("expand", paneId);
   void openPane(paneId).then(() => {
+    // A touch device would raise its soft keyboard over the session on entry.
+    if (prefersSoftKeyboard()) return;
     focusCompose();
     if (!document.querySelector(".full-terminal-compose-input, .dock-form textarea")) {
       requestAnimationFrame(() => focusCompose());

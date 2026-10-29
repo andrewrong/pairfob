@@ -330,6 +330,37 @@ describe("board canvas controller", () => {
     expect(openPaneId()).toBe("w1:p1");
   });
 
+  test("opening a pane focuses the compose field on a desktop but not on a touch iPad", async () => {
+    const realMedia = window.matchMedia;
+    const media = (coarse: boolean) => ((query: string) => ({
+      matches: query === "(min-width: 900px)" || (query === "(pointer: coarse)" && coarse),
+      media: query,
+    })) as typeof window.matchMedia;
+    const open = async (points: number, coarse: boolean): Promise<boolean> => {
+      Object.defineProperty(navigator, "maxTouchPoints", { value: points, configurable: true });
+      window.matchMedia = media(coarse);
+      selectPane("");
+      const field = document.createElement("textarea");
+      field.className = "full-terminal-compose-input";
+      appRoot().append(field);
+      openBoardPane("w1:p1");
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const focused = document.activeElement === field;
+      field.remove();
+      takeTransition();
+      return focused;
+    };
+    // Let the continuation of an earlier test's openBoardPane settle first.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    try {
+      expect(await open(5, true)).toBe(false);
+      expect(await open(0, false)).toBe(true);
+    } finally {
+      window.matchMedia = realMedia;
+      delete (navigator as { maxTouchPoints?: number }).maxTouchPoints;
+    }
+  });
+
   test("a tile only shares its opening for the pane that is actually expanding", () => {
     const tile = document.createElement("button");
     document.body.append(tile);

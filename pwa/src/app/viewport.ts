@@ -5,6 +5,14 @@ export function isDesk(): boolean {
 }
 
 /**
+ * A touch device whose primary pointer is coarse raises a soft keyboard on
+ * focus. Hardware keyboards are not detectable, so an iPad with one counts too.
+ */
+export function prefersSoftKeyboard(): boolean {
+  return navigator.maxTouchPoints > 0 && window.matchMedia("(pointer: coarse)").matches;
+}
+
+/**
  * Fit fullscreen shells above the software keyboard, including iOS focus pan.
  * Native page zoom changes the visual rectangle too: remove its scale and
  * preserve the existing focus offset so pinching does not reflow the shell.
