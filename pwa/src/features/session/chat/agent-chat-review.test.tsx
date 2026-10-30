@@ -23,7 +23,7 @@ import { setScreen } from "../../../app/navigation-store";
 import { bindSessionOwnerFromLive } from "../bind-live";
 import { AgentChatPane } from "./agent-chat";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
-import { COMPOSE_ENTER_SENDS_KEY, setComposeEnterSends } from "../../settings/preferences-store";
+import { COMPOSE_ENTER_SENDS_KEY, setComposeEnterSends, setPaneTermMode } from "../../settings/preferences-store";
 
 const handlers = { onBack() {}, onWorkspace() {}, onMenu() {}, onSwitch() {} };
 const page = (text: string): AgentTracePage => ({ items: [
@@ -394,6 +394,7 @@ test("unreadable Pi transcript keeps a terminal exit after one successful send a
   const snapshot = catalog(["p1"]);
   snapshot.panes = snapshot.panes!.map(pane => ({ ...pane, agent: "pi", history_available: false }));
   replaceAgentsFromSnapshot(snapshot);
+  setPaneTermMode("p1", "agent");
   applyTrace({ agentTraceItems: [], agentTraceNote: "", agentTracePending: "" });
   setSession({
     agentTrace: async () => {
