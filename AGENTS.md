@@ -111,7 +111,12 @@ package can express that duty.
 
 ## Branch and release workflow
 
-Commit, push and deploy from the user's current local branch and checkout.
+Sessions started by crew work on the issue branch and in the worktree crew gives it, commit there and push that branch.
+A crew session opens or updates the pull request of its issue.
+It does not merge, deploy, release, restart or stop the running pairfob service, and it does not touch the owner's checkout.
+Deploys stay with the owner.
+
+For work the owner does in their own checkout: Commit, push and deploy from the user's current local branch and checkout.
 Do not create a release branch or a separate worktree unless the user explicitly
 requests one. Preserve unrelated working changes and stage only the authorized
 scope. If edits continue during verification, compare source snapshots before
