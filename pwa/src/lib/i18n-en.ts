@@ -713,6 +713,8 @@ export const en: { [K in keyof typeof zh]: string } = {
   "ft.restored": "Connection restored, reopening the terminal…",
   "ft.kbType": "Tap to type",
   "ft.kbHide": "Hide keyboard",
+  "ft.keysShow": "Show keys",
+  "ft.keysHide": "Hide keys",
   "ft.kbOpen": "Open the keyboard",
 
   "update.helpTitle": "Computer outdated or unable to connect?",

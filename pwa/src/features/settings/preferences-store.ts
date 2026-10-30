@@ -24,6 +24,7 @@ export const TERM_WRAP_KEY = "pairfob:termWrap";
 export const TERM_FIT_KEY = "pairfob:termFit";
 export const TERM_COLS_KEY = "pairfob:termCols";
 export const KEYS_EXPANDED_KEY = "pairfob:keysExpanded";
+export const PHONE_KEYS_SHOWN_KEY = "pairfob:phoneKeysShown";
 export const QUICK_COMMANDS_KEY = "pairfob:quickCommands";
 export const PAD_KIND_KEY = "pairfob:padKind";
 export const DEFAULT_COMPOSE_LIVE_KEY = "pairfob:defaultComposeLive";
@@ -58,6 +59,7 @@ export type PreferencesRecord = {
   termFit: TermFit;
   termCols: TermCols;
   keysExpanded: boolean;
+  phoneKeysShown: boolean;
   /** Expanded pad body: terminal keys or slash-command chips. */
   padKind: PadKind;
   quickCommands: QuickCommand[] | null;
@@ -140,6 +142,10 @@ export function loadTermCols(read: StoredValueReader = readStorage): TermCols {
   return 80;
 }
 
+export function loadPhoneKeysShown(read: StoredValueReader = readStorage): boolean {
+  return read(PHONE_KEYS_SHOWN_KEY) === "1";
+}
+
 export function loadKeysExpanded(read: StoredValueReader = readStorage): boolean {
   return read(KEYS_EXPANDED_KEY) === "1";
 }
@@ -209,6 +215,7 @@ export function initialPreferences(): PreferencesRecord {
     termFit: "pan",
     termCols: 80,
     keysExpanded: false,
+    phoneKeysShown: false,
     padKind: "keys",
     quickCommands: null,
     listGroup: "flat",
@@ -241,6 +248,7 @@ export function hydratePreferences(environment: DomainEnvironment): void {
     record.termFit = loadTermFit(stored);
     record.termCols = loadTermCols(stored);
     record.keysExpanded = loadKeysExpanded(stored);
+    record.phoneKeysShown = loadPhoneKeysShown(stored);
     record.padKind = loadPadKind(stored);
     record.quickCommands = parseQuickCommands(parseJSON(stored(QUICK_COMMANDS_KEY)));
     record.listGroup = loadListGroup(stored);
@@ -635,6 +643,24 @@ export function setKeysExpanded(expanded: boolean): void {
       record.keysExpanded = expanded;
     });
     saveKeysExpanded();
+  });
+}
+
+export function savePhoneKeysShown(): void {
+  writeStorage(PHONE_KEYS_SHOWN_KEY, read().phoneKeysShown ? "1" : "0");
+}
+
+export function phoneKeysShown(): boolean {
+  return read().phoneKeysShown;
+}
+
+export function setPhoneKeysShown(shown: boolean): void {
+  if (read().phoneKeysShown === shown) return;
+  batch(() => {
+    write((record) => {
+      record.phoneKeysShown = shown;
+    });
+    savePhoneKeysShown();
   });
 }
 

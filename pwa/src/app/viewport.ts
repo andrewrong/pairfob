@@ -12,6 +12,11 @@ export function prefersSoftKeyboard(): boolean {
   return navigator.maxTouchPoints > 0 && window.matchMedia("(pointer: coarse)").matches;
 }
 
+/** A touch-first device narrower than the desk layout: an iPad in landscape is not one. */
+export function isPhone(): boolean {
+  return prefersSoftKeyboard() && !isDesk();
+}
+
 /**
  * Fit fullscreen shells above the software keyboard, including iOS focus pan.
  * Native page zoom changes the visual rectangle too: remove its scale and

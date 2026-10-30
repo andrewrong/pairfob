@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "../../../test-support/boot-dom";
+import { emptyEnvironment } from "../../shared/model/domain-environment";
 import type { PairResult } from "../../lib/protocol/client";
 
 const { preferencesStore, paneTermMode, setPaneTermMode, paneComposeLive, setPaneComposeLive, setDefaultComposeLive,
-  setDefaultTermMode, setTermFont, setTermGrid, setKeysExpanded, setPadKind, rememberPane, applyHerdTouches, togglePanePin,
+  setDefaultTermMode, setTermFont, setTermGrid, setKeysExpanded, setPadKind, phoneKeysShown, setPhoneKeysShown, hydratePreferences, resetPreferences, PHONE_KEYS_SHOWN_KEY, rememberPane, applyHerdTouches, togglePanePin,
   prunePanePreferences, prunePanePins, adoptDaemonPreferences, clampTermFont, termLineHeightPx, saveListGroup,
   setListGroup, TERM_FONT_MAX, TERM_FONT_MIN } = await import("./preferences-store");
 const { computersStore, setCredential } = await import("../computers/catalog-store");
@@ -82,6 +83,22 @@ describe("terminal and pad preferences", () => {
     setDefaultComposeLive(false);
     setDefaultTermMode("auto");
     release();
+  });
+});
+
+describe("phone key panel preference", () => {
+  test("new: phoneKeysShown persists", () => {
+    expect(phoneKeysShown()).toBe(false);
+    setPhoneKeysShown(true);
+    expect(phoneKeysShown()).toBe(true);
+    const raw = localStorage.getItem(PHONE_KEYS_SHOWN_KEY);
+    expect(raw).toBe("1");
+    expect(PHONE_KEYS_SHOWN_KEY).toBe("pairfob:phoneKeysShown");
+    resetPreferences();
+    expect(phoneKeysShown()).toBe(false);
+    hydratePreferences(emptyEnvironment({ read: (key) => (key === PHONE_KEYS_SHOWN_KEY ? raw : null) }));
+    expect(phoneKeysShown()).toBe(true);
+    setPhoneKeysShown(false);
   });
 });
 

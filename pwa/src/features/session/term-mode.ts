@@ -1,3 +1,4 @@
+import { isPhone } from "../../app/viewport";
 import { connectionStore } from "../connection/connection-store";
 import { isAgentChat, isFullTerminal, openPaneId } from "./session-store";
 import { resolveTermMode, type ActiveTermMode, type TermMode } from "../../lib/terminal-mode";
@@ -11,6 +12,8 @@ export function resolvedPaneTermMode(preference: TermMode = paneTermMode(openPan
   return resolveTermMode(preference, {
     p2p,
     fullTerminalAvailable: p2p && fullTerminalSupported(),
+    phone: isPhone(),
+    agentAvailable: canEnterAgentChat(),
   });
 }
 

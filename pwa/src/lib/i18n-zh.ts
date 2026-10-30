@@ -716,6 +716,8 @@ export const zh = {
   "ft.restored": "连接已恢复，正在重开终端…",
   "ft.kbType": "点这里输入",
   "ft.kbHide": "收起键盘",
+  "ft.keysShow": "显示按键",
+  "ft.keysHide": "收起按键",
   "ft.kbOpen": "打开键盘输入",
 
   "update.helpTitle": "电脑端很久没更新或无法连接？",
