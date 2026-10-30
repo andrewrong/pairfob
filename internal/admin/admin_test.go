@@ -25,6 +25,7 @@ type fake struct {
 	denied   string
 	revoked  string
 	traces   []TracePane
+	traceErr error
 }
 
 func (f *fake) Status() Pairing { return f.status }
@@ -65,7 +66,7 @@ func (f *fake) Rekey() (Relay, error) {
 	return Relay{URL: "wss://pairfob.test/v2/ws", Protocol: 2}, nil
 }
 
-func (f *fake) TraceCheck() []TracePane { return f.traces }
+func (f *fake) TraceCheck() ([]TracePane, error) { return f.traces, f.traceErr }
 
 func testSocket(t *testing.T) string {
 	t.Helper()
@@ -308,6 +309,11 @@ func TestAdminTraceCheckOp(t *testing.T) {
 	resp, err = Call(empty, Request{Op: "trace.check"})
 	if err != nil || string(resp.Result) != `{"panes":[]}` {
 		t.Fatalf("empty: %s %v", resp.Result, err)
+	}
+
+	failing := start(t, &fake{traceErr: errors.New("snapshot failed")})
+	if _, err = Call(failing, Request{Op: "trace.check"}); err == nil || err.Error() != "snapshot failed" {
+		t.Fatalf("snapshot error: %v", err)
 	}
 
 	if resp, err = Call(sock, Request{Op: "pair.status"}); err != nil || !resp.OK {

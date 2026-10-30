@@ -309,7 +309,7 @@ func (a liveAdmin) Devices() []admin.Device {
 	return out
 }
 
-func (a liveAdmin) TraceCheck() []admin.TracePane { return a.eng.TraceCheck() }
+func (a liveAdmin) TraceCheck() ([]admin.TracePane, error) { return a.eng.TraceCheck() }
 
 func (a liveAdmin) Revoke(id string) error { return a.eng.RevokeDevice(id) }
 

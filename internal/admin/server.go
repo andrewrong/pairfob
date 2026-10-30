@@ -131,7 +131,10 @@ func dispatch(svc Service, req Request) Response {
 		}
 		return okResult(map[string]any{"ok": true, "device_id": req.DeviceID})
 	case "trace.check":
-		panes := svc.TraceCheck()
+		panes, err := svc.TraceCheck()
+		if err != nil {
+			return errResult(err)
+		}
 		if panes == nil {
 			panes = []TracePane{}
 		}

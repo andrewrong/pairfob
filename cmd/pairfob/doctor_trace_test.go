@@ -20,12 +20,13 @@ import (
 type traceAdmin struct {
 	*interactiveAdmin
 	panes []admin.TracePane
+	err   error
 	calls atomic.Int32
 }
 
-func (a *traceAdmin) TraceCheck() []admin.TracePane {
+func (a *traceAdmin) TraceCheck() ([]admin.TracePane, error) {
 	a.calls.Add(1)
-	return a.panes
+	return a.panes, a.err
 }
 
 func startTraceAdmin(t *testing.T, svc admin.Service) string {
@@ -74,8 +75,24 @@ func TestDoctorTraceOutput(t *testing.T) {
 		t.Fatalf("got %q want %q", out, want)
 	}
 	out, _, err := runTrace(t, startTraceAdmin(t, newTraceAdmin()))
-	if err != nil || out != "traces: 0 ok, 0 not ok\n" {
+	if err != nil || out != "traces: no pane with an agent\n" {
 		t.Fatalf("empty: %q %v", out, err)
+	}
+}
+
+func TestDoctorTraceEmptySaysNoPane(t *testing.T) {
+	out, _, err := runTrace(t, startTraceAdmin(t, newTraceAdmin()))
+	if err != nil || !strings.Contains(out, "no pane with an agent") || strings.Contains(out, "0 ok") {
+		t.Fatalf("empty: %q %v", out, err)
+	}
+}
+
+func TestDoctorTraceSnapshotErrorExitsTwo(t *testing.T) {
+	svc := newTraceAdmin()
+	svc.err = errors.New("snapshot failed")
+	out, stderr, err := runTrace(t, startTraceAdmin(t, svc))
+	if exitCodeOf(err) != 2 || !strings.Contains(stderr, "snapshot failed") || strings.Contains(out, "traces:") {
+		t.Fatalf("out=%q stderr=%q err=%v", out, stderr, err)
 	}
 }
 
