@@ -33,6 +33,9 @@ Local pairing runs against the same Worker as production:
 `PAIRFOB_HERDR_AUTOSTART=0` to skip starting Herdr. Never enable
 `PAIRFOB_DEV_AUTO_ADMIT` outside an isolated test.
 
+`PAIRFOB_HEALTH_ADDR=127.0.0.1:<port>` opens an extra listener that serves only
+`GET /v2/health`; it is loopback-only and off by default.
+
 ## Testing on a real phone
 
 For phone testing without installing a local CA, create a DNS-only A record

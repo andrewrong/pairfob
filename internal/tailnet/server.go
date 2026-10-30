@@ -73,6 +73,10 @@ func (w *statusWriter) WriteHeader(status int) {
 }
 
 // New starts the loopback server. Call Attach before accepting any pairing.
+// HealthBody is the constant body of GET /v2/health, shared with the optional
+// loopback health listener.
+const HealthBody = `{"ok":true,"protocol":2}`
+
 func New(listener net.Listener, origin string) *Gateway {
 	g := &Gateway{listener: listener, origin: strings.TrimRight(origin, "/"), routes: map[[16]byte]*client{}, clients: make(chan struct{}, maxClients)}
 	g.server = &http.Server{Handler: g.handler(), ReadHeaderTimeout: 5 * time.Second}
@@ -125,7 +129,7 @@ func (g *Gateway) handler() http.Handler {
 		case "/v2/health":
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"ok":true,"protocol":2}`))
+			_, _ = w.Write([]byte(HealthBody))
 		case "/v2/ws":
 			w.Header().Set("Cache-Control", "no-store")
 			g.serveWS(w, r)
