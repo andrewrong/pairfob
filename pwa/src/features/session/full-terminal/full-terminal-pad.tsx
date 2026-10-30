@@ -1,11 +1,12 @@
 import { flushSync } from "react-dom";
-import { ChevronDown, Ellipsis } from "lucide-react";
+import { ChevronDown, Ellipsis, Keyboard } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { composeFocused, composeIME, composeLive } from "../compose-store";
 import { useCompose } from "../hooks";
 import { usePreferences } from "../../settings/hooks";
-import { keysExpanded, setKeysExpanded } from "../../settings/preferences-store";
+import { keysExpanded, phoneKeysShown, setKeysExpanded, setPhoneKeysShown } from "../../settings/preferences-store";
 import { t } from "../../../lib/i18n";
+import { isPhone } from "../../../app/viewport";
 import {
   type FullTerminalControlsOptions,
   requestFullTerminalPadEnter,
@@ -115,10 +116,20 @@ function FullTerminalPadControls({
   // terminal's own keyboard) and the expanded pad are never on screen together.
   const keyboard = useSoftKeyboardOpen();
   const shown = expanded && !keyboard;
+  // A phone keeps the key panel behind one toggle; elsewhere it is always there.
+  const phone = isPhone();
+  const keysVisible = !phone || preferences.phoneKeysShown;
 
   return <div className="full-terminal-pad-controls">
     {live && <FullTerminalKeyboardButton keyboard={optionsRef.current.keyboard} />}
-    <div className="keys" role="group" aria-label={t("keys.primary")}>
+    {phone && <PadChromeButton
+      type="button"
+      className="key full-terminal-phone-keys"
+      aria-label={keysVisible ? t("ft.keysHide") : t("ft.keysShow")}
+      aria-expanded={keysVisible ? "true" : "false"}
+      onClick={() => { setPhoneKeysShown(!phoneKeysShown()); }}
+    ><Keyboard size={20} aria-hidden="true" /></PadChromeButton>}
+    {keysVisible && <div className="keys" role="group" aria-label={t("keys.primary")}>
       {PRIMARY_KEYS.map((spec) => <FullTerminalKeyButton key={spec.key} spec={spec} onKey={onKey} />)}
       <PadChromeButton
         type="button"
@@ -142,8 +153,8 @@ function FullTerminalPadControls({
           repaint();
         }}
       >{shown ? <ChevronDown size={20} aria-hidden="true" /> : <Ellipsis size={20} aria-hidden="true" />}</PadChromeButton>
-    </div>
-    {shown && <SessionSlashPad onSelect={selectCommand} onCustomSelect={(text) => {
+    </div>}
+    {keysVisible && shown && <SessionSlashPad onSelect={selectCommand} onCustomSelect={(text) => {
       // A saved command can span lines, so it lands in the batch field (at the
       // caret) rather than being typed live, where each newline would be Enter.
       flushSync(() => {

@@ -6,6 +6,8 @@ export type ActiveTermMode = Exclude<TermMode, "auto">;
 export type TermModeContext = {
   p2p: boolean;
   fullTerminalAvailable: boolean;
+  phone: boolean;
+  agentAvailable: boolean;
 };
 
 export function parseTermMode(raw: string | null | undefined, fallback: TermMode = "auto"): TermMode {
@@ -15,5 +17,6 @@ export function parseTermMode(raw: string | null | undefined, fallback: TermMode
 /** Resolve the persisted preference once when a pane opens; explicit choices always win. */
 export function resolveTermMode(preference: TermMode, context: TermModeContext): ActiveTermMode {
   if (preference !== "auto") return preference;
+  if (context.phone) return context.agentAvailable ? "agent" : "guided";
   return context.p2p && context.fullTerminalAvailable ? "full" : "guided";
 }

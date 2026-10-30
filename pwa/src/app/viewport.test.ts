@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 const source = await Bun.file(new URL("./viewport.ts", import.meta.url)).text();
-const { visualViewportFrame } = await import("./viewport.ts");
+const { visualViewportFrame, isPhone } = await import("./viewport.ts");
 
 describe("visualViewportFrame", () => {
   test("page zoom and pan do not shrink the shell or invent a keyboard", () => {
@@ -73,5 +73,37 @@ describe("visual viewport listeners", () => {
     expect(source).not.toMatch(/visualViewport\?\.addEventListener\("scroll", resized\)/);
     expect(source).toContain('addEventListener("focusin"');
     expect(source).toContain('addEventListener("focusout"');
+  });
+});
+
+describe("isPhone", () => {
+  function stub(maxTouchPoints: number, coarse: boolean, desk: boolean): void {
+    Object.defineProperty(globalThis, "navigator", { value: { maxTouchPoints }, configurable: true });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        matchMedia: (query: string) => ({
+          matches: query === "(pointer: coarse)" ? coarse : query === "(min-width: 900px)" ? desk : false,
+        }),
+      },
+      configurable: true,
+    });
+  }
+
+  test("new: isPhone", () => {
+    const savedNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+    const savedWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+    try {
+      stub(5, true, false);
+      expect(isPhone()).toBe(true);
+      stub(5, true, true);
+      expect(isPhone()).toBe(false);
+      stub(0, false, false);
+      expect(isPhone()).toBe(false);
+    } finally {
+      for (const [key, saved] of [["navigator", savedNavigator], ["window", savedWindow]] as const) {
+        if (saved) Object.defineProperty(globalThis, key, saved);
+        else delete (globalThis as Record<string, unknown>)[key];
+      }
+    }
   });
 });

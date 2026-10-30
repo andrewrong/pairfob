@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { appRoot } from "../../../app/dom-root";
-import { keysExpanded, padKind, setKeysExpanded, setPadKind } from "../../settings/preferences-store";
+import { keysExpanded, padKind, phoneKeysShown, setKeysExpanded, setPadKind, setPhoneKeysShown } from "../../settings/preferences-store";
 import { composeDraft, setComposeDraft, setComposeFocused, setComposeIME, setComposeLive } from "../compose-store";
 const { SLASH_COMMANDS } = await import("../../../lib/slash-commands");
 const { notifyFullTerminalKeyboard } = await import("./full-terminal-input");
@@ -35,6 +35,31 @@ function paint(sendKey: (key: string) => void = () => undefined, sendCompose: (t
   return options;
 }
 
+let savedMedia: { window: typeof window.matchMedia; global: typeof globalThis.matchMedia } | null = null;
+
+function restoreDevice(): void {
+  if (!savedMedia) return;
+  delete (navigator as unknown as Record<string, unknown>).maxTouchPoints;
+  window.matchMedia = savedMedia.window;
+  globalThis.matchMedia = savedMedia.global;
+  savedMedia = null;
+}
+
+function stubDevice(phone: boolean): void {
+  savedMedia ??= { window: window.matchMedia, global: globalThis.matchMedia };
+  const coarse = phone;
+  const desk = !phone;
+  const media = (query: string) => ({
+    matches: query === "(pointer: coarse)" ? coarse : query === "(min-width: 900px)" ? desk : false,
+  });
+  Object.defineProperty(navigator, "maxTouchPoints", { value: phone ? 5 : 0, configurable: true });
+  Object.defineProperty(window, "matchMedia", { value: media, configurable: true });
+  Object.defineProperty(globalThis, "matchMedia", { value: media, configurable: true, writable: true });
+}
+
+const keyLabels = () => [...appRoot().querySelectorAll(".keys button")].map((el) => el.getAttribute("aria-label"));
+const phoneToggles = () => appRoot().querySelectorAll(".full-terminal-phone-keys");
+
 beforeEach(async () => { await resetBoardTestDOM(); });
 
 afterEach(async () => {
@@ -47,7 +72,9 @@ afterEach(async () => {
     setComposeIME(false);
     setComposeLive(false);
     setKeysExpanded(false);
+    setPhoneKeysShown(false);
     setPadKind("keys");
+    restoreDevice();
   });
 });
 
@@ -189,4 +216,44 @@ test("custom prompts fill and focus a draft in both input modes without transmit
     expect(field.value).toBe("Review this change Next draft");
     expect(sent).toEqual([]);
   } finally { resetPreferences(); localStorage.removeItem("pairfob:quickCommands"); }
+});
+
+describe("phone key panel", () => {
+  test("new: phone pad starts collapsed behind one toggle", async () => {
+    stubDevice(true);
+    await act(() => { paint(); });
+    expect(appRoot().querySelector(".keys")).toBeNull();
+    expect(appRoot().querySelector(".pad-kind-option")).toBeNull();
+    expect(phoneToggles().length).toBe(1);
+    const toggle = phoneToggles()[0] as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    await act(() => { toggle.click(); });
+    expect(appRoot().querySelector(".keys")).toBeTruthy();
+    expect(phoneKeysShown()).toBe(true);
+    expect(phoneToggles().length).toBe(1);
+    expect(phoneToggles()[0]!.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("new: phone pad expanded equals today's", async () => {
+    stubDevice(false);
+    await act(() => { paint(); });
+    const desktop = keyLabels();
+    unmountReact();
+    stubDevice(true);
+    act(() => { setPhoneKeysShown(true); });
+    await act(() => { paint(); });
+    expect(desktop.length).toBeGreaterThan(0);
+    expect(keyLabels()).toEqual(desktop);
+    await act(() => { appRoot().querySelector<HTMLButtonElement>(".key-more")!.click(); });
+    expect(keysExpanded()).toBe(true);
+    expect(appRoot().querySelector('[aria-label="Ctrl+C"]')).toBeTruthy();
+  });
+
+  test("new: desktop pad has no phone toggle", async () => {
+    stubDevice(false);
+    await act(() => { paint(); });
+    expect(phoneKeysShown()).toBe(false);
+    expect(appRoot().querySelector(".keys")).toBeTruthy();
+    expect(phoneToggles().length).toBe(0);
+  });
 });
