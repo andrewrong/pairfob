@@ -16,6 +16,7 @@ site/doc/.vitepress/cache
 *.test
 /pairfob
 /pairfob-relay
+/bin/
 
 # local origin, LAN pairing, agent scratch
 .dev/

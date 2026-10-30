@@ -74,6 +74,8 @@ Choose checks by change scope and stage; the full rules are in
   relevant environment remain unchanged. Rerun checks affected by later edits;
   a new commit or status request alone does not require another full run.
 
+`scripts/build-release.sh` builds `bin/pairfob` with the embedded phone app from a clean checkout; it needs network, Go and bun on the PATH. The daemon runs in the foreground, under any supervisor, when `pairfob` is started with no arguments.
+
 ## Protocol invariants
 
 Envelope bytes stay `pairfob.v1` (`proto/envelope.md`, `proto/rpc.schema.json`,
