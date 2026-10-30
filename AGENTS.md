@@ -109,6 +109,31 @@ package can express that duty.
 - The product loop is not a terminal emulator: read the rendered pane, send
   keys back to the PTY.
 
+## State changes and rollback
+
+A deploy is automatic after a merge, and a rollback returns to the previous
+release without building. A rollback is only safe when the previous binary can
+still start and serve on the state files the newer binary has written. These
+rules cover the state files of `internal/state/store.go` (`daemon.json`,
+`relay.json`, `devices.json`, `operations.json`, `vapid.json`):
+
+- A change to the shape of a state file is additive: new optional fields only.
+  The release before the change must still start and serve on files the new
+  release wrote.
+- A start must never rewrite a state file destructively (no removal or renaming
+  of a field or a file, no narrowing of a value) as a side effect of starting.
+- A change that cannot be additive adds a `format` field to the file, and the
+  older binary refuses to start with a message that names `format`, instead of
+  reading the file wrongly. The change comes with a test in which a reader of
+  the older format, given the newer file, refuses by name, so the rule is
+  checked by code and not only by review.
+- Known one-way step: `migrateHostedState` (`cmd/pairfob/main.go`) clears
+  devices for the retired hosted relay and is not undone by a rollback. It is
+  the only such step today; a new one needs the `format` rule above.
+
+Why: a deploy that fails after the state was rewritten would otherwise leave
+the rollback unable to start, which is the case the rollback exists for.
+
 ## Branch and release workflow
 
 Sessions started by crew work on the issue branch and in the worktree crew gives it, commit there and push that branch.
