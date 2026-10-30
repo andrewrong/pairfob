@@ -47,6 +47,15 @@ type Relay struct {
 	Protocol int    `json:"protocol"`
 }
 
+// TracePane is one pane's answer from trace.check. It carries no transcript
+// text, path or session id: result is one of ok, no_binding, not_found,
+// ambiguous or unreadable.
+type TracePane struct {
+	Pane   string `json:"pane"`
+	Agent  string `json:"agent"`
+	Result string `json:"result"`
+}
+
 type Service interface {
 	Status() Pairing
 	NewPairing() (Pairing, error)
@@ -56,6 +65,7 @@ type Service interface {
 	Devices() []Device
 	Revoke(deviceID string) error
 	Rekey() (Relay, error)
+	TraceCheck() []TracePane
 }
 
 type Request struct {

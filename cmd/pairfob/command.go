@@ -16,6 +16,7 @@ const commandUsage = `Pairfob — this computer, on another device.
   pairfob forget N          Unpair
   pairfob update            Install the latest version
   pairfob doctor            Check this computer
+  pairfob doctor --trace    Check each pane's conversation record
   pairfob setup             Check, install if requested, and start Herdr
   pairfob quota-setup-claude Enable Claude subscription quota collection
   pairfob version
@@ -55,7 +56,7 @@ func runCommand(args []string, sock string) error {
 	case "setup":
 		return setupCommand(args[1:])
 	case "doctor":
-		return doctorCommand(sock)
+		return doctorArgs(args[1:], sock)
 	case "service":
 		return serviceCommand(args[1:])
 	case "update":

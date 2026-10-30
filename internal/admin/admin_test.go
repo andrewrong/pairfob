@@ -24,6 +24,7 @@ type fake struct {
 	admitted string
 	denied   string
 	revoked  string
+	traces   []TracePane
 }
 
 func (f *fake) Status() Pairing { return f.status }
@@ -63,6 +64,8 @@ func (f *fake) Revoke(id string) error {
 func (f *fake) Rekey() (Relay, error) {
 	return Relay{URL: "wss://pairfob.test/v2/ws", Protocol: 2}, nil
 }
+
+func (f *fake) TraceCheck() []TracePane { return f.traces }
 
 func testSocket(t *testing.T) string {
 	t.Helper()
@@ -286,5 +289,31 @@ func TestServeRequiresService(t *testing.T) {
 	defer ln.Close()
 	if err := Serve(ln, nil); err == nil {
 		t.Fatal("nil service accepted")
+	}
+}
+
+func TestAdminTraceCheckOp(t *testing.T) {
+	svc := &fake{traces: []TracePane{{Pane: "w0:p1", Agent: "claude", Result: "ok"}, {Pane: "w0:p2", Agent: "codex", Result: "not_found"}}}
+	sock := start(t, svc)
+	resp, err := Call(sock, Request{Op: "trace.check"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"panes":[{"pane":"w0:p1","agent":"claude","result":"ok"},{"pane":"w0:p2","agent":"codex","result":"not_found"}]}`
+	if string(resp.Result) != want {
+		t.Fatalf("got %s", resp.Result)
+	}
+
+	empty := start(t, &fake{})
+	resp, err = Call(empty, Request{Op: "trace.check"})
+	if err != nil || string(resp.Result) != `{"panes":[]}` {
+		t.Fatalf("empty: %s %v", resp.Result, err)
+	}
+
+	if resp, err = Call(sock, Request{Op: "pair.status"}); err != nil || !resp.OK {
+		t.Fatalf("pair.status changed: %v", err)
+	}
+	if _, err = Call(sock, Request{Op: "nope"}); err == nil || err.Error() != "unknown_op" {
+		t.Fatalf("unknown op: %v", err)
 	}
 }

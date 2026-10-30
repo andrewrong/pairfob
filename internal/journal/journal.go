@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -35,9 +36,34 @@ var toolName = regexp.MustCompile(`^[0-9A-Za-z_.:-]{1,128}$`)
 
 var (
 	ErrUnavailable    = errors.New("transcript unavailable")
+	ErrAmbiguous      = errors.New("ambiguous transcript id")
+	errUnreadable     = errors.New("transcript unreadable")
 	ErrCursorInvalid  = errors.New("invalid history cursor")
 	ErrCursorConflict = errors.New("history cursor conflicts with pane session")
 )
+
+// Reason says why a transcript cannot be read, without naming any path or id.
+type Reason string
+
+const (
+	ReasonNotFound   Reason = "not_found"
+	ReasonAmbiguous  Reason = "ambiguous"
+	ReasonUnreadable Reason = "unreadable"
+)
+
+// UnavailableReason gives the reason of an error from Supports-bound reads.
+// ok is false for an error that is not about the transcript being unavailable.
+func UnavailableReason(err error) (reason Reason, ok bool) {
+	switch {
+	case errors.Is(err, ErrAmbiguous):
+		return ReasonAmbiguous, true
+	case errors.Is(err, errUnreadable):
+		return ReasonUnreadable, true
+	case errors.Is(err, ErrUnavailable):
+		return ReasonNotFound, true
+	}
+	return "", false
+}
 
 // Ref is a trusted pane-to-agent-session binding reported by Herdr. Callers
 // must never construct it from phone-supplied transcript identifiers.
@@ -341,7 +367,7 @@ func matchClaudeTranscript(files []string, id string, indexErr error) codexMatch
 			continue
 		}
 		if match != "" {
-			return codexMatch{err: errors.New("ambiguous transcript id")}
+			return codexMatch{err: ErrAmbiguous}
 		}
 		match = path
 	}
@@ -362,7 +388,7 @@ func matchCodexTranscript(files []string, id string, indexErr error) codexMatch 
 			continue
 		}
 		if match != "" {
-			return codexMatch{err: errors.New("ambiguous transcript id")}
+			return codexMatch{err: ErrAmbiguous}
 		}
 		match = path
 	}
@@ -407,7 +433,7 @@ func verifiedRegular(root, path string) (string, error) {
 func readPage(path string, ref Ref, offset, limit int, parse func([]byte) (Message, bool)) (Page, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return Page{}, err
+		return Page{}, fmt.Errorf("%w: %w", ErrUnavailable, errUnreadable)
 	}
 	defer file.Close()
 	info, err := file.Stat()
