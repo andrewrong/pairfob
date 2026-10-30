@@ -207,7 +207,7 @@ func (r *Reader) Read(ref Ref, cursor *string, limit int) (Page, error) {
 	case "codex":
 		parse = parseCodex
 	case "claude":
-		parse = parseClaude
+		parse = newClaudeParser()
 	}
 	return readPage(path, ref, offset, limit, parse)
 }
@@ -457,23 +457,49 @@ func parseCodex(line []byte) (Message, bool) {
 	return Message{Role: item.Payload.Role, Text: strings.Join(parts, "\n")}, true
 }
 
-func parseClaude(line []byte) (Message, bool) {
+// newClaudeParser returns a parser that also drops a user entry repeating a
+// queued prompt shown a moment before.
+func newClaudeParser() func([]byte) (Message, bool) {
+	dedup := newClaudeDedup()
+	return func(line []byte) (Message, bool) { return parseClaudeWith(line, dedup) }
+}
+
+func parseClaude(line []byte) (Message, bool) { return parseClaudeWith(line, nil) }
+
+func parseClaudeWith(line []byte, dedup *claudeDedup) (Message, bool) {
 	var item struct {
-		Type    string `json:"type"`
-		Message struct {
+		Type       string           `json:"type"`
+		IsMeta     bool             `json:"isMeta"`
+		Origin     claudeOrigin     `json:"origin"`
+		Timestamp  string           `json:"timestamp"`
+		Attachment claudeAttachment `json:"attachment"`
+		Message    struct {
 			Role    string          `json:"role"`
 			Content json.RawMessage `json:"content"`
 		} `json:"message"`
 	}
-	if json.Unmarshal(line, &item) != nil || (item.Type != "user" && item.Type != "assistant") || item.Message.Role != item.Type {
+	if json.Unmarshal(line, &item) != nil {
+		return Message{}, false
+	}
+	if item.Type == "attachment" {
+		text, at, ok := claudeQueuedPrompt(item.Attachment)
+		if !ok || (dedup != nil && dedup.seenQueued(text, at)) {
+			return Message{}, false
+		}
+		return Message{Role: "user", Text: text}, true
+	}
+	if (item.Type != "user" && item.Type != "assistant") || item.Message.Role != item.Type {
+		return Message{}, false
+	}
+	if item.Type == "user" && !claudeUserEntryShown(item.IsMeta, item.Origin) {
 		return Message{}, false
 	}
 	var text string
 	if json.Unmarshal(item.Message.Content, &text) == nil {
-		if text == "" {
+		if text == "" || (item.Type == "user" && claudeInjectedText(text)) {
 			return Message{}, false
 		}
-		return Message{Role: item.Type, Text: text}, true
+		return claudeUserMessage(item.Type, text, item.Timestamp, dedup)
 	}
 	var blocks []struct {
 		Type string `json:"type"`
@@ -487,6 +513,9 @@ func parseClaude(line []byte) (Message, bool) {
 	for _, block := range blocks {
 		switch {
 		case block.Type == "text" && block.Text != "":
+			if item.Type == "user" && claudeInjectedText(block.Text) {
+				continue
+			}
 			parts = append(parts, block.Text)
 		case item.Type == "assistant" && block.Type == "tool_use" && toolName.MatchString(block.Name):
 			parts = append(parts, "工具 · "+block.Name)
@@ -495,7 +524,14 @@ func parseClaude(line []byte) (Message, bool) {
 	if len(parts) == 0 {
 		return Message{}, false
 	}
-	return Message{Role: item.Type, Text: strings.Join(parts, "\n")}, true
+	return claudeUserMessage(item.Type, strings.Join(parts, "\n"), item.Timestamp, dedup)
+}
+
+func claudeUserMessage(role, text, timestamp string, dedup *claudeDedup) (Message, bool) {
+	if role == "user" && dedup != nil && dedup.seenUser(text, parseClaudeTime(timestamp)) {
+		return Message{}, false
+	}
+	return Message{Role: role, Text: text}, true
 }
 
 func parseGrok(line []byte) (Message, bool) {

@@ -44,6 +44,15 @@ first, then the listed roots in the order written, and the first root that
 holds the session id wins. Every root gets the same symlink and containment
 checks.
 
+Claude history and trace (`internal/journal/claude_user.go`) show a
+`queued_command` attachment of `origin.kind` `human` with `humanTurn` true as a
+user message, since a prompt typed while the session is busy is stored there.
+They hide `user` entries with `isMeta` or a non-human `origin.kind`, and user
+text starting with `<task-notification>`, `<cross-session-message`,
+`<system-reminder>` or `<local-command-`. History shows a queued prompt and a
+user entry of the same text less than a minute apart once; trace does not
+pair them, and a pair split by a history page boundary shows twice.
+
 ## Testing on a real phone
 
 For phone testing without installing a local CA, create a DNS-only A record
