@@ -23,7 +23,7 @@ import { phase } from "../../connection/connection-store";
 import { batch } from "../../../app/domain-publication";
 import { isAgentChat, isFullTerminal, openPaneId, setAgentChat, setFullTerminal } from "../session-store";
 import { liveAgents, markPaneSubmitted, selectedAgent } from "../../dashboard/catalog-store";
-import { setPaneTermMode } from "../../settings/preferences-store";
+import { paneTermMode, setPaneTermMode } from "../../settings/preferences-store";
 import { commitView } from "../../../app/host";
 import { appRoot } from "../../../app/dom-root";
 import { haptic } from "../../../lib/dom";
@@ -496,6 +496,11 @@ async function performAgentTraceRefresh(older = false): Promise<boolean> {
       measured = true;
     }
     if (code === "transcript_unavailable") {
+      // Auto chose this view and there is nothing to read: fall back without turning Auto into a choice.
+      if (!older && paneTermMode(paneId) === "auto" && !chatSnapshot().agentTraceItems.length && !chatSnapshot().agentTracePending) {
+        leaveAgentChat({ rememberGuided: false });
+        return false;
+      }
       applyTrace({
         agentTraceLoadState: "error",
         agentTraceItems: [],
