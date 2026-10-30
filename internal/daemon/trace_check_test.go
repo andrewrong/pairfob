@@ -1,7 +1,9 @@
 package daemon
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,6 +54,7 @@ func TestTraceCheckResults(t *testing.T) {
 		"w0:p1": {Pane: "w0:p1", Agent: "codex", Result: "ok"},
 		"w0:p2": {Pane: "w0:p2", Agent: "claude", Result: "no_binding"},
 		"w0:p3": {Pane: "w0:p3", Agent: "codex", Result: "not_found"},
+		"w0:p5": {Pane: "w0:p5", Agent: "codex", Result: "no_binding"},
 	}
 	if os.Geteuid() != 0 {
 		locked := traceTranscript(t, root, "session_locked12", "x")
@@ -62,7 +65,7 @@ func TestTraceCheckResults(t *testing.T) {
 		panes = append(panes, codexPane("w0:p4", "session_locked12"))
 		want["w0:p4"] = admin.TracePane{Pane: "w0:p4", Agent: "codex", Result: "unreadable"}
 	}
-	got := traceEngine(root, panes...).TraceCheck()
+	got, _ := traceEngine(root, panes...).TraceCheck()
 	if len(got) != len(want) {
 		t.Fatalf("got %+v", got)
 	}
@@ -76,7 +79,7 @@ func TestTraceCheckResults(t *testing.T) {
 func TestTraceCheckWithoutJournalIsNoBinding(t *testing.T) {
 	eng := traceEngine(t.TempDir(), codexPane("w0:p1", "session_okok1234"))
 	eng.Journal = nil
-	got := eng.TraceCheck()
+	got, _ := eng.TraceCheck()
 	if len(got) != 1 || got[0].Result != "no_binding" {
 		t.Fatalf("got %+v", got)
 	}
@@ -88,7 +91,7 @@ func TestTraceCheckLeaksNothing(t *testing.T) {
 	id := "session_" + sentinel
 	traceTranscript(t, root, id, sentinel)
 	eng := traceEngine(root, codexPane("w0:p1", id), codexPane("w0:p2", "session_gone"+sentinel))
-	body, err := json.Marshal(eng.TraceCheck())
+	body, err := json.Marshal(mustTrace(t, eng))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,4 +107,47 @@ func TestTraceCheckLeaksNothing(t *testing.T) {
 			t.Fatalf("keys: %v", row)
 		}
 	}
+}
+
+func TestTraceCheckAgentWithoutSessionIsNoBinding(t *testing.T) {
+	eng := traceEngine(t.TempDir(),
+		runtime.Pane{PaneID: "w0:p1", Agent: "claude"},
+		runtime.Pane{PaneID: "w0:p2", Agent: "other-tool"},
+		runtime.Pane{PaneID: "w0:p3"},
+	)
+	got, err := eng.TraceCheck()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []admin.TracePane{
+		{Pane: "w0:p1", Agent: "claude", Result: "no_binding"},
+		{Pane: "w0:p2", Agent: "other", Result: "no_binding"},
+	}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("got %+v want %+v", got, want)
+	}
+}
+
+type failingObserve struct{ *runtime.Fake }
+
+func (failingObserve) Observe(context.Context, runtime.SessionRef, runtime.Query) (runtime.View, error) {
+	return nil, errors.New("herdr down")
+}
+
+func TestTraceCheckSnapshotErrorIsAnError(t *testing.T) {
+	a, _ := mux.NewPipePair(8)
+	eng := NewEngine(nil, a, failingObserve{runtime.NewFake()})
+	got, err := eng.TraceCheck()
+	if err == nil || got != nil {
+		t.Fatalf("got %+v err %v", got, err)
+	}
+}
+
+func mustTrace(t *testing.T, eng *Engine) []admin.TracePane {
+	t.Helper()
+	rows, err := eng.TraceCheck()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rows
 }

@@ -65,7 +65,7 @@ type Service interface {
 	Devices() []Device
 	Revoke(deviceID string) error
 	Rekey() (Relay, error)
-	TraceCheck() []TracePane
+	TraceCheck() ([]TracePane, error)
 }
 
 type Request struct {

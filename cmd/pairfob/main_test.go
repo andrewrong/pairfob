@@ -130,10 +130,10 @@ func (a *interactiveAdmin) Deny(ref string) error {
 	a.steps = append(a.steps, "deny:"+ref)
 	return nil
 }
-func (a *interactiveAdmin) Devices() []admin.Device       { return nil }
-func (a *interactiveAdmin) Revoke(string) error           { return nil }
-func (a *interactiveAdmin) Rekey() (admin.Relay, error)   { return admin.Relay{}, nil }
-func (a *interactiveAdmin) TraceCheck() []admin.TracePane { return nil }
+func (a *interactiveAdmin) Devices() []admin.Device                { return nil }
+func (a *interactiveAdmin) Revoke(string) error                    { return nil }
+func (a *interactiveAdmin) Rekey() (admin.Relay, error)            { return admin.Relay{}, nil }
+func (a *interactiveAdmin) TraceCheck() ([]admin.TracePane, error) { return nil, nil }
 func (a *interactiveAdmin) Steps() []string {
 	a.mu.Lock()
 	defer a.mu.Unlock()

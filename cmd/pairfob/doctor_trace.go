@@ -43,7 +43,8 @@ func doctorTrace(stdout, stderr io.Writer, sock string) error {
 			fmt.Fprintln(stderr, "Pairfob isn't running. It starts at login after install, or run pairfob in a terminal.")
 			return exitError{code: 2}
 		}
-		return err
+		fmt.Fprintf(stderr, "Pairfob could not check the panes: %v\n", err)
+		return exitError{code: 2}
 	}
 	var body struct {
 		Panes []admin.TracePane `json:"panes"`
@@ -57,6 +58,10 @@ func doctorTrace(stdout, stderr io.Writer, sock string) error {
 		if p.Result != "ok" {
 			bad++
 		}
+	}
+	if len(body.Panes) == 0 {
+		fmt.Fprintln(stdout, "traces: no pane with an agent")
+		return nil
 	}
 	fmt.Fprintf(stdout, "traces: %d ok, %d not ok\n", len(body.Panes)-bad, bad)
 	if bad > 0 {

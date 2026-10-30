@@ -8,20 +8,25 @@ import (
 
 // TraceCheck runs, for each live pane with an agent session, the lookup that
 // History uses, and reports only a closed result per pane: never transcript
-// text, a path or a session id.
-func (e *Engine) TraceCheck() []admin.TracePane {
+// text, a path or a session id. A pane with an agent but no session is
+// no_binding, as the phone sees it; a failed snapshot is an error, not an
+// empty list.
+func (e *Engine) TraceCheck() ([]admin.TracePane, error) {
 	snapshot, err := e.snapshot(nil)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var out []admin.TracePane
 	for _, pane := range snapshot.Panes {
 		if pane.AgentSession == nil {
+			if pane.Agent != "" {
+				out = append(out, admin.TracePane{Pane: pane.PaneID, Agent: traceAgent(pane.Agent), Result: "no_binding"})
+			}
 			continue
 		}
 		out = append(out, admin.TracePane{Pane: pane.PaneID, Agent: traceAgent(pane.Agent, pane.AgentSession.Agent), Result: e.traceResult(pane.AgentSession)})
 	}
-	return out
+	return out, nil
 }
 
 func traceAgent(names ...string) string {
