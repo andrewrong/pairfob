@@ -114,3 +114,30 @@ func TestActivityOtherProvidersAndPiBranch(t *testing.T) {
 		t.Fatal("active Pi prompt missing")
 	}
 }
+
+func TestActivityUsesListedRoots(t *testing.T) {
+	for _, c := range rootsCases {
+		t.Run(c.agent, func(t *testing.T) {
+			def, listed := t.TempDir(), t.TempDir()
+			reader := &Reader{}
+			c.set(reader, def, []string{listed})
+			c.put(t, def, "in_default_1", "go")
+			c.put(t, listed, "in_listed_12", "go")
+			want := reader.ReadActivity(c.ref("in_default_1"))
+			got := reader.ReadActivity(c.ref("in_listed_12"))
+			if !want.Known || want.Key == "" || !got.Known || got.Key == "" {
+				t.Fatalf("default=%+v listed=%+v", want, got)
+			}
+			if (reader.ReadActivity(c.ref("nowhere_1234")) != Activity{}) {
+				t.Fatal("id in no root has activity")
+			}
+			link := filepath.Join(listed, c.sub, c.file("linked_12345"))
+			if err := os.Symlink(filepath.Join(def, c.sub, c.file("in_default_1")), link); err != nil {
+				t.Fatal(err)
+			}
+			if (reader.ReadActivity(c.ref("linked_12345")) != Activity{}) {
+				t.Fatal("symlinked file has activity")
+			}
+		})
+	}
+}

@@ -67,6 +67,9 @@ func runDaemon(store *state.Store, sock string) error {
 	if err := validateHealthAddr(getenv("PAIRFOB_HEALTH_ADDR", "")); err != nil {
 		return err
 	}
+	if err := validateTraceRoots(); err != nil {
+		return err
+	}
 	process, err := newProcessInfo(store.Dir)
 	if err != nil {
 		return fmt.Errorf("running executable: %w", err)

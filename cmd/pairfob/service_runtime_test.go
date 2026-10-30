@@ -157,3 +157,23 @@ func TestServicePreservesQuotaAccountDirectoriesWithoutCredentials(t *testing.T)
 		}
 	}
 }
+
+func TestServiceKeepsTraceRoots(t *testing.T) {
+	t.Setenv("PAIRFOB_CLAUDE_ROOTS", "")
+	t.Setenv("PAIRFOB_CODEX_ROOTS", "")
+	for _, pair := range serviceRuntimeEnvironment() {
+		if strings.HasSuffix(pair[0], "_ROOTS") {
+			t.Fatalf("unset roots persisted: %v", pair)
+		}
+	}
+	claude := "/a" + string(os.PathListSeparator) + "/b"
+	t.Setenv("PAIRFOB_CLAUDE_ROOTS", claude)
+	t.Setenv("PAIRFOB_CODEX_ROOTS", "rel/dir")
+	got := map[string]string{}
+	for _, pair := range serviceRuntimeEnvironment() {
+		got[pair[0]] = pair[1]
+	}
+	if got["PAIRFOB_CLAUDE_ROOTS"] != claude || got["PAIRFOB_CODEX_ROOTS"] != "rel/dir" {
+		t.Fatalf("roots=%v", got)
+	}
+}
