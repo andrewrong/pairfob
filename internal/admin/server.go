@@ -14,6 +14,7 @@ const (
 	adminTimeout    = 5 * time.Second
 	pairNewTimeout  = 30 * time.Second
 	rekeyTimeout    = 20 * time.Second
+	traceTimeout    = 20 * time.Second
 	pairWaitTimeout = 305 * time.Second
 )
 
@@ -62,6 +63,9 @@ func timeoutFor(op string) time.Duration {
 	}
 	if op == "pair.new" {
 		return pairNewTimeout
+	}
+	if op == "trace.check" {
+		return traceTimeout
 	}
 	if op == "relay.rekey" {
 		return rekeyTimeout
@@ -126,6 +130,12 @@ func dispatch(svc Service, req Request) Response {
 			return errResult(err)
 		}
 		return okResult(map[string]any{"ok": true, "device_id": req.DeviceID})
+	case "trace.check":
+		panes := svc.TraceCheck()
+		if panes == nil {
+			panes = []TracePane{}
+		}
+		return okResult(map[string]any{"panes": panes})
 	case "relay.rekey":
 		relay, err := svc.Rekey()
 		if err != nil {

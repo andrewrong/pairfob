@@ -26,6 +26,10 @@ func main() {
 			log.Fatal("admin socket: ", err)
 		}
 		if err := runCommand(os.Args[1:], sock); err != nil {
+			var exit exitError
+			if errors.As(err, &exit) {
+				os.Exit(exit.code)
+			}
 			if errors.Is(err, errDoctor) {
 				os.Exit(1)
 			}
@@ -304,6 +308,8 @@ func (a liveAdmin) Devices() []admin.Device {
 	}
 	return out
 }
+
+func (a liveAdmin) TraceCheck() []admin.TracePane { return a.eng.TraceCheck() }
 
 func (a liveAdmin) Revoke(id string) error { return a.eng.RevokeDevice(id) }
 

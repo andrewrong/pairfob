@@ -308,3 +308,43 @@ func TestClipPreservesValidUTF8AndLiteralQuotes(t *testing.T) {
 		t.Fatalf("unexpected clipped message: truncated=%v valid=%v", truncated, utf8.ValidString(clipped))
 	}
 }
+
+func TestJournalUnavailableReason(t *testing.T) {
+	root := t.TempDir()
+	reader := &Reader{CodexRoot: root}
+	ref := func(id string) Ref {
+		return Ref{Source: "herdr:codex", Agent: "codex", Kind: "id", Value: id}
+	}
+
+	_, err := reader.Read(ref("missing_12345678"), nil, 1)
+	if reason, ok := UnavailableReason(err); !ok || reason != ReasonNotFound || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("missing: reason=%q ok=%v err=%v", reason, ok, err)
+	}
+
+	id := "session_abcdefgh"
+	writeLines(t, filepath.Join(root, "sessions", "one", "rollout-a-"+id+".jsonl"), map[string]any{"type": "event_msg"})
+	writeLines(t, filepath.Join(root, "sessions", "two", "rollout-b-"+id+".jsonl"), map[string]any{"type": "event_msg"})
+	_, err = reader.Read(ref(id), nil, 1)
+	if reason, ok := UnavailableReason(err); !ok || reason != ReasonAmbiguous {
+		t.Fatalf("ambiguous: reason=%q ok=%v err=%v", reason, ok, err)
+	}
+
+	if os.Geteuid() == 0 {
+		t.Skip("mode 000 does not stop root")
+	}
+	locked := "session_locked1"
+	path := filepath.Join(root, "sessions", "three", "rollout-c-"+locked+".jsonl")
+	writeLines(t, path, map[string]any{"type": "event_msg"})
+	if err := os.Chmod(path, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+	_, err = reader.Read(ref(locked), nil, 1)
+	if reason, ok := UnavailableReason(err); !ok || reason != ReasonUnreadable || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("unreadable: reason=%q ok=%v err=%v", reason, ok, err)
+	}
+
+	if reason, ok := UnavailableReason(errors.New("other")); ok || reason != "" {
+		t.Fatalf("unrelated error got reason %q", reason)
+	}
+}
