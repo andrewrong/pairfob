@@ -36,5 +36,9 @@ export async function selectPaneTermMode(preference: TermMode): Promise<void> {
     setPaneTermMode(paneId, preference);
     return;
   }
-  if (canEnterAgentChat()) enterAgentChat();
+  if (canEnterAgentChat()) {
+    enterAgentChat();
+    // enterAgentChat records an explicit choice; restore Auto when it made this decision.
+    setPaneTermMode(paneId, preference);
+  }
 }
