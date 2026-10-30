@@ -60,6 +60,9 @@ func main() {
 }
 
 func runDaemon(store *state.Store, sock string) error {
+	if err := validateHealthAddr(getenv("PAIRFOB_HEALTH_ADDR", "")); err != nil {
+		return err
+	}
 	process, err := newProcessInfo(store.Dir)
 	if err != nil {
 		return fmt.Errorf("running executable: %w", err)
@@ -142,6 +145,13 @@ func runDaemon(store *state.Store, sock string) error {
 			log.Printf("tailnet gateway: %v", serveErr)
 		}
 	}()
+	healthCloser, err := startHealth(getenv("PAIRFOB_HEALTH_ADDR", ""))
+	if err != nil {
+		return err
+	}
+	if healthCloser != nil {
+		defer healthCloser.Close()
+	}
 	if runtimeConfig.AutoAdmit {
 		log.Printf("DEV_AUTO_ADMIT accepted the active pairing slot")
 	}
