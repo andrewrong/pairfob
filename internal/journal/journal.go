@@ -91,6 +91,10 @@ type Reader struct {
 	GrokRoot   string
 	PiRoot     string
 
+	// ClaudeRoots and CodexRoots are searched after ClaudeRoot and CodexRoot.
+	ClaudeRoots []string
+	CodexRoots  []string
+
 	indexMu       sync.Mutex
 	traceMu       sync.Mutex
 	piMu          sync.Mutex
@@ -99,8 +103,7 @@ type Reader struct {
 	traceCache    map[traceCacheKey]traceCacheEntry
 	piCache       []piCacheEntry
 	piCacheTick   uint64
-	codexIndex    codexFileIndex
-	claudeIndex   codexFileIndex
+	rootIndexes   map[string]*codexFileIndex
 	piIndex       piFileIndex
 	now           func() time.Time
 	walkDir       func(string, fs.WalkDirFunc) error
@@ -137,7 +140,10 @@ func NewDefault() *Reader {
 	if piRoot == "" {
 		piRoot = filepath.Join(home, ".pi", "agent")
 	}
-	return &Reader{CodexRoot: codexRoot, ClaudeRoot: claudeRoot, GrokRoot: grokRoot, PiRoot: piRoot}
+	// cmd/pairfob refuses a bad value at start; a bad one here adds no roots.
+	claudeRoots, _ := ParseRoots("PAIRFOB_CLAUDE_ROOTS", os.Getenv("PAIRFOB_CLAUDE_ROOTS"))
+	codexRoots, _ := ParseRoots("PAIRFOB_CODEX_ROOTS", os.Getenv("PAIRFOB_CODEX_ROOTS"))
+	return &Reader{CodexRoot: codexRoot, ClaudeRoot: claudeRoot, GrokRoot: grokRoot, PiRoot: piRoot, ClaudeRoots: claudeRoots, CodexRoots: codexRoots}
 }
 
 func (r *Reader) Supports(ref Ref) bool {
@@ -207,15 +213,21 @@ func (r *Reader) Read(ref Ref, cursor *string, limit int) (Page, error) {
 }
 
 func (r *Reader) transcriptPath(ref Ref, refreshMissing bool) (string, error) {
+	path, _, err := r.transcriptPathBase(ref, refreshMissing)
+	return path, err
+}
+
+// transcriptPathBase also names the transcript directory of the root that
+// holds the file; it is empty for agents without several roots.
+func (r *Reader) transcriptPathBase(ref Ref, refreshMissing bool) (string, string, error) {
 	var (
 		path string
+		base string
 		err  error
 	)
 	switch ref.Agent {
-	case "codex":
-		path, err = r.findCodexTranscript(ref.Value, refreshMissing)
-	case "claude":
-		path, err = r.findClaudeTranscript(ref.Value, refreshMissing)
+	case "codex", "claude":
+		path, base, err = r.findTranscript(ref.Agent, ref.Value, refreshMissing)
 	case "pi":
 		path, err = r.findPiTranscript(ref, refreshMissing)
 	default:
@@ -223,103 +235,11 @@ func (r *Reader) transcriptPath(ref Ref, refreshMissing bool) (string, error) {
 	}
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, ErrUnavailable) {
-			return "", ErrUnavailable
+			return "", "", ErrUnavailable
 		}
-		return "", err
+		return "", "", err
 	}
-	return path, nil
-}
-
-func (r *Reader) findClaudeTranscript(id string, refreshMissing bool) (string, error) {
-	r.indexMu.Lock()
-	now := time.Now()
-	if r.now != nil {
-		now = r.now()
-	}
-	refreshed := false
-	if r.claudeIndex.root != r.ClaudeRoot || r.claudeIndex.scannedAt.IsZero() || now.Sub(r.claudeIndex.scannedAt) >= codexIndexTTL || (r.claudeIndex.err != nil && now.Sub(r.claudeIndex.scannedAt) >= codexNegativeTTL) {
-		r.rebuildClaudeIndexLocked(now)
-		refreshed = true
-	}
-	match, known := r.claudeIndex.matches[id]
-	if known && !refreshed && errors.Is(match.err, ErrUnavailable) && (refreshMissing || now.Sub(r.claudeIndex.scannedAt) >= codexNegativeTTL) {
-		r.rebuildClaudeIndexLocked(now)
-		refreshed = true
-		known = false
-	}
-	if !known {
-		match = matchClaudeTranscript(r.claudeIndex.files, id, r.claudeIndex.err)
-		if !refreshed && errors.Is(match.err, ErrUnavailable) && (refreshMissing || now.Sub(r.claudeIndex.scannedAt) >= codexNegativeTTL) {
-			r.rebuildClaudeIndexLocked(now)
-			match = matchClaudeTranscript(r.claudeIndex.files, id, r.claudeIndex.err)
-		}
-		r.claudeIndex.matches[id] = match
-	}
-	r.indexMu.Unlock()
-	if match.err != nil {
-		return "", match.err
-	}
-	return verifiedRegular(filepath.Join(r.ClaudeRoot, "projects"), match.path)
-}
-
-func (r *Reader) rebuildClaudeIndexLocked(now time.Time) {
-	walk := r.walkDir
-	if walk == nil {
-		walk = filepath.WalkDir
-	}
-	files, err := scanTranscriptFiles(filepath.Join(r.ClaudeRoot, "projects"), walk)
-	r.claudeIndex = codexFileIndex{
-		root: r.ClaudeRoot, scannedAt: now, files: files, err: err,
-		matches: make(map[string]codexMatch),
-	}
-}
-
-func (r *Reader) findCodexTranscript(id string, refreshMissing bool) (string, error) {
-	r.indexMu.Lock()
-	now := time.Now()
-	if r.now != nil {
-		now = r.now()
-	}
-	refreshed := false
-	if r.codexIndex.root != r.CodexRoot || r.codexIndex.scannedAt.IsZero() || now.Sub(r.codexIndex.scannedAt) >= codexIndexTTL || (r.codexIndex.err != nil && now.Sub(r.codexIndex.scannedAt) >= codexNegativeTTL) {
-		r.rebuildCodexIndexLocked(now)
-		refreshed = true
-	}
-	match, known := r.codexIndex.matches[id]
-	if known && !refreshed && errors.Is(match.err, ErrUnavailable) && (refreshMissing || now.Sub(r.codexIndex.scannedAt) >= codexNegativeTTL) {
-		r.rebuildCodexIndexLocked(now)
-		refreshed = true
-		known = false
-	}
-	if !known {
-		match = matchCodexTranscript(r.codexIndex.files, id, r.codexIndex.err)
-		if !refreshed && errors.Is(match.err, ErrUnavailable) && (refreshMissing || now.Sub(r.codexIndex.scannedAt) >= codexNegativeTTL) {
-			r.rebuildCodexIndexLocked(now)
-			match = matchCodexTranscript(r.codexIndex.files, id, r.codexIndex.err)
-		}
-		r.codexIndex.matches[id] = match
-	}
-	r.indexMu.Unlock()
-	if match.err != nil {
-		return "", match.err
-	}
-	return verifiedRegular(filepath.Join(r.CodexRoot, "sessions"), match.path)
-}
-
-func (r *Reader) rebuildCodexIndexLocked(now time.Time) {
-	walk := r.walkDir
-	if walk == nil {
-		walk = filepath.WalkDir
-	}
-	files, err := scanCodexTranscripts(r.CodexRoot, walk)
-	r.codexIndex = codexFileIndex{
-		root: r.CodexRoot, scannedAt: now, files: files, err: err,
-		matches: make(map[string]codexMatch),
-	}
-}
-
-func scanCodexTranscripts(root string, walk func(string, fs.WalkDirFunc) error) ([]string, error) {
-	return scanTranscriptFiles(filepath.Join(root, "sessions"), walk)
+	return path, base, nil
 }
 
 func scanTranscriptFiles(base string, walk func(string, fs.WalkDirFunc) error) ([]string, error) {

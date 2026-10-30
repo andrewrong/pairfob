@@ -176,6 +176,7 @@ func (e *Engine) rpcHistory(s *sess, id string, params json.RawMessage) {
 	}
 	ref := journalRef(pane.AgentSession)
 	if e.Journal == nil || !e.Journal.Supports(ref) {
+		logTranscriptUnavailable("no_binding", ref)
 		e.replyErr(s, id, "transcript_unavailable", "pane has no supported trusted transcript binding")
 		return
 	}
@@ -193,6 +194,7 @@ func (e *Engine) rpcHistory(s *sess, id string, params json.RawMessage) {
 			code = "invalid_argument"
 		case errors.Is(err, journal.ErrUnavailable):
 			code = "transcript_unavailable"
+			logTranscriptUnavailable(traceReason(err), ref)
 		}
 		e.replyErr(s, id, code, "history could not be read")
 		return
@@ -221,7 +223,7 @@ func (e *Engine) rpcAgentTrace(s *sess, id string, params json.RawMessage) {
 	}
 	page, err := e.Journal.ReadTrace(ref, p.Cursor, limit)
 	if err != nil {
-		e.replyAgentTraceError(s, id, err, "agent trace could not be read")
+		e.replyAgentTraceError(s, id, ref, err, "agent trace could not be read")
 		return
 	}
 	e.reply(s, id, map[string]any{"items": page.Items, "next_cursor": page.NextCursor, "truncated": page.Truncated})
@@ -248,7 +250,7 @@ func (e *Engine) rpcAgentTraceSummary(s *sess, id string, params json.RawMessage
 	}
 	page, err := e.Journal.ReadTraceSummary(ref, p.Cursor, limit)
 	if err != nil {
-		e.replyAgentTraceError(s, id, err, "agent trace summary could not be read")
+		e.replyAgentTraceError(s, id, ref, err, "agent trace summary could not be read")
 		return
 	}
 	e.reply(s, id, map[string]any{"items": page.Items, "next_cursor": page.NextCursor, "truncated": page.Truncated})
@@ -270,7 +272,7 @@ func (e *Engine) rpcAgentTraceDetail(s *sess, id string, params json.RawMessage)
 	}
 	detail, err := e.Journal.ReadTraceDetail(ref, p.DetailRef)
 	if err != nil {
-		e.replyAgentTraceError(s, id, err, "agent trace detail could not be read")
+		e.replyAgentTraceError(s, id, ref, err, "agent trace detail could not be read")
 		return
 	}
 	e.reply(s, id, detail)
@@ -288,13 +290,14 @@ func (e *Engine) agentTraceRef(s *sess, id string, session *string, paneID strin
 	}
 	ref := journalRef(pane.AgentSession)
 	if e.Journal == nil || !e.Journal.Supports(ref) {
+		logTranscriptUnavailable("no_binding", ref)
 		e.replyErr(s, id, "transcript_unavailable", "pane has no supported trusted transcript binding")
 		return journal.Ref{}, false
 	}
 	return ref, true
 }
 
-func (e *Engine) replyAgentTraceError(s *sess, id string, err error, message string) {
+func (e *Engine) replyAgentTraceError(s *sess, id string, ref journal.Ref, err error, message string) {
 	code := "internal"
 	switch {
 	case errors.Is(err, journal.ErrCursorConflict):
@@ -303,6 +306,7 @@ func (e *Engine) replyAgentTraceError(s *sess, id string, err error, message str
 		code = "invalid_argument"
 	case errors.Is(err, journal.ErrUnavailable):
 		code = "transcript_unavailable"
+		logTranscriptUnavailable(traceReason(err), ref)
 	}
 	e.replyErr(s, id, code, message)
 }

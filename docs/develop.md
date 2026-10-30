@@ -36,6 +36,14 @@ Local pairing runs against the same Worker as production:
 `PAIRFOB_HEALTH_ADDR=127.0.0.1:<port>` opens an extra listener that serves only
 `GET /v2/health`; it is loopback-only and off by default.
 
+`PAIRFOB_CLAUDE_ROOTS` and `PAIRFOB_CODEX_ROOTS` each hold absolute, existing
+directories separated by the OS list separator (`:` on Unix); the daemon
+searches them for agent transcripts besides its own. The default root
+(`CLAUDE_CONFIG_DIR` or `~/.claude`; `CODEX_HOME` or `~/.codex`) is searched
+first, then the listed roots in the order written, and the first root that
+holds the session id wins. Every root gets the same symlink and containment
+checks.
+
 ## Testing on a real phone
 
 For phone testing without installing a local CA, create a DNS-only A record

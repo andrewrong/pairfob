@@ -34,18 +34,16 @@ func (r *Reader) ReadActivity(ref Ref) Activity {
 	if !r.Supports(ref) {
 		return Activity{}
 	}
-	path, err := r.transcriptPath(ref, false)
+	path, base, err := r.transcriptPathBase(ref, false)
 	if err != nil {
 		return Activity{}
 	}
-	base := filepath.Join(r.GrokRoot, "sessions")
 	switch ref.Agent {
-	case "codex":
-		base = filepath.Join(r.CodexRoot, "sessions")
-	case "claude":
-		base = filepath.Join(r.ClaudeRoot, "projects")
+	case "codex", "claude":
 	case "pi":
 		base = filepath.Join(r.PiRoot, "sessions")
+	default:
+		base = filepath.Join(r.GrokRoot, "sessions")
 	}
 	file, err := openActivityFile(base, path)
 	if err != nil {
