@@ -108,8 +108,13 @@ func TestDoctorTraceExitCodes(t *testing.T) {
 	if err := runCommand([]string{"doctor", "--trace", "x"}, sock); err == nil || !strings.Contains(err.Error(), "usage") {
 		t.Fatalf("extra argument: %v", err)
 	}
-	t.Setenv("PAIRFOB_STATE_DIR", t.TempDir())
-	_ = doctorCommand(sock) // readiness depends on this machine; only the calls matter
+	plain := 0
+	prev := runDoctor
+	runDoctor = func(string) error { plain++; return nil }
+	t.Cleanup(func() { runDoctor = prev })
+	if err := runCommand([]string{"doctor"}, sock); err != nil || plain != 1 {
+		t.Fatalf("plain doctor: err=%v runs=%d", err, plain)
+	}
 	if svc.calls.Load() != 0 {
 		t.Fatalf("doctor without --trace called trace.check %d times", svc.calls.Load())
 	}

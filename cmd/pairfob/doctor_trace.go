@@ -16,12 +16,16 @@ type exitError struct{ code int }
 
 func (e exitError) Error() string { return fmt.Sprintf("exit status %d", e.code) }
 
+// runDoctor is the plain readiness check; a variable so tests need not reach
+// Herdr or Tailscale.
+var runDoctor = doctorCommand
+
 const doctorUsage = "usage: pairfob doctor [--trace]"
 
 func doctorArgs(args []string, sock string) error {
 	switch {
 	case len(args) == 0:
-		return doctorCommand(sock)
+		return runDoctor(sock)
 	case len(args) == 1 && args[0] == "--trace":
 		return doctorTrace(os.Stdout, os.Stderr, sock)
 	default:
