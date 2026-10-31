@@ -261,19 +261,10 @@
 
 .agent-process-summary::-webkit-details-marker { display: none; }
 
-.agent-reply-fold-summary {
-  border-bottom: 1px dashed var(--line);
-}
-
-.agent-reply-fold-summary > .spinner,
 .agent-run-status > .spinner,
 .agent-tool-state > .spinner {
   width: 12px;
   height: 12px;
-}
-
-.agent-reply-fold-title {
-  white-space: nowrap;
 }
 
 .agent-process-body {
@@ -283,21 +274,6 @@
   margin: 0 0 2px 10px;
   padding: 0 0 4px 10px;
   border-left: 1px solid var(--line-strong);
-}
-
-.agent-reply-fold-body {
-  gap: 8px;
-  padding-top: 8px;
-}
-
-.agent-reply-fold-body > .agent-assistant-intermediate {
-  color: var(--muted);
-  padding: 4px 0 6px;
-}
-
-.agent-reply-fold-body > .agent-assistant-intermediate .agent-md {
-  color: var(--muted);
-  font-size: var(--text-body);
 }
 
 .agent-step {
@@ -466,5 +442,3 @@
   min-height: 0;
 }
 
-.agent-reply-fold-chevron { transition: transform var(--dur-1) var(--ease); }
-.agent-reply-fold[open] .agent-reply-fold-chevron { transform: rotate(90deg); }
