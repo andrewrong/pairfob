@@ -1,0 +1,174 @@
+package journal
+
+import (
+	"fmt"
+	"path/filepath"
+	"testing"
+)
+
+const claudeTestID = "12345678-abcd-4321-abcd-1234567890ab"
+
+func claudeTestRef() Ref {
+	return Ref{Source: "herdr:claude", Agent: "claude", Kind: "id", Value: claudeTestID}
+}
+
+func claudeTestPath(root string) string {
+	return filepath.Join(root, "projects", "-tmp-pairfob", claudeTestID+".jsonl")
+}
+
+func userEntry(content any, extra map[string]any) map[string]any {
+	entry := map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": content}}
+	for k, v := range extra {
+		entry[k] = v
+	}
+	return entry
+}
+
+func queuedEntry(prompt, kind string, humanTurn bool, timestamp string) map[string]any {
+	return map[string]any{"type": "attachment", "uuid": "u1", "attachment": map[string]any{
+		"type": "queued_command", "origin": map[string]any{"kind": kind}, "humanTurn": humanTurn,
+		"source_uuid": "s1", "timestamp": timestamp, "prompt": prompt,
+	}}
+}
+
+func assistantEntry(text string) map[string]any {
+	return map[string]any{"type": "assistant", "message": map[string]any{"role": "assistant", "content": text}}
+}
+
+func readClaudeTexts(t *testing.T, entries ...map[string]any) []Message {
+	t.Helper()
+	root := t.TempDir()
+	writeLines(t, claudeTestPath(root), anyEntries(entries)...)
+	page, err := (&Reader{ClaudeRoot: root}).Read(claudeTestRef(), nil, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return page.Messages
+}
+
+func TestClaudeHistoryShowsHumanQueuedCommand(t *testing.T) {
+	got := readClaudeTexts(t,
+		userEntry("first", nil),
+		queuedEntry("queued while busy", "human", true, "2026-01-01T00:00:05.123456789Z"),
+		assistantEntry("answer"),
+	)
+	if len(got) != 3 || got[0].Text != "first" || got[1] != (Message{Role: "user", Text: "queued while busy"}) || got[2].Text != "answer" {
+		t.Fatalf("messages=%+v", got)
+	}
+}
+
+func TestClaudeHistoryIgnoresNonHumanQueuedCommands(t *testing.T) {
+	got := readClaudeTexts(t,
+		queuedEntry("from peer", "peer", true, "2026-01-01T00:00:00Z"),
+		queuedEntry("from task", "task-notification", true, "2026-01-01T00:00:00Z"),
+		queuedEntry("not a human turn", "human", false, "2026-01-01T00:00:00Z"),
+		queuedEntry("", "human", true, "2026-01-01T00:00:00Z"),
+		map[string]any{"type": "attachment", "attachment": map[string]any{"type": "other", "prompt": "x"}},
+	)
+	if len(got) != 0 {
+		t.Fatalf("messages=%+v", got)
+	}
+}
+
+func TestClaudeHistoryDropsInjectedUserText(t *testing.T) {
+	got := readClaudeTexts(t,
+		userEntry("<task-notification>done</task-notification>", nil),
+		userEntry("  \n<cross-session-message from=x>hi", nil),
+		userEntry("<system-reminder>remember</system-reminder>", nil),
+		userEntry("<local-command-stdout>ok</local-command-stdout>", nil),
+		userEntry("meta text", map[string]any{"isMeta": true}),
+		userEntry("tagged", map[string]any{"origin": map[string]any{"kind": "task-notification"}}),
+	)
+	if len(got) != 0 {
+		t.Fatalf("messages=%+v", got)
+	}
+}
+
+func TestClaudeHistoryKeepsTextBesideInjectedBlock(t *testing.T) {
+	got := readClaudeTexts(t, userEntry([]map[string]any{
+		{"type": "text", "text": "<system-reminder>x</system-reminder>"},
+		{"type": "text", "text": "plain words"},
+	}, nil))
+	if len(got) != 1 || got[0].Text != "plain words" {
+		t.Fatalf("messages=%+v", got)
+	}
+}
+
+func TestClaudeHistoryShowsQueuedPromptOnce(t *testing.T) {
+	near := readClaudeTexts(t,
+		queuedEntry("same", "human", true, "2026-01-01T00:00:00Z"),
+		userEntry("same", map[string]any{"timestamp": "2026-01-01T00:00:10Z"}),
+	)
+	if len(near) != 1 {
+		t.Fatalf("10s apart: %+v", near)
+	}
+	far := readClaudeTexts(t,
+		queuedEntry("same", "human", true, "2026-01-01T00:00:00Z"),
+		userEntry("same", map[string]any{"timestamp": "2026-01-01T00:02:00Z"}),
+	)
+	if len(far) != 2 {
+		t.Fatalf("2min apart: %+v", far)
+	}
+}
+
+func TestClaudeTraceShowsQueuedAndDropsInjected(t *testing.T) {
+	root := t.TempDir()
+	writeLines(t, claudeTestPath(root),
+		queuedEntry("queued ask", "human", true, "2026-01-01T00:00:00Z"),
+		userEntry("<task-notification>x</task-notification>", nil),
+		assistantEntry("calling"),
+		map[string]any{"type": "assistant", "message": map[string]any{"role": "assistant", "content": []map[string]any{
+			{"type": "tool_use", "id": "toolu_1", "name": "Read", "input": map[string]any{}},
+		}}},
+		userEntry([]map[string]any{{"type": "tool_result", "tool_use_id": "toolu_1", "content": "out"}}, nil),
+	)
+	page, err := (&Reader{ClaudeRoot: root}).ReadTrace(claudeTestRef(), nil, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 3 || page.Items[0].Type != "user" || page.Items[0].Text != "queued ask" ||
+		page.Items[1].Type != "assistant" || page.Items[2].Type != "tool" || page.Items[2].Output != "out" {
+		t.Fatalf("items=%+v", page.Items)
+	}
+}
+
+func TestClaudeHistoryPagingWithQueuedCommands(t *testing.T) {
+	var entries []map[string]any
+	var want []string
+	for i := range 3 {
+		q := fmt.Sprintf("queued %d", i)
+		a := fmt.Sprintf("answer %d", i)
+		entries = append(entries, queuedEntry(q, "human", true, "2026-01-01T00:00:00Z"), assistantEntry(a),
+			userEntry("<system-reminder>r</system-reminder>", nil))
+		want = append(want, q, a)
+	}
+	root := t.TempDir()
+	writeLines(t, claudeTestPath(root), anyEntries(entries)...)
+	reader := &Reader{ClaudeRoot: root}
+	var got []string
+	var cursor *string
+	for range 10 {
+		page, err := reader.Read(claudeTestRef(), cursor, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range page.Messages {
+			got = append(got, m.Text)
+		}
+		if page.NextCursor == nil {
+			break
+		}
+		cursor = page.NextCursor
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("got=%v want=%v", got, want)
+	}
+}
+
+func anyEntries(entries []map[string]any) []any {
+	out := make([]any, len(entries))
+	for i, e := range entries {
+		out[i] = e
+	}
+	return out
+}

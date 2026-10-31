@@ -355,18 +355,35 @@ func parseCodexTrace(line []byte) []parsedEvent {
 
 func parseClaudeTrace(line []byte) []parsedEvent {
 	var item struct {
-		Type    string `json:"type"`
-		Message struct {
+		Type       string           `json:"type"`
+		IsMeta     bool             `json:"isMeta"`
+		Origin     claudeOrigin     `json:"origin"`
+		Attachment claudeAttachment `json:"attachment"`
+		Message    struct {
 			Role    string          `json:"role"`
 			Content json.RawMessage `json:"content"`
 		} `json:"message"`
 	}
-	if json.Unmarshal(line, &item) != nil || (item.Type != "user" && item.Type != "assistant") || item.Message.Role != item.Type {
+	if json.Unmarshal(line, &item) != nil {
+		return nil
+	}
+	// Trace events are addressed by line and ordinal, so this parser keeps no
+	// state and cannot pair a queued prompt with a repeating user entry.
+	if item.Type == "attachment" {
+		if text, _, ok := claudeQueuedPrompt(item.Attachment); ok {
+			return []parsedEvent{{Event: Event{Type: "user", Text: text}}}
+		}
+		return nil
+	}
+	if (item.Type != "user" && item.Type != "assistant") || item.Message.Role != item.Type {
+		return nil
+	}
+	if item.Type == "user" && !claudeUserEntryShown(item.IsMeta, item.Origin) {
 		return nil
 	}
 	var text string
 	if json.Unmarshal(item.Message.Content, &text) == nil {
-		if text == "" {
+		if text == "" || (item.Type == "user" && claudeInjectedText(text)) {
 			return nil
 		}
 		return []parsedEvent{{Event: Event{Type: item.Type, Text: text}}}
@@ -390,6 +407,9 @@ func parseClaudeTrace(line []byte) []parsedEvent {
 		case block.Type == "thinking" && block.Thinking != "":
 			out = append(out, parsedEvent{Event: Event{Type: "thinking", Text: block.Thinking}})
 		case block.Type == "text" && block.Text != "":
+			if item.Type == "user" && claudeInjectedText(block.Text) {
+				continue
+			}
 			out = append(out, parsedEvent{Event: Event{Type: item.Type, Text: block.Text}})
 		case item.Type == "assistant" && block.Type == "tool_use" && toolName.MatchString(block.Name):
 			out = append(out, parsedEvent{
