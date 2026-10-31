@@ -468,12 +468,14 @@ func parseClaude(line []byte) (Message, bool) { return parseClaudeWith(line, nil
 
 func parseClaudeWith(line []byte, dedup *claudeDedup) (Message, bool) {
 	var item struct {
-		Type       string           `json:"type"`
-		IsMeta     bool             `json:"isMeta"`
-		Origin     claudeOrigin     `json:"origin"`
-		Timestamp  string           `json:"timestamp"`
-		Attachment claudeAttachment `json:"attachment"`
-		Message    struct {
+		Type           string           `json:"type"`
+		IsMeta         bool             `json:"isMeta"`
+		CompactSummary bool             `json:"isCompactSummary"`
+		TranscriptOnly bool             `json:"isVisibleInTranscriptOnly"`
+		Origin         claudeOrigin     `json:"origin"`
+		Timestamp      string           `json:"timestamp"`
+		Attachment     claudeAttachment `json:"attachment"`
+		Message        struct {
 			Role    string          `json:"role"`
 			Content json.RawMessage `json:"content"`
 		} `json:"message"`
@@ -491,7 +493,7 @@ func parseClaudeWith(line []byte, dedup *claudeDedup) (Message, bool) {
 	if (item.Type != "user" && item.Type != "assistant") || item.Message.Role != item.Type {
 		return Message{}, false
 	}
-	if item.Type == "user" && !claudeUserEntryShown(item.IsMeta, item.Origin) {
+	if item.Type == "user" && !claudeUserEntryShown(item.IsMeta, item.CompactSummary, item.TranscriptOnly, item.Origin) {
 		return Message{}, false
 	}
 	var text string

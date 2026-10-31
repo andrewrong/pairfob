@@ -76,11 +76,32 @@ func TestClaudeHistoryDropsInjectedUserText(t *testing.T) {
 		userEntry("  \n<cross-session-message from=x>hi", nil),
 		userEntry("<system-reminder>remember</system-reminder>", nil),
 		userEntry("<local-command-stdout>ok</local-command-stdout>", nil),
+		userEntry("<command-name>/compact</command-name>", nil),
+		userEntry("<command-message>compact</command-message>", nil),
+		userEntry("<command-args></command-args>", nil),
+		userEntry("<bash-input>ls</bash-input>", nil),
+		userEntry("<bash-stdout>a</bash-stdout>", nil),
+		userEntry("<bash-stderr>b</bash-stderr>", nil),
 		userEntry("meta text", map[string]any{"isMeta": true}),
 		userEntry("tagged", map[string]any{"origin": map[string]any{"kind": "task-notification"}}),
 	)
 	if len(got) != 0 {
 		t.Fatalf("messages=%+v", got)
+	}
+}
+
+func TestClaudeHistoryDropsCompactSummary(t *testing.T) {
+	got := readClaudeTexts(t,
+		userEntry("long summary", map[string]any{"isCompactSummary": true}),
+		userEntry("transcript only", map[string]any{"isVisibleInTranscriptOnly": true}),
+		userEntry("This session is being continued from a previous conversation that ran out of context.", nil),
+	)
+	if len(got) != 0 {
+		t.Fatalf("messages=%+v", got)
+	}
+	kept := readClaudeTexts(t, userEntry("note: This session is being continued from a previous conversation", nil))
+	if len(kept) != 1 {
+		t.Fatalf("phrase after other words: %+v", kept)
 	}
 }
 
@@ -116,6 +137,7 @@ func TestClaudeTraceShowsQueuedAndDropsInjected(t *testing.T) {
 	writeLines(t, claudeTestPath(root),
 		queuedEntry("queued ask", "human", true, "2026-01-01T00:00:00Z"),
 		userEntry("<task-notification>x</task-notification>", nil),
+		userEntry("summary", map[string]any{"isCompactSummary": true}),
 		assistantEntry("calling"),
 		map[string]any{"type": "assistant", "message": map[string]any{"role": "assistant", "content": []map[string]any{
 			{"type": "tool_use", "id": "toolu_1", "name": "Read", "input": map[string]any{}},

@@ -20,6 +20,13 @@ var claudeInjectedPrefixes = []string{
 	"<cross-session-message",
 	"<system-reminder>",
 	"<local-command-",
+	"<command-name>",
+	"<command-message>",
+	"<command-args>",
+	"<bash-input>",
+	"<bash-stdout>",
+	"<bash-stderr>",
+	"This session is being continued from a previous conversation",
 }
 
 // claudeOrigin is the `origin` field of an entry. Only its kind matters; a
@@ -61,8 +68,8 @@ func parseClaudeTime(text string) time.Time {
 }
 
 // claudeUserEntryShown reports whether a user entry can hold the owner's text.
-func claudeUserEntryShown(isMeta bool, origin claudeOrigin) bool {
-	return !isMeta && (origin.Kind == "" || origin.Kind == "human")
+func claudeUserEntryShown(isMeta, compactSummary, transcriptOnly bool, origin claudeOrigin) bool {
+	return !isMeta && !compactSummary && !transcriptOnly && (origin.Kind == "" || origin.Kind == "human")
 }
 
 func claudeInjectedText(text string) bool {
