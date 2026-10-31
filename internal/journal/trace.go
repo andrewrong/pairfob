@@ -355,11 +355,13 @@ func parseCodexTrace(line []byte) []parsedEvent {
 
 func parseClaudeTrace(line []byte) []parsedEvent {
 	var item struct {
-		Type       string           `json:"type"`
-		IsMeta     bool             `json:"isMeta"`
-		Origin     claudeOrigin     `json:"origin"`
-		Attachment claudeAttachment `json:"attachment"`
-		Message    struct {
+		Type           string           `json:"type"`
+		IsMeta         bool             `json:"isMeta"`
+		CompactSummary bool             `json:"isCompactSummary"`
+		TranscriptOnly bool             `json:"isVisibleInTranscriptOnly"`
+		Origin         claudeOrigin     `json:"origin"`
+		Attachment     claudeAttachment `json:"attachment"`
+		Message        struct {
 			Role    string          `json:"role"`
 			Content json.RawMessage `json:"content"`
 		} `json:"message"`
@@ -378,7 +380,7 @@ func parseClaudeTrace(line []byte) []parsedEvent {
 	if (item.Type != "user" && item.Type != "assistant") || item.Message.Role != item.Type {
 		return nil
 	}
-	if item.Type == "user" && !claudeUserEntryShown(item.IsMeta, item.Origin) {
+	if item.Type == "user" && !claudeUserEntryShown(item.IsMeta, item.CompactSummary, item.TranscriptOnly, item.Origin) {
 		return nil
 	}
 	var text string
