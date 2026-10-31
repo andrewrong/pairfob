@@ -142,11 +142,10 @@ function applyTracePage(page: AgentTracePage, older: boolean): boolean {
     absorbPending(page.items);
     return changed;
   }
-  const kept = Math.max(0, current.agentTraceItems.length - current.agentTraceTail);
-  const priorTail = current.agentTraceItems.slice(kept);
-  const prefix = kept > 0 && traceSegmentsOverlap(priorTail, page.items)
-    ? current.agentTraceItems.slice(0, kept)
-    : [];
+  // The server trims the front of a tail, so keep every displayed item before
+  // the point where the new tail overlaps; without an overlap the page stands alone.
+  const overlapAt = traceOverlapStart(current.agentTraceItems, page.items);
+  const prefix = overlapAt > 0 ? current.agentTraceItems.slice(0, overlapAt) : [];
   const merged = mergeAgentTraceSegments(prefix, page.items);
   const patch: Partial<ChatRecord> = {
     agentTraceItems: merged.items,
@@ -286,7 +285,8 @@ function sameTracePosition(before: AgentTraceItem, after: AgentTraceItem): boole
   return left === right || ((before.type === "assistant" || before.type === "thinking") && right.startsWith(left));
 }
 
-function traceSegmentsOverlap(before: readonly AgentTraceItem[], after: readonly AgentTraceItem[]): boolean {
+/** Index in `before` where `after` continues it, or -1 when continuity is not proven. */
+function traceOverlapStart(before: readonly AgentTraceItem[], after: readonly AgentTraceItem[]): number {
   for (let left = 0; left < before.length; left += 1) {
     for (let right = 0; right < after.length; right += 1) {
       let count = 0;
@@ -294,13 +294,16 @@ function traceSegmentsOverlap(before: readonly AgentTraceItem[], after: readonly
         left + count < before.length && right + count < after.length &&
         sameTracePosition(before[left + count], after[right + count])
       ) count += 1;
+      // The matched run must reach the end of `before`: a repeat of a short reply
+      // in the middle must not drop what follows it.
+      if (left + count !== before.length) continue;
       // One repeated prompt is ambiguous after a branch/reset. Two adjacent
       // events, or one matching non-user event, prove continuity strongly
       // enough to retain the separately loaded prefix.
-      if (count >= 2 || (count === 1 && before[left].type !== "user")) return true;
+      if (count >= 2 || (count === 1 && before[left].type !== "user")) return left;
     }
   }
-  return false;
+  return -1;
 }
 
 function pendingBoundary(items: readonly AgentTraceItem[]): number {
