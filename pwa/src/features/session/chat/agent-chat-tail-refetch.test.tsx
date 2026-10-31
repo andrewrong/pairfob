@@ -113,3 +113,15 @@ test("a terminal page is the complete history", async () => {
   await refetch({ items: [reply("c"), reply("d")], nextCursor: null });
   expect(texts()).toEqual(["c", "d"]);
 });
+
+test("a tail refetch continues the latest repeated reply, not the first", async () => {
+  display([ask("a"), reply("ok"), ask("b"), reply("ok")], "cursor-old");
+  await refetch({ items: [reply("ok"), reply("z")], nextCursor: "cursor-new" });
+  expect(texts()).toEqual(["a", "ok", "b", "ok", "z"]);
+});
+
+test("a tail refetch overlapping by several items attaches at the first of them", async () => {
+  display([ask("a"), reply("b"), reply("c")], "cursor-old");
+  await refetch({ items: [reply("b"), reply("c"), reply("d")], nextCursor: "cursor-new" });
+  expect(texts()).toEqual(["a", "b", "c", "d"]);
+});

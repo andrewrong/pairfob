@@ -294,6 +294,9 @@ function traceOverlapStart(before: readonly AgentTraceItem[], after: readonly Ag
         left + count < before.length && right + count < after.length &&
         sameTracePosition(before[left + count], after[right + count])
       ) count += 1;
+      // The matched run must reach the end of `before`: a repeat of a short reply
+      // in the middle must not drop what follows it.
+      if (left + count !== before.length) continue;
       // One repeated prompt is ambiguous after a branch/reset. Two adjacent
       // events, or one matching non-user event, prove continuity strongly
       // enough to retain the separately loaded prefix.
