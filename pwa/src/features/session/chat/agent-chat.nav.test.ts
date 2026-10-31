@@ -419,18 +419,21 @@ describe("agent-chat remembers its mode per pane", () => {
     ] });
     expect(patchAgentChat({ follow: true })).toBe(true);
 
-    const fold = app.querySelector(".agent-reply-fold");
-    const preamble = fold?.querySelector(".agent-assistant-intermediate");
-    const tool = fold?.querySelector(".agent-tool");
+    const preamble = app.querySelector(".agent-assistant-intermediate");
+    const card = app.querySelector(".agent-process");
+    const tool = card?.querySelector(".agent-tool");
     const final = app.querySelector(".agent-assistant-final");
-    if (!(fold instanceof HTMLElement) || !(preamble instanceof HTMLElement) || !(tool instanceof HTMLElement) || !(final instanceof HTMLElement)) {
-      throw new Error("missing chronological reply fold");
+    if (!(preamble instanceof HTMLElement) || !(card instanceof HTMLDetailsElement) || !(tool instanceof HTMLElement) || !(final instanceof HTMLElement)) {
+      throw new Error("missing chronological reply and process card");
     }
+    expect(preamble.closest("details")).toBeNull();
+    expect(final.closest("details")).toBeNull();
+    expect(card.open).toBe(false);
     expect(preamble.textContent).toContain("I will inspect it first.");
     expect(tool.textContent).toContain("Read a.ts");
     expect(final.textContent).toContain("Everything is fine.");
-    expect(Boolean(preamble.compareDocumentPosition(tool) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-    expect(Boolean(fold.compareDocumentPosition(final) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(Boolean(preamble.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(Boolean(card.compareDocumentPosition(final) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
   }));
 
   test("anchors an optimistic prompt before output that arrives ahead of its transcript echo", async () => await act(async () => {

@@ -26,11 +26,11 @@ function toggle(card: HTMLDetailsElement, open: boolean) {
   });
 }
 
-test("completed turns retain their process fold, Markdown and one final reply copy action", () => {
+test("completed turns retain their process card, Markdown and one final reply copy action", () => {
   const copied: string[] = [];
   act(() => renderReact(<AgentStream items={items} working={false} empty={empty} onCopyReply={text => { copied.push(text); }} />));
   expect(appRoot().querySelector(".agent-user-text")?.textContent).toBe(items[0].text);
-  expect(appRoot().querySelector<HTMLDetailsElement>(".agent-reply-fold")!.open).toBeFalse();
+  expect(appRoot().querySelector<HTMLDetailsElement>(".agent-process")!.open).toBeFalse();
   expect(appRoot().querySelectorAll(".agent-step")).toHaveLength(2);
   expect(appRoot().querySelector(".agent-md h2")?.textContent).toBe("Result");
   expect(appRoot().querySelector(".agent-md strong")?.textContent).toBe("Safe");

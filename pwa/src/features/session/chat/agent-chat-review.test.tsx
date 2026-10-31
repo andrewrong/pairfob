@@ -152,7 +152,7 @@ test("a new pane does not inherit the previous pane's expanded tools or lazy det
   applyTrace({ agentTraceItems: items("first-detail") });
   act(mount);
   act(() => {
-    appRoot().querySelector<HTMLDetailsElement>(".agent-reply-fold")!.open = true;
+    appRoot().querySelector<HTMLDetailsElement>(".agent-process")!.open = true;
     appRoot().querySelector<HTMLDetailsElement>(".agent-tool")!.open = true;
   });
   await drain();
@@ -163,7 +163,7 @@ test("a new pane does not inherit the previous pane's expanded tools or lazy det
     mount();
   });
   await drain();
-  expect({ foldOpen: appRoot().querySelector<HTMLDetailsElement>(".agent-reply-fold")!.open,
+  expect({ foldOpen: appRoot().querySelector<HTMLDetailsElement>(".agent-process")!.open,
     toolOpen: appRoot().querySelector<HTMLDetailsElement>(".agent-tool")!.open, requested })
     .toEqual({ foldOpen: false, toolOpen: false, requested: ["p1:first-detail"] });
 });

@@ -87,11 +87,11 @@ test("prepending a distinct turn restores open nested details through captured s
   const initial: AgentTraceItem[] = [user, thinking, { type: "tool", name: "Read", output: "done" },
     { type: "assistant", text: "Finished" }];
   paint(initial, false);
-  const fold = appRoot().querySelector<HTMLDetailsElement>(".agent-reply-fold")!;
+  const fold = appRoot().querySelector<HTMLDetailsElement>("details.agent-process")!;
   toggle(fold, true);
   toggle(tool("Read"), true);
   paint([{ type: "user", text: "Older" }, { type: "assistant", text: "Old answer" }, ...initial], false);
-  expect(appRoot().querySelector<HTMLDetailsElement>(".agent-reply-fold")!.open).toBeTrue();
+  expect(appRoot().querySelector<HTMLDetailsElement>("details.agent-process")!.open).toBeTrue();
   expect(tool("Read").open).toBeTrue();
 });
 
@@ -246,13 +246,15 @@ test("ordered mixed blocks retain text, truncation, fold keys, and working expan
     {
       busy: "false", role: "log",
       outer: [...prefix,
-        block("DETAILS", "agent-process agent-reply-fold",
-          "执行过程 · 3 步思考Start by checkingStart by checkingIntermediate\nRead结果done"),
+        block("DETAILS", "agent-process", "思考过程思考Start by checkingStart by checking"),
+        block("ARTICLE", "agent-assistant agent-assistant-intermediate", "Intermediate\n"),
+        block("DETAILS", "agent-process", "执行过程 · 1 个工具Read结果done"),
         block("ARTICLE", "agent-assistant agent-assistant-final", "Final one\nFinal two\n")],
       details: [
-        detail("f:u:12:Inspect this:s:thinking::", "agent-process agent-reply-fold"),
-        detail("u:12:Inspect this:s:thinking:::0:thinking::", "agent-step agent-thinking"),
-        detail("u:12:Inspect this:s:thinking:::2:tool:Read:", "agent-step agent-tool is-done")],
+        detail("p:u:12:Inspect this:s:thinking:::0", "agent-process"),
+        detail("u:12:Inspect this:s:thinking:::0:0:thinking::", "agent-step agent-thinking"),
+        detail("p:u:12:Inspect this:s:thinking:::2", "agent-process"),
+        detail("u:12:Inspect this:s:thinking:::2:0:tool:Read:", "agent-step agent-tool is-done")],
     },
     {
       busy: "false", role: "log",
