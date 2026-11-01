@@ -38,3 +38,14 @@ test("appending one reply to a finished 100-turn trace parses only the new reply
     parse.mockRestore();
   }
 });
+
+test("a language change re-renders the copy label of finished turns", () => {
+  const items: AgentTraceItem[] = [{ type: "user", text: "q" }, { type: "assistant", text: "a" }];
+  const view = (lang: number) => <AgentStream key="s" items={items} working={false} empty={empty} onCopyReply={() => {}} signature={String(lang)} />;
+  setLang("zh");
+  act(() => renderReact(view(0)));
+  const before = document.querySelector(".agent-reply-copy")?.textContent;
+  setLang("en");
+  act(() => renderReact(view(1)));
+  expect(document.querySelector(".agent-reply-copy")?.textContent).not.toBe(before);
+});

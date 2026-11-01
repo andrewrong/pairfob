@@ -3,7 +3,7 @@ import { renderMarkdown } from "../../../lib/agent-markdown";
 import { groupAgentTurns, groupAgentTurnBlocks, processTitle, replyText, turnKey,
   type AgentTurn } from "../../../lib/agent-trace-view";
 import type { AgentTraceItem } from "../../../lib/operations";
-import { t } from "../../../lib/i18n";
+import { langRevision, t } from "../../../lib/i18n";
 import type { AgentEmptySpec, DetailsState } from "./agent-chat-stream";
 import { AgentDetails } from "./agent-details";
 import { AgentStep, type ToolDetailHooks } from "./agent-process";
@@ -48,8 +48,11 @@ function ProcessCard({ turn, items, blockIndex, live, anchor, kept, hooks }: {
 
 type TraceTurnProps = {
   turn: AgentTurn; live: boolean; anchor: TraceAnchor; kept?: DetailsState; hooks: ToolDetailHooks; onCopy?: CopyReply;
+  /** Language revision: a finished turn shows t() copy, so it must re-render when the language changes. */
+  lang: number;
 };
 
+// Keep in step with the fields of AgentTraceItem (lib/operations.ts).
 function sameItem(a: AgentTraceItem, b: AgentTraceItem): boolean {
   return a === b || (a.type === b.type && a.text === b.text && a.name === b.name && a.input === b.input
     && a.output === b.output && a.toolState === b.toolState && a.detailRef === b.detailRef);
@@ -61,7 +64,7 @@ function sameItems(a: readonly AgentTraceItem[], b: readonly AgentTraceItem[]): 
 
 /** A turn re-renders only when what it shows changed; tool detail hooks matter only to turns with detail refs. */
 function sameTurn(prev: TraceTurnProps, next: TraceTurnProps): boolean {
-  if (next.live || prev.live !== next.live || prev.kept !== next.kept || prev.onCopy !== next.onCopy) return false;
+  if (next.live || prev.lang !== next.lang || prev.live !== next.live || prev.kept !== next.kept || prev.onCopy !== next.onCopy) return false;
   if (prev.anchor.key !== next.anchor.key || prev.anchor.ordinal !== next.anchor.ordinal
     || prev.anchor.ordinalFromEnd !== next.anchor.ordinalFromEnd) return false;
   if (prev.turn.user?.text !== next.turn.user?.text || !sameItems(prev.turn.items, next.turn.items)) return false;
@@ -118,6 +121,7 @@ export function AgentStream({ items, working, empty, busy, kept, onRetry, onTerm
 }) {
   const turns = groupAgentTurns(items);
   const anchors = turnAnchors(turns);
+  const lang = langRevision();
   const hooks = { view: toolDetail, need: onNeedToolDetail };
   return <div ref={streamRef} className="agent-stream" role="log" aria-label={t("chat.streamAria")}
     aria-busy={busy === true} tabIndex={0} data-sig={signature} onScroll={event => {
@@ -133,7 +137,7 @@ export function AgentStream({ items, working, empty, busy, kept, onRetry, onTerm
       {turns.map((turn, index) => {
         return <TraceTurn key={`${anchors[index].key}:${index}`} turn={turn} anchor={anchors[index]}
           live={working && empty.kind !== "unavailable" && index === turns.length - 1}
-          kept={kept} hooks={hooks} onCopy={onCopyReply} />;
+          kept={kept} hooks={hooks} onCopy={onCopyReply} lang={lang} />;
       })}
     </div>
   </div>;
