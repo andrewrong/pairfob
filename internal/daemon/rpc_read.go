@@ -212,6 +212,7 @@ func (e *Engine) rpcAgentTrace(s *sess, id string, params json.RawMessage) {
 	if !ok {
 		return
 	}
+	e.watchTrace(s, p.PaneID, ref)
 	limit := 50
 	if p.Limit != nil {
 		limit = *p.Limit
