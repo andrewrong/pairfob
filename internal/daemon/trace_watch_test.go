@@ -111,7 +111,10 @@ func (c *watchClient) pokes(t *testing.T) []string {
 				PaneID string `json:"pane_id"`
 			} `json:"params"`
 		}
-		if json.Unmarshal(plain, &msg) != nil || msg.Op != "Poke" || msg.Params.Reason != "agent_trace" {
+		if json.Unmarshal(plain, &msg) == nil && msg.Op == "" {
+			continue // a reply to a request
+		}
+		if msg.Op != "Poke" || msg.Params.Reason != "agent_trace" {
 			t.Fatalf("unexpected frame: %s", plain)
 		}
 		out = append(out, msg.Params.PaneID)
@@ -248,5 +251,40 @@ func TestAgentTraceReadStartsTheWatchInsideTheEngine(t *testing.T) {
 	}
 	if w := engine.watchedSessions()["w0:p1"]; w == nil || len(w.sessions) != 1 {
 		t.Fatalf("read did not register the watch: %v", engine.watchedSessions())
+	}
+}
+
+func TestAgentTraceSummaryReadStartsTheWatch(t *testing.T) {
+	root := t.TempDir()
+	sessionID := "session_12345678"
+	transcript := filepath.Join(root, "sessions", "2026", "08", "28", "rollout-"+sessionID+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(transcript), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"hi"}]}}` + "\n"
+	if err := os.WriteFile(transcript, []byte(line), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fake := runtime.NewFake()
+	fake.Snap.Panes[0].Agent = "codex"
+	fake.Snap.Panes[0].AgentSession = &runtime.AgentSessionRef{Source: "herdr:codex", Agent: "codex", Kind: "id", Value: sessionID}
+	relay, _ := mux.NewPipePair(8)
+	h := &watchHarness{t: t}
+	h.eng = NewEngine(nil, relay, fake)
+	h.eng.Journal = &journal.Reader{CodexRoot: root}
+	c := h.addSession(1)
+	h.eng.dispatch(c.s, "req_summary", "AgentTraceSummary", json.RawMessage(`{"pane_id":"w0:p1","limit":20}`))
+	h.eng.traceWatchTick() // baseline
+	f, err := os.OpenFile(transcript, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(line); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	h.eng.traceWatchTick()
+	if got := c.pokes(t); len(got) != 1 || got[0] != "w0:p1" {
+		t.Fatalf("pokes=%v", got)
 	}
 }

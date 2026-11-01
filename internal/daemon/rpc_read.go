@@ -244,6 +244,7 @@ func (e *Engine) rpcAgentTraceSummary(s *sess, id string, params json.RawMessage
 	if p.Limit != nil {
 		limit = *p.Limit
 	}
+	e.watchTrace(s, p.PaneID, ref)
 	page, err := e.Journal.ReadTraceSummary(ref, p.Cursor, limit)
 	if err != nil {
 		e.replyAgentTraceError(s, id, ref, err, "agent trace summary could not be read")
