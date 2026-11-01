@@ -159,11 +159,11 @@ describe("session event observation", () => {
       },
     };
     observeSessionEvent(pool, "A", session, { type: "poke", paneId: "p1", reason: "agent_status" }, ports);
-    expect(calls).toEqual(["snapshot:start"]);
+    expect(calls).toEqual(["trace", "snapshot:start"]);
     finishSnapshot();
     await Promise.resolve();
     await Promise.resolve();
-    expect(calls).toEqual(["snapshot:start", "snapshot:done", "pane"]);
+    expect(calls).toEqual(["trace", "snapshot:start", "snapshot:done", "pane"]);
   });
 
   test("an agent-status poke for the open chat reads the trace, one read at a time", async () => {
