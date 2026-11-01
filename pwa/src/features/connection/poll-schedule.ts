@@ -23,13 +23,14 @@ export function shouldPullStatus(changed: boolean, now: number, lastSnapshotAt: 
   return changed && now - lastSnapshotAt >= PANE_STATUS_FLOOR_MS;
 }
 
-export type PokeRefreshKind = "runtime" | "snapshot" | "paneread" | "ignore";
+export type PokeRefreshKind = "runtime" | "snapshot" | "snapshot_trace" | "paneread" | "ignore";
 
 /**
  * Visible-screen poke routing. Hidden callers must not invoke this for work —
  * they stop both fallback loops instead. Open-pane cards still use the 15s Snapshot
  * fallback. Explicit agent-status hints always refresh Snapshot, including
- * other panes whose cards remain visible in the desktop sidebar.
+ * other panes whose cards remain visible in the desktop sidebar; for the open
+ * pane the caller also reads its trace (when it is in agent chat).
  */
 export function pokeRefreshAction(
   screen: "home" | "pane" | "workspace" | "settings" | "quota" | "computers" | "board",
@@ -38,7 +39,11 @@ export function pokeRefreshAction(
   reason?: string,
 ): PokeRefreshKind {
   if (reason === "herdr_offline" || reason === "herdr_online") return "runtime";
-  if (reason === "agent_status") return "snapshot";
+  if (reason === "agent_status") {
+    // The open chat's journal is only read by its timer otherwise; the event is
+    // the evidence a new turn may be there, so the trace is read with the snapshot.
+    return screen === "pane" && openPaneId && pokePaneId === openPaneId ? "snapshot_trace" : "snapshot";
+  }
   if (screen === "pane" && openPaneId) {
     return pokePaneId === openPaneId ? "paneread" : "ignore";
   }

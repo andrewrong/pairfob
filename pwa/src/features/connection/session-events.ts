@@ -28,6 +28,7 @@ export type SessionEventPorts = {
   retireAgentTraceReads(): void;
   refreshRuntime(): Promise<void>;
   refreshSnapshot(): Promise<void>;
+  refreshAgentTrace(): Promise<unknown>;
   wakePane(): void;
   preloadFullTerminal(): void;
   handleGuidedEvent(event: SessionEvent): boolean;
@@ -36,6 +37,24 @@ export type SessionEventPorts = {
   handleActiveTerminal(event: SessionEvent): Promise<void>;
   sessionEventNotice(event: SessionEvent): string;
 };
+
+let traceReadInFlight = false;
+let traceReadAgain = false;
+
+/** A burst of pokes makes one trace read at a time; one more follows if a poke arrived meanwhile. */
+function readTraceOnPoke(ports: SessionEventPorts): void {
+  if (traceReadInFlight) {
+    traceReadAgain = true;
+    return;
+  }
+  traceReadInFlight = true;
+  void Promise.resolve(ports.refreshAgentTrace()).catch(() => undefined).then(() => {
+    traceReadInFlight = false;
+    if (!traceReadAgain) return;
+    traceReadAgain = false;
+    if (isAgentChat() && !isFullTerminal() && currentScreen() === "pane") readTraceOnPoke(ports);
+  });
+}
 
 export function observeP2PAttempt(
   daemonId: string,
@@ -79,7 +98,8 @@ export function observeSessionEvent(
   if (event.type === "poke" && ports.documentVisible()) {
     const action = pokeRefreshAction(currentScreen(), openPaneId(), event.paneId, event.reason);
     if (action === "runtime") void ports.refreshRuntime();
-    else if (action === "snapshot") {
+    else if (action === "snapshot" || action === "snapshot_trace") {
+      if (action === "snapshot_trace" && isAgentChat() && !isFullTerminal()) readTraceOnPoke(ports);
       const wakeAfterSnapshot = currentScreen() === "board" ||
         (currentScreen() === "pane" && !isFullTerminal() && event.paneId === openPaneId());
       void ports.refreshSnapshot().then(() => {

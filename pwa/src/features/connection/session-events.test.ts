@@ -30,6 +30,9 @@ const eventPorts: SessionEventPorts = {
   refreshSnapshot: async () => {
     calls.push("snapshot");
   },
+  refreshAgentTrace: async () => {
+    calls.push("trace");
+  },
   wakePane: () => calls.push("pane"),
   preloadFullTerminal: () => calls.push("preload"),
   handleGuidedEvent: () => false,
@@ -161,6 +164,41 @@ describe("session event observation", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(calls).toEqual(["snapshot:start", "snapshot:done", "pane"]);
+  });
+
+  test("an agent-status poke for the open chat reads the trace, one read at a time", async () => {
+    setScreen("pane");
+    selectPane("p1");
+    setAgentChat(true);
+    let finishTrace!: () => void;
+    const ports: SessionEventPorts = {
+      ...eventPorts,
+      refreshAgentTrace: async () => {
+        calls.push("trace");
+        await new Promise<void>((resolve) => { finishTrace = resolve; });
+      },
+    };
+    const poke = { type: "poke", paneId: "p1", reason: "agent_status" } as const;
+    observeSessionEvent(pool, "A", session, poke, ports);
+    observeSessionEvent(pool, "A", session, poke, ports);
+    expect(calls.filter((c) => c === "trace")).toEqual(["trace"]);
+    finishTrace();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The poke that arrived mid-read is served by one follow-up read.
+    expect(calls.filter((c) => c === "trace")).toEqual(["trace", "trace"]);
+    finishTrace();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls.filter((c) => c === "trace")).toHaveLength(2);
+  });
+
+  test("an agent-status poke does not read the trace for a full terminal or another pane", () => {
+    setScreen("pane");
+    selectPane("p1");
+    setAgentChat(false);
+    observeSessionEvent(pool, "A", session, { type: "poke", paneId: "p1", reason: "agent_status" }, eventPorts);
+    setAgentChat(true);
+    observeSessionEvent(pool, "A", session, { type: "poke", paneId: "p2", reason: "agent_status" }, eventPorts);
+    expect(calls).not.toContain("trace");
   });
 
   test("poke routing and inactive-terminal ownership stay per-session", () => {

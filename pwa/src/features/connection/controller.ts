@@ -238,6 +238,7 @@ const sessionEventPorts = {
   retireAgentTraceReads: retireAgentTraceRefreshes,
   refreshRuntime: () => recoverVisibleSession(),
   refreshSnapshot: () => refreshSnapshot(),
+  refreshAgentTrace: () => refreshAgentTrace(),
   wakePane: () => livePolling.wakePane(),
   preloadFullTerminal: preloadFullTerminalXterm,
   handleGuidedEvent: (event: SessionEvent) => guidedScrollController.handleEvent(event),
