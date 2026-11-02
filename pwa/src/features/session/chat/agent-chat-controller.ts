@@ -166,7 +166,7 @@ function applyTracePage(page: AgentTracePage, older: OlderRequest | null): boole
   if (sig === current.agentTraceSig) {
     const changed = current.agentTraceItems.length === current.agentTraceTail && current.agentTraceNext !== page.nextCursor;
     if (current.agentTraceItems.length === current.agentTraceTail) applyTrace({ agentTraceNext: page.nextCursor });
-    applyTrace({ agentTraceHasEarlier: hasEarlier });
+    if (current.agentTraceHasEarlier !== hasEarlier) applyTrace({ agentTraceHasEarlier: hasEarlier });
     absorbPending(page.items);
     return changed;
   }
@@ -439,9 +439,9 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
   return lane.promise;
 }
 
-/** `session_index` rides only for an older session, and only when the daemon advertises the chain. */
+/** `session_index` rides only for an older session; `olderRequestOf` already applied the capability gate. */
 function sessionIndexArg(target: OlderRequest): [number] | [] {
-  return target.sessionIndex > 0 && capabilityEnabled("agent_trace_sessions") ? [target.sessionIndex] : [];
+  return target.sessionIndex > 0 ? [target.sessionIndex] : [];
 }
 
 async function performAgentTraceRefresh(older = false): Promise<boolean> {

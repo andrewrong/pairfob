@@ -41,3 +41,15 @@ test("anchors of an older segment carry its session index; the current session's
   expect(all.some(key => key.startsWith("s2|"))).toBeTrue();
   expect(appRoot().querySelectorAll("[role=separator]")).toHaveLength(2);
 });
+
+test("a process card's detail key is unprefixed in the current session and toggling one session's card leaves the other", () => {
+  act(() => renderReact(<AgentStream items={conversation} earlier={[{ index: 1, items: conversation }]} working={false} empty={empty} />));
+  const keys = [...appRoot().querySelectorAll<HTMLDetailsElement>("details.agent-process")].map(node => node.dataset.key);
+  expect(keys).toEqual(["p:s1|u:1:q:s:thinking:::0", "p:u:1:q:s:thinking:::0"]);
+  const [older, current] = [...appRoot().querySelectorAll<HTMLDetailsElement>("details.agent-process")];
+  act(() => { older.open = true; });
+  const after = [...appRoot().querySelectorAll<HTMLDetailsElement>("details.agent-process")];
+  expect(after[0].dataset.user).toBe("open");
+  expect(after[1].dataset.user).toBeUndefined();
+  expect(current.open).toBeFalse();
+});
