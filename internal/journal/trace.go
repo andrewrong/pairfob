@@ -385,6 +385,9 @@ func parseClaudeTrace(line []byte) []parsedEvent {
 	}
 	var text string
 	if json.Unmarshal(item.Message.Content, &text) == nil {
+		if item.Type == "user" {
+			text = stripPastedContentTags(text)
+		}
 		if text == "" || (item.Type == "user" && claudeInjectedText(text)) {
 			return nil
 		}
@@ -409,10 +412,13 @@ func parseClaudeTrace(line []byte) []parsedEvent {
 		case block.Type == "thinking" && block.Thinking != "":
 			out = append(out, parsedEvent{Event: Event{Type: "thinking", Text: block.Thinking}})
 		case block.Type == "text" && block.Text != "":
-			if item.Type == "user" && claudeInjectedText(block.Text) {
-				continue
+			blockText := block.Text
+			if item.Type == "user" {
+				if blockText = stripPastedContentTags(blockText); blockText == "" || claudeInjectedText(blockText) {
+					continue
+				}
 			}
-			out = append(out, parsedEvent{Event: Event{Type: item.Type, Text: block.Text}})
+			out = append(out, parsedEvent{Event: Event{Type: item.Type, Text: blockText}})
 		case item.Type == "assistant" && block.Type == "tool_use" && toolName.MatchString(block.Name):
 			out = append(out, parsedEvent{
 				Event: Event{Type: "tool", Name: block.Name, Input: compactJSON(block.Input)},
