@@ -231,3 +231,64 @@ func TestClaudeAssistantTextKeepsPastedContentTag(t *testing.T) {
 		t.Fatalf("messages=%+v", got)
 	}
 }
+
+func traceUsers(t *testing.T, entries ...map[string]any) []Event {
+	t.Helper()
+	root := t.TempDir()
+	writeLines(t, claudeTestPath(root), anyEntries(entries)...)
+	page, err := (&Reader{ClaudeRoot: root}).ReadTrace(claudeTestRef(), nil, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return page.Items
+}
+
+func TestClaudeTracePairsQueuedPromptWithPastedContentEntry(t *testing.T) {
+	items := traceUsers(t,
+		queuedEntry("a\nb", "human", true, "2026-01-01T00:00:00Z"),
+		userEntry(pastedBlock, map[string]any{"timestamp": "2026-01-01T00:00:20Z"}),
+	)
+	if len(items) != 1 || items[0].Type != "user" || items[0].Text != "a\nb" {
+		t.Fatalf("items=%+v", items)
+	}
+}
+
+func TestClaudeTraceKeepsReplyBetweenPairedPrompts(t *testing.T) {
+	items := traceUsers(t,
+		queuedEntry("a\nb", "human", true, "2026-01-01T00:00:00Z"),
+		assistantEntry("reply"),
+		userEntry(pastedBlock, map[string]any{"timestamp": "2026-01-01T00:00:20Z"}),
+	)
+	if len(items) != 2 || items[0].Type != "user" || items[1].Text != "reply" {
+		t.Fatalf("items=%+v", items)
+	}
+}
+
+func TestClaudeTraceKeepsTextsMoreThanAMinuteApart(t *testing.T) {
+	items := traceUsers(t,
+		queuedEntry("a\nb", "human", true, "2026-01-01T00:00:00Z"),
+		userEntry(pastedBlock, map[string]any{"timestamp": "2026-01-01T00:02:00Z"}),
+	)
+	if len(items) != 2 {
+		t.Fatalf("items=%+v", items)
+	}
+}
+
+func TestClaudeTraceSummaryPairsAcrossLaterRead(t *testing.T) {
+	root := t.TempDir()
+	path := claudeTestPath(root)
+	reader := &Reader{ClaudeRoot: root}
+	writeLines(t, path, queuedEntry("a\nb", "human", true, "2026-01-01T00:00:00Z"))
+	first, err := reader.ReadTraceSummary(claudeTestRef(), nil, 20)
+	if err != nil || len(first.Items) != 1 {
+		t.Fatalf("first=%+v err=%v", first, err)
+	}
+	writeLines(t, path,
+		queuedEntry("a\nb", "human", true, "2026-01-01T00:00:00Z"),
+		userEntry(pastedBlock, map[string]any{"timestamp": "2026-01-01T00:00:20Z"}),
+	)
+	second, err := reader.ReadTraceSummary(claudeTestRef(), nil, 20)
+	if err != nil || len(second.Items) != 1 || second.Items[0].Text != "a\nb" {
+		t.Fatalf("second=%+v err=%v", second, err)
+	}
+}
