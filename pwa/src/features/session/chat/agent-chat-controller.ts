@@ -439,9 +439,12 @@ export async function refreshAgentTrace(older = false): Promise<boolean> {
   return lane.promise;
 }
 
-/** `session_index` rides only for an older session; `olderRequestOf` already applied the capability gate. */
+/**
+ * With the chain capability every read names its session (0 = current), because
+ * the daemon reports `has_earlier_session` only when `session_index` is sent.
+ */
 function sessionIndexArg(target: OlderRequest): [number] | [] {
-  return target.sessionIndex > 0 ? [target.sessionIndex] : [];
+  return capabilityEnabled("agent_trace_sessions") ? [target.sessionIndex] : [];
 }
 
 async function performAgentTraceRefresh(older = false): Promise<boolean> {

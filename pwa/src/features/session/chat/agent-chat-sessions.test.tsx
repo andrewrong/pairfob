@@ -95,7 +95,7 @@ afterEach(() => {
   setScreen("home");
 });
 
-test("without the capability no request carries session_index; with it the current session still carries none", async () => {
+test("without the capability no request carries session_index; with it every current-session request carries session_index 0", async () => {
   pages["0|null"] = page([ask("a"), reply("b")], null, true);
   enableSessions(false);
   serve();
@@ -105,7 +105,7 @@ test("without the capability no request carries session_index; with it the curre
   enableSessions(true);
   serve();
   await refresh();
-  expect(calls).toEqual([{ cursor: null, sessionIndex: undefined }]);
+  expect(calls).toEqual([{ cursor: null, sessionIndex: 0 }]);
 });
 
 test("at the top of a session the older request goes to the next session index, paging keeps its index", async () => {
@@ -119,7 +119,7 @@ test("at the top of a session the older request goes to the next session index, 
   await refresh(true);
   await refresh(true);
   expect(calls).toEqual([
-    { cursor: null, sessionIndex: undefined },
+    { cursor: null, sessionIndex: 0 },
     { cursor: null, sessionIndex: 1 },
     { cursor: "c1", sessionIndex: 1 },
     { cursor: null, sessionIndex: 2 },
