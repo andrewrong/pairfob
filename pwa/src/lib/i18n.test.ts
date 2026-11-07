@@ -9,12 +9,9 @@ import { zh } from "./i18n-zh";
 beforeEach(installTestDOM);
 
 afterEach(() => {
+  // Clears the stored choice and the cookie, so later suites start unset.
+  setLangPref("auto");
   setLang("zh");
-  try {
-    localStorage.removeItem("pairfob_lang");
-  } catch {
-    /* happy-dom may not have storage */
-  }
 });
 
 describe("i18n catalogs", () => {
@@ -104,4 +101,9 @@ test("singular alternatives preserve every interpolation slot", () => {
   for (const [key, value] of Object.entries(enSingular)) {
     expect(slots(value!)).toEqual(slots(en[key as keyof typeof en]));
   }
+});
+
+test("a stored choice does not outlive its test", () => {
+  expect(langPref()).toBe("auto");
+  expect(document.cookie).not.toContain("pairfob_lang=en");
 });
