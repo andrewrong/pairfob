@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	segmentRe = regexp.MustCompile(`(?:/Us` + `ers|/ho` + `me|/Vol` + `umes)/([^/\s"'` + "`" + `]+)/`)
+	segmentRe = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.-])(?:/Us` + `ers|/ho` + `me|/Vol` + `umes)/([^/\s"'` + "`" + `]+)`)
 	emailRe   = regexp.MustCompile(`(?i)[a-z0-9._%+-]+@(?:gmail\.com|googlemail\.com|126\.com|163\.com|qq\.com|foxmail\.com|outlook\.com|hotmail\.com|live\.com|icloud\.com|me\.com|yahoo\.com|sina\.com|aliyun\.com)\b`)
 	tailnetRe = regexp.MustCompile(`(?i)((?:[a-z0-9-]+\.)+)ts\.net\b`)
 )
@@ -37,7 +37,7 @@ var (
 func privacyKinds(line string, allowedSegments map[string]bool) []string {
 	var kinds []string
 	for _, m := range segmentRe.FindAllStringSubmatch(line, -1) {
-		if !allowedSegments[m[1]] {
+		if !allowedSegments[strings.TrimRight(m[1], ":;,.)")] {
 			kinds = append(kinds, kindPath)
 			break
 		}
@@ -150,5 +150,14 @@ func TestNoPrivateDataInTrackedFiles(t *testing.T) {
 	sort.Strings(findings)
 	if len(findings) > 0 {
 		t.Errorf("private data in tracked files:\n%s", strings.Join(findings, "\n"))
+	}
+}
+
+func TestPrivacyPathWithoutTrailingSlash(t *testing.T) {
+	t.Parallel()
+	for _, line := range []string{"HOME=/Us" + "ers/alice", "cd /ho" + "me/bob && ls", "\"/Vol" + "umes/data\""} {
+		if got := privacyKinds(line, map[string]bool{"me": true}); len(got) == 0 {
+			t.Errorf("case %q: got no finding, want path", line)
+		}
 	}
 }
