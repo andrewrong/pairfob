@@ -1,9 +1,12 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import "../../test-support/boot-dom";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { installTestDOM } from "../../test-support/boot-dom";
 import { copy, resolveCopy, copyKeys, detectLang, lang, langPref, setLang, setLangPref, t } from "./i18n";
 import { enSingular } from "./i18n-en-plurals";
 import { en } from "./i18n-en";
 import { zh } from "./i18n-zh";
+
+// Another suite may have replaced the browser globals; storage is read through them.
+beforeEach(installTestDOM);
 
 afterEach(() => {
   setLang("zh");
