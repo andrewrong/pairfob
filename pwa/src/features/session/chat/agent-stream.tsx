@@ -1,4 +1,5 @@
 import { Copy } from "lucide-react";
+import { createPortal } from "react-dom";
 import { Fragment, memo, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { renderMarkdown } from "../../../lib/agent-markdown";
 import { groupAgentTurns, groupAgentTurnBlocks, processTitle, replyText, turnKey,
@@ -22,28 +23,43 @@ function anchorData(anchor: TraceAnchor, part: string) {
   };
 }
 
-const PRE_BLOCK = /(<pre(?:\s[^>]*)?>[\s\S]*?<\/pre>)/i;
-
-function CodeBlock({ html, onCopy }: { html: string; onCopy?: CopyReply }) {
-  const box = useRef<HTMLDivElement | null>(null);
-  const copy = () => {
-    const code = (box.current?.querySelector("pre")?.textContent ?? "").replace(/\n$/, "");
-    if (code) void onCopy?.(code);
-  };
-  return <div ref={box} className="agent-code">
-    <div className="agent-md-html" dangerouslySetInnerHTML={{ __html: html }} />
-    {onCopy && <button type="button" className="agent-code-copy" aria-label={t("chat.copyCodeAria")} onClick={copy}><Copy size={16} aria-hidden="true" /></button>}
-  </div>;
+/** Text of a code block without the copy slot that this view appended to it. */
+function codeText(pre: HTMLElement): string {
+  const clone = pre.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll(".agent-code-slot").forEach(node => node.remove());
+  return (clone.textContent ?? "").replace(/\n$/, "");
 }
 
-/** Sanitized html split at <pre> boundaries: each block gets a button React owns, so a live reply's html rewrite cannot wipe it. */
+/**
+ * The sanitized html stays one innerHTML (set in a layout effect), so lists and quotes around a code block keep their structure.
+ * Each <pre> gets a slot element appended after every change of the html; the button is a React portal into it.
+ */
 function ReplyBody({ text, onCopy }: { text: string; onCopy?: CopyReply }) {
-  const parts = renderMarkdown(text).split(PRE_BLOCK);
-  return <div className="agent-md">
-    {parts.map((html, index) => index % 2
-      ? <CodeBlock key={index} html={html} onCopy={onCopy} />
-      : html && <div key={index} className="agent-md-html" dangerouslySetInnerHTML={{ __html: html }} />)}
-  </div>;
+  const html = useMemo(() => renderMarkdown(text), [text]);
+  const root = useRef<HTMLDivElement | null>(null);
+  const [slots, setSlots] = useState<HTMLElement[]>([]);
+  useLayoutEffect(() => {
+    const node = root.current;
+    if (!node) return;
+    // Written here, not by React: a re-render for the slots must not reset the html and wipe them.
+    node.innerHTML = html;
+    const found = [...node.querySelectorAll("pre")].map(pre => {
+      const slot = document.createElement("span");
+      slot.className = "agent-code-slot";
+      pre.prepend(slot);
+      return slot;
+    });
+    setSlots(found);
+  }, [html]);
+  return <>
+    <div ref={root} className="agent-md" />
+    {onCopy && slots.map((slot, index) => createPortal(
+      <button type="button" className="agent-code-copy" aria-label={t("chat.copyCodeAria")} onClick={() => {
+        const pre = slot.parentElement;
+        const code = pre ? codeText(pre) : "";
+        if (code) void onCopy(code);
+      }}><Copy size={16} aria-hidden="true" /></button>, slot, String(index)))}
+  </>;
 }
 
 function AssistantReply({ items, final, live, anchor, part, onCopy }: {

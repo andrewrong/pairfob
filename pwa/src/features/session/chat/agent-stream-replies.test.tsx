@@ -87,3 +87,14 @@ test("each of two code blocks copies only its own text", () => {
   act(() => codeButtons()[0].click());
   expect(copied).toEqual(["two", "one"]);
 });
+
+test("a code block inside a list item stays inside that item and the list stays whole", () => {
+  const copied: string[] = [];
+  renderCopy("1. run:\n\n   ```\n   echo hi\n   ```\n\n2. then wait", false, copied);
+  expect(appRoot().querySelector("li pre")).not.toBeNull();
+  expect(appRoot().querySelectorAll("ol")).toHaveLength(1);
+  expect(appRoot().querySelectorAll("ol > li")).toHaveLength(2);
+  expect(codeButtons()).toHaveLength(1);
+  act(() => codeButtons()[0].click());
+  expect(copied).toEqual(["echo hi"]);
+});

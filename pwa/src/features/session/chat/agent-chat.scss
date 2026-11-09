@@ -195,21 +195,21 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.agent-md-html { display: contents; }
-
-.agent-code { position: relative; }
+.agent-code-slot {
+  position: sticky;
+  right: 0;
+  float: right;
+  margin: -6px -8px 0 6px;
+}
 
 .agent-code-copy {
-  position: absolute;
-  top: calc(0.65em + 4px);
-  right: 4px;
   min-width: 44px;
   min-height: 44px;
   display: grid;
   place-items: center;
   border: 0;
   border-radius: var(--r-sm);
-  background: transparent;
+  background: var(--term-bg);
   color: var(--muted);
   cursor: pointer;
 }
