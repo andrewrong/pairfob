@@ -1,3 +1,5 @@
+import { Copy } from "lucide-react";
+import { createPortal } from "react-dom";
 import { Fragment, memo, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { renderMarkdown } from "../../../lib/agent-markdown";
 import { groupAgentTurns, groupAgentTurnBlocks, processTitle, replyText, turnKey,
@@ -21,13 +23,52 @@ function anchorData(anchor: TraceAnchor, part: string) {
   };
 }
 
+/** Text of a code block without the copy slot that this view appended to it. */
+function codeText(pre: HTMLElement): string {
+  const clone = pre.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll(".agent-code-slot").forEach(node => node.remove());
+  return (clone.textContent ?? "").replace(/\n$/, "");
+}
+
+/**
+ * The sanitized html stays one innerHTML (set in a layout effect), so lists and quotes around a code block keep their structure.
+ * Each <pre> gets a slot element appended after every change of the html; the button is a React portal into it.
+ */
+function ReplyBody({ text, onCopy }: { text: string; onCopy?: CopyReply }) {
+  const html = useMemo(() => renderMarkdown(text), [text]);
+  const root = useRef<HTMLDivElement | null>(null);
+  const [slots, setSlots] = useState<HTMLElement[]>([]);
+  useLayoutEffect(() => {
+    const node = root.current;
+    if (!node) return;
+    // Written here, not by React: a re-render for the slots must not reset the html and wipe them.
+    node.innerHTML = html;
+    const found = [...node.querySelectorAll("pre")].map(pre => {
+      const slot = document.createElement("span");
+      slot.className = "agent-code-slot";
+      pre.prepend(slot);
+      return slot;
+    });
+    setSlots(found);
+  }, [html]);
+  return <>
+    <div ref={root} className="agent-md" />
+    {onCopy && slots.map((slot, index) => createPortal(
+      <button type="button" className="agent-code-copy" aria-label={t("chat.copyCodeAria")} onClick={() => {
+        const pre = slot.parentElement;
+        const code = pre ? codeText(pre) : "";
+        if (code) void onCopy(code);
+      }}><Copy size={16} aria-hidden="true" /></button>, slot, String(index)))}
+  </>;
+}
+
 function AssistantReply({ items, final, live, anchor, part, onCopy }: {
   items: AgentTraceItem[]; final: boolean; live: boolean; anchor: TraceAnchor; part: string; onCopy?: CopyReply;
 }) {
   const text = replyText(items);
   return <article {...anchorData(anchor, part)} className={`agent-assistant${final ? " agent-assistant-final" : " agent-assistant-intermediate"}`}>
     {/* The existing Markdown parser returns sanitized allowlisted HTML. */}
-    <div className="agent-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />
+    <ReplyBody text={text} onCopy={onCopy} />
     {final && !live && onCopy && text && <div className="agent-reply-actions">
       <Button className="agent-reply-copy" aria-label={t("chat.copyReplyAria")} onClick={() => void onCopy(text)}>{t("chat.copyReply")}</Button>
     </div>}

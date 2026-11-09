@@ -195,6 +195,28 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.agent-code-slot {
+  position: sticky;
+  right: 0;
+  float: right;
+  margin: -6px -8px 0 6px;
+}
+
+.agent-code-copy {
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--term-bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.agent-code-copy:focus-visible,
+.agent-code-copy:active { color: var(--ink); }
+
 .agent-md pre code {
   background: none;
   padding: 0;
