@@ -36,12 +36,13 @@ const applicationModules = [
 const layers: LayerPolicy[] = [
   {
     // Pure primitives plus the modal/action-sheet lifetime. `lib/i18n` and its
-    // copy tables are the only application modules it may read: leaves that
-    // import nothing but each other, with no state, paint or DOM root.
+    // copy tables, and `lib/clipboard-copy`, are the only application modules it
+    // may read: leaves that import nothing but each other, with no state, paint
+    // or DOM root.
     name: "shared",
     root: "shared",
     allowedRoots: ["shared/"],
-    allowedModules: ["lib/i18n", "lib/i18n-en", "lib/i18n-zh", "lib/i18n-en-plurals",
+    allowedModules: ["lib/clipboard-copy", "lib/i18n", "lib/i18n-en", "lib/i18n-zh", "lib/i18n-en-plurals",
       "lib/i18n-en-workspace", "lib/i18n-zh-workspace", "lib/i18n-en-shell", "lib/i18n-zh-shell", "lib/i18n-en-agent-info", "lib/i18n-zh-agent-info", "lib/i18n-board-menu", "lib/i18n-dialogs",
       "lib/i18n-compose-v2", "lib/i18n-keypad-v2", "lib/i18n-chrome-v2", "lib/i18n-pane-menu-v2", "lib/i18n-rowbar-v2",
       "lib/i18n-settings-v3"],
