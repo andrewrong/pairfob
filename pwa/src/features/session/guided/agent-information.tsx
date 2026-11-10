@@ -11,6 +11,7 @@ import type { AgentCard } from "../../../lib/ranking";
 import type { LiveSession } from "../../../lib/protocol/session-types";
 import { AgentAvatar, Button, Spinner } from "../../../shared/ui/primitives";
 import { PanePage } from "./pane-page";
+import { copyText } from "../../../lib/clipboard-copy";
 
 /** Values an agent reported, as small key/value chips; text only, never markup. */
 function Tokens({ title, values }: { title: string; values?: Readonly<Record<string, string>> }) {
@@ -48,7 +49,7 @@ export function AgentInformation({ agent, session }: { agent: AgentCard; session
     } catch { setState("failed"); }
   };
   const copy = async (path: string) => {
-    try { await navigator.clipboard.writeText(path); setCopied(true); } catch { setCopied(false); }
+    setCopied(await copyText(path));
   };
   if (stale || !value) return <PanePage tall className="agent-information"><p role="status">{t("agentInfo.stale")}</p></PanePage>;
   const stateLabel = value.stateLabels?.[value.status];

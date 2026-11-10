@@ -14,6 +14,7 @@ import { fileNameProblem, gitMarks, layersFor } from "./git-marks";
 import { notifyWorkspaceApp } from "./navigation";
 import { getWorkspaceSnapshot, invalidateWorkspaceFiles, setWorkspaceError, workspacePaneCwd } from "./store";
 import "./workspace-file-actions.scss";
+import { copyText } from "../../lib/clipboard-copy";
 
 /** The file a rename/delete is in flight for, so its row can show busy. */
 let mutationTarget = "";
@@ -38,12 +39,8 @@ function nameProblemText(value: string): string | null {
 export async function copyWorkspacePath(path: string): Promise<void> {
   const root = getWorkspaceSnapshot().descriptor?.root;
   const text = root ? `${root.replace(/\/+$/, "")}/${path}` : path;
-  try {
-    await navigator.clipboard.writeText(text);
-    showStatus(t("workspace.copied"));
-  } catch {
-    showError(t("workspace.copyFailed", { path: text }));
-  }
+  if (await copyText(text)) showStatus(t("workspace.copied"));
+  else showError(t("workspace.copyFailed", { path: text }));
 }
 
 /** Open the file's diff in the layer the list marks (worktree first). */

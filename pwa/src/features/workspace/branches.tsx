@@ -10,6 +10,7 @@ import { capabilityEnabled } from "../operations/capabilities-store";
 import { WorkspaceDialog } from "./modal";
 import { getWorkspaceSnapshot } from "./store";
 import type { WorkspaceSnapshot } from "./model";
+import { copyText } from "../../lib/clipboard-copy";
 
 function BranchRow({ branch }: { branch: GitBranch }) {
   return <div className={`workspace-branch-row${branch.current ? " current" : ""}`}>
@@ -29,12 +30,8 @@ function Section({ title, aside, children }: { title: string; aside?: string; ch
 }
 
 async function copyRoot(root: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(root);
-    showStatus(t("workspace.copied"));
-  } catch {
-    showError(t("workspace.copyFailed", { path: root }));
-  }
+  if (await copyText(root)) showStatus(t("workspace.copied"));
+  else showError(t("workspace.copyFailed", { path: root }));
 }
 
 /**

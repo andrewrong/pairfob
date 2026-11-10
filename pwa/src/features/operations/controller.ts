@@ -61,6 +61,7 @@ import { resetPaneView } from "../session/session-store";
 import { openWorktreeTargetError } from "./operation-form-model";
 import { disposeFullTerminal, leaveFullTerminalWithTransition } from "../session/full-terminal/full-terminal";
 import { dropQueuedKeys } from "../../features/session/guided/keys";
+import { copyText } from "../../lib/clipboard-copy";
 import {
   operationOwner as ownedOperation,
   ownsComputer as ownerOwnsComputer,
@@ -732,11 +733,7 @@ export async function copyScreenText(): Promise<void> {
   const text = parseAnsi(sessionStore.get().paneText)
     .map((line) => line.text)
     .join("\n");
-  try {
-    await navigator.clipboard.writeText(text);
-    showStatus(t("live.copied"));
-  } catch {
-    showError(t("err.copyDenied"));
-  }
+  if (await copyText(text)) showStatus(t("live.copied"));
+  else showError(t("err.copyDenied"));
   commitView();
 }
