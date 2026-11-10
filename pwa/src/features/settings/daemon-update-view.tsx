@@ -17,6 +17,7 @@ import { t } from "../../lib/i18n";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
 import { Button, SetNavItem, Spinner } from "../../shared/ui/primitives";
 import { openSettingsSection } from "./actions";
+import { copyText } from "../../lib/clipboard-copy";
 
 function laterDismissed(key: string): boolean {
   try {
@@ -58,14 +59,9 @@ function UpdateCommand() {
       <Button
         className="set-action command-copy"
         onClick={() => {
-          void navigator.clipboard
-            .writeText("pairfob update")
-            .then(() => {
-              setCopy("copied");
-            })
-            .catch(() => {
-              setCopy("failed");
-            });
+          void copyText("pairfob update").then((ok) => {
+            setCopy(ok ? "copied" : "failed");
+          });
         }}
       >{label}</Button>
     </div>

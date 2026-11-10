@@ -5,6 +5,7 @@ import { Button } from "../../../shared/ui/primitives";
 import type { HerdActions } from "../actions";
 import type { HerdEmptyAction, HerdEmptyView } from "../model/herd-view";
 import { HerdSkeleton } from "./herd-skeleton";
+import { copyText } from "../../../lib/clipboard-copy";
 
 /**
  * Why the list is empty, said once and anchored under the header.
@@ -83,8 +84,7 @@ export function CommandLine({ command, label }: { command: string; label?: strin
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const copy = () => {
     // Called inside the tap: some browsers only allow clipboard writes there.
-    const write = navigator.clipboard?.writeText(command) ?? Promise.reject(new Error("no clipboard"));
-    void write.then(() => setState("copied"), () => setState("failed"));
+    void copyText(command).then((ok) => setState(ok ? "copied" : "failed"));
     window.setTimeout(() => setState("idle"), 1600);
   };
   return (

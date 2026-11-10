@@ -24,6 +24,7 @@ import { MenuGroup, MenuRow, MenuTile, MenuTiles } from "../../../shared/ui/over
 import { useSheetNav, type SheetNav } from "../../../shared/ui/overlay/sheet-stack";
 import { AgentAvatar, Button } from "../../../shared/ui/primitives";
 import { PanePage } from "./pane-page";
+import { copyText } from "../../../lib/clipboard-copy";
 
 export function fillSelectedPane(): void { void layoutSelectedPane("zoom"); }
 
@@ -36,12 +37,7 @@ async function copyScreenLines(paneId: string): Promise<number | null> {
   const lines = full ? text.split("\n") : parseAnsi(text).map((line) => line.text);
   while (lines.length && !lines.at(-1)!.trim()) lines.pop();
   if (!lines.length) return 0;
-  try {
-    await navigator.clipboard.writeText(lines.join("\n"));
-    return lines.length;
-  } catch {
-    return null;
-  }
+  return (await copyText(lines.join("\n"))) ? lines.length : null;
 }
 
 /** A row that opens a page, with its current value on the trailing side. */
@@ -62,7 +58,7 @@ function IdentityHead({ modal, agent, onCopied }: { modal: ActionSheetController
   const status = current.agent ? (stale ? t("status.unverifiable") : agentStatusLabel(current)) : "";
   const path = current.cwd;
   const copy = async () => {
-    try { await navigator.clipboard.writeText(path); onCopied(t("pm.pathCopied")); } catch { onCopied(t("err.copyDenied")); }
+    onCopied((await copyText(path)) ? t("pm.pathCopied") : t("err.copyDenied"));
   };
   return <div className="pane-head">
     <AgentAvatar kind={current.agent} size="lg" status={current.agent ? (stale ? "unknown" : current.status) : undefined} />

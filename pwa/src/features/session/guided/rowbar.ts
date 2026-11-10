@@ -7,6 +7,7 @@ import { rowPath, rowText } from "../../../lib/termrow";
 import { insertCompose } from "./compose";
 import { paneModel, type PaneModel } from "./pane-model";
 import { termElement } from "./term";
+import { copyText } from "../../../lib/clipboard-copy";
 
 /** Air between the picked row and the bubble. */
 const BUBBLE_GAP_PX = 6;
@@ -51,12 +52,8 @@ export function closeRow(): void {
 }
 
 export async function copyRow(text: string, done: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-    showStatus(done);
-  } catch {
-    showError(t("err.copyDenied"));
-  }
+  if (await copyText(text)) showStatus(done);
+  else showError(t("err.copyDenied"));
   setPaneRow(null);
   commitView();
 }
