@@ -5,28 +5,37 @@ export function copyText(text: string): Promise<boolean> {
   return clipboard.writeText(text).then(() => true, () => selectionCopy(text));
 }
 
-// Plain-http pages are not a secure context on iOS Safari; copy through a selected hidden textarea.
-// The textarea needs: readOnly + contentEditable, a Range selection (select() does nothing on iOS),
-// and fixed position at 16px so the page neither zooms nor scrolls.
+// Plain-http pages are not a secure context on iOS Safari; copy through a selected off-screen span.
+// A textarea fails there: its value has no text node to select and it is never focused. A contenteditable
+// span holding a real text node, selected by a Range inside the tap, is what execCommand("copy") reads.
+// white-space:pre keeps newlines; user-select:text defeats an ancestor with user-select:none.
 function selectionCopy(text: string): boolean {
-  const area = document.createElement("textarea");
-  area.value = text;
-  area.readOnly = true;
-  area.contentEditable = "true";
-  area.setAttribute("aria-hidden", "true");
-  area.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;";
-  document.body.appendChild(area);
+  const span = document.createElement("span");
+  span.textContent = text;
+  span.contentEditable = "true";
+  span.setAttribute("aria-hidden", "true");
+  span.style.cssText =
+    "position:fixed;top:0;left:0;opacity:0;font-size:16px;white-space:pre;user-select:text;-webkit-user-select:text;";
+  const onCopy = (event: Event): void => {
+    const data = (event as ClipboardEvent).clipboardData;
+    if (!data) return;
+    event.preventDefault();
+    data.setData("text/plain", text);
+  };
+  document.addEventListener("copy", onCopy, { once: true });
+  document.body.appendChild(span);
+  const selection = window.getSelection();
   try {
     const range = document.createRange();
-    range.selectNodeContents(area);
-    const selection = window.getSelection();
+    range.selectNodeContents(span);
     selection?.removeAllRanges();
     selection?.addRange(range);
-    area.setSelectionRange(0, text.length);
     return document.execCommand("copy") === true;
   } catch {
     return false;
   } finally {
-    area.remove();
+    document.removeEventListener("copy", onCopy);
+    selection?.removeAllRanges();
+    span.remove();
   }
 }
