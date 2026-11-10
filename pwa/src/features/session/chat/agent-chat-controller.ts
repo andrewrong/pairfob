@@ -28,6 +28,7 @@ import { paneTermMode, setPaneTermMode } from "../../settings/preferences-store"
 import { commitView } from "../../../app/host";
 import { appRoot } from "../../../app/dom-root";
 import { haptic } from "../../../lib/dom";
+import { copyText } from "../../../lib/clipboard-copy";
 import { canPromptAgent } from "../../../lib/dashboard";
 import { t } from "../../../lib/i18n";
 import { firstTurnNeedsUser, mergeAgentTraceSegments } from "../../../lib/agent-trace-view";
@@ -607,11 +608,10 @@ export function leaveAgentChat(opts?: { rememberGuided?: boolean; paint?: boolea
 }
 
 export async function copyAgentReply(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
+  if (await copyText(text)) {
     haptic(6);
     showStatus(t("chat.copiedReply"));
-  } catch {
+  } else {
     showError(t("err.copyDenied"));
   }
   publishAgentChatUI();
