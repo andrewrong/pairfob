@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -52,6 +51,9 @@ func prepareServiceLog(path string) error {
 	return os.Chmod(path, 0o600)
 }
 
+// redirectDaemonLog opens no file: the daemon log goes to stdout/stderr, and
+// the service manager's log (bounded by its host) holds it. It only checks that
+// a configured PAIRFOB_LOG_DIR is usable for audit.log.
 func redirectDaemonLog(stateDir string) error {
 	if stdoutIsTTY() {
 		return nil // An interactive foreground invocation keeps its terminal output.
@@ -60,19 +62,5 @@ func redirectDaemonLog(stateDir string) error {
 	if err != nil {
 		return err
 	}
-	if err := ensurePrivateLogDir(dir); err != nil {
-		return err
-	}
-	path := filepath.Join(dir, serviceLogRel)
-	if err := prepareServiceLog(path); err != nil {
-		return err
-	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
-	if err != nil {
-		return err
-	}
-	os.Stdout = f
-	os.Stderr = f
-	log.SetOutput(f)
-	return nil
+	return ensurePrivateLogDir(dir)
 }

@@ -27,7 +27,7 @@ pairfob list
 
 ## 配对了但连接不上
 
-查看 `pairfob list`。`never seen` 表示已配对但从未完成会话握手。在同一个浏览器配置里重新打开**这台电脑自己的** Tailscale 地址；新浏览器配置没有保存的凭证。再看 `pairfob doctor`，并在本机检查 `~/.config/pairfob/pairfob.log`。直连部署没有托管中继作为回退。
+查看 `pairfob list`。`never seen` 表示已配对但从未完成会话握手。在同一个浏览器配置里重新打开**这台电脑自己的** Tailscale 地址；新浏览器配置没有保存的凭证。再看 `pairfob doctor`，并在本机检查服务的 `pairfob.log`（守护进程日志写到 stdout/stderr）。直连部署没有托管中继作为回退。
 
 Herdr 不可用时在电脑启动它。CLI 不在服务 PATH 中时，在重新安装服务以及运行 `doctor` 前设置 `HERDR_BIN`。具体操作能否使用还取决于运行中的 Herdr 版本。
 
