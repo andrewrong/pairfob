@@ -33,8 +33,10 @@ was run. By default `~/.config/pairfob/` holds the daemon identity, device
 credentials, operation records, admin socket, `pairfob.log`, `audit.log`, and
 `pairfob-startup.log`. The startup log remains in the state directory so an
 invalid external log path does not hide service startup errors.
-Set the absolute `PAIRFOB_LOG_DIR` before `pairfob service install` to put both
-logs in a separate private directory. The state and paired-device keys remain
+Set the absolute `PAIRFOB_LOG_DIR` before `pairfob service install` to put
+`audit.log` in a separate private directory. The daemon log goes to
+stdout/stderr, so the service manager's `pairfob.log` holds it. `audit.log`
+rotates at 50 MB and keeps one older copy (`audit-<timestamp>.log`). The state and paired-device keys remain
 in the state directory. Keep both directories private.
 
 Restart with `pairfob service restart` and inspect `pairfob doctor` and the

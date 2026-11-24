@@ -63,6 +63,9 @@ func main() {
 	}
 }
 
+// onAuditOpen lets a test see the audit Logger runDaemon opened.
+var onAuditOpen func(*audit.Logger)
+
 func runDaemon(store *state.Store, sock string) error {
 	if err := validateHealthAddr(getenv("PAIRFOB_HEALTH_ADDR", "")); err != nil {
 		return err
@@ -95,6 +98,9 @@ func runDaemon(store *state.Store, sock string) error {
 		return fmt.Errorf("audit: %w", err)
 	}
 	defer logger.Close()
+	if onAuditOpen != nil {
+		onAuditOpen(logger)
+	}
 
 	devFake := getenv("PAIRFOB_DEV_FAKE_RUNTIME", "") == "1"
 	multiSession := getenv("PAIRFOB_MULTI_SESSION", "") == "1"

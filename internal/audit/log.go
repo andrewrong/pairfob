@@ -5,15 +5,30 @@ package audit
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
+
+	"gopkg.in/natefinch/lumberjack.v2"
+)
+
+// Rotation bounds audit.log: one live file of at most maxSizeMB plus one older
+// copy (audit-<timestamp>.log), so a daemon keeps at most about 100 MB of
+// audit records. Rotation drops the oldest records once a second rotation
+// replaces the older copy.
+const (
+	maxSizeMB  = 50
+	maxBackups = 1
 )
 
 type Logger struct {
 	mu sync.Mutex
-	f  *os.File
+	w  io.WriteCloser
 }
+
+// Writer returns the rotating writer the Logger appends to.
+func (l *Logger) Writer() io.WriteCloser { return l.w }
 
 func Open(path string) (*Logger, error) {
 	if info, err := os.Lstat(path); err == nil {
@@ -31,11 +46,14 @@ func Open(path string) (*Logger, error) {
 		_ = f.Close()
 		return nil, err
 	}
-	return &Logger{f: f}, nil
+	if err := f.Close(); err != nil {
+		return nil, err
+	}
+	return &Logger{w: &lumberjack.Logger{Filename: path, MaxSize: maxSizeMB, MaxBackups: maxBackups}}, nil
 }
 
 func (l *Logger) Event(op string, fields map[string]any) {
-	if l == nil || l.f == nil {
+	if l == nil || l.w == nil {
 		return
 	}
 	record := make(map[string]any, len(fields)+2)
@@ -50,15 +68,14 @@ func (l *Logger) Event(op string, fields map[string]any) {
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	_, _ = l.f.Write(append(b, '\n'))
-	_ = l.f.Sync()
+	_, _ = l.w.Write(append(b, '\n'))
 }
 
 func (l *Logger) Close() error {
-	if l == nil || l.f == nil {
+	if l == nil || l.w == nil {
 		return nil
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.f.Close()
+	return l.w.Close()
 }

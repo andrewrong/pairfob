@@ -1,37 +1,69 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"gopkg.in/natefinch/lumberjack.v2"
+
 	"pairfob/internal/audit"
+	"pairfob/internal/state"
 )
 
-func TestRedirectDaemonLogWritesToCustomDirectory(t *testing.T) {
-	if os.Getenv("PAIRFOB_TEST_LOG_REDIRECT") == "1" {
-		if err := redirectDaemonLog(t.TempDir()); err != nil {
-			t.Fatal(err)
-		}
-		fmt.Fprintln(os.Stdout, "stdout marker")
-		log.Print("logger marker")
-		return
-	}
+func TestRedirectDaemonLogOpensNoFile(t *testing.T) {
 	logDir := filepath.Join(t.TempDir(), "logs")
-	cmd := exec.Command(os.Args[0], "-test.run=^TestRedirectDaemonLogWritesToCustomDirectory$")
-	cmd.Env = append(os.Environ(), "PAIRFOB_TEST_LOG_REDIRECT=1", "PAIRFOB_LOG_DIR="+logDir)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("redirected process: %v, output=%q", err, output)
-	} else if len(output) != 0 {
-		t.Fatalf("daemon output escaped the log file: %q", output)
+	t.Setenv("PAIRFOB_LOG_DIR", logDir)
+	stdout, stderr, out := os.Stdout, os.Stderr, log.Writer()
+	if err := redirectDaemonLog(t.TempDir()); err != nil {
+		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(logDir, "pairfob.log"))
-	if err != nil || !strings.Contains(string(data), "stdout marker") || !strings.Contains(string(data), "logger marker") {
-		t.Fatalf("custom service log = %q, err = %v", data, err)
+	if os.Stdout != stdout || os.Stderr != stderr || log.Writer() != out {
+		t.Fatal("redirectDaemonLog replaced stdout, stderr or the log output")
+	}
+	if _, err := os.Stat(filepath.Join(logDir, "pairfob.log")); !os.IsNotExist(err) {
+		t.Fatalf("pairfob.log created: %v", err)
+	}
+}
+
+// The start path as main enters it: redirectDaemonLog, then runDaemon, which
+// opens audit.log. The daemon stops at the invalid origin, after the audit open.
+func TestDaemonStartCreatesNoServiceLogAndRotatesAudit(t *testing.T) {
+	root, err := os.MkdirTemp("", "pf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	logDir := filepath.Join(root, "logs")
+	t.Setenv("PAIRFOB_STATE_DIR", filepath.Join(root, "state"))
+	t.Setenv("PAIRFOB_LOG_DIR", logDir)
+	t.Setenv("PAIRFOB_DEV_FAKE_RUNTIME", "1")
+	t.Setenv("PAIRFOB_ORIGIN", "http://127.0.0.1:1")
+	t.Setenv("PAIRFOB_LISTEN_ADDR", "127.0.0.1:0")
+	store, err := state.Open("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(store.AuditPath()) != "audit.log" {
+		t.Fatalf("AuditPath = %s", store.AuditPath())
+	}
+	if err := redirectDaemonLog(store.Dir); err != nil {
+		t.Fatal(err)
+	}
+	var opened *audit.Logger
+	onAuditOpen = func(l *audit.Logger) { opened = l }
+	t.Cleanup(func() { onAuditOpen = nil })
+	_ = runDaemon(store, filepath.Join(root, "s"))
+	if opened == nil {
+		t.Fatal("runDaemon never opened the audit log")
+	}
+	if _, ok := opened.Writer().(*lumberjack.Logger); !ok {
+		t.Fatalf("audit writer is %T, want *lumberjack.Logger", opened.Writer())
+	}
+	if _, err := os.Stat(filepath.Join(logDir, "pairfob.log")); !os.IsNotExist(err) {
+		t.Fatalf("pairfob.log created: %v", err)
 	}
 }
 
