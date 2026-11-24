@@ -1,5 +1,5 @@
 import { happy, resetBoardTestDOM } from "../../../../test-support/dom";
-import { afterAll, beforeEach, afterEach, describe, expect, test } from "bun:test";
+import { beforeEach, afterEach, describe, expect, test } from "bun:test";
 import { act, createElement, Fragment } from "react";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { ScalarPreferenceState } from "../../../../test-support/preferences-scalar-restore";
@@ -34,11 +34,16 @@ const g = globalThis as unknown as Record<string, unknown>;
 g.HTMLTextAreaElement = happy.HTMLTextAreaElement;
 g.TouchEvent = happy.TouchEvent;
 g.KeyboardEvent = happy.KeyboardEvent;
-const stubbedWindow = window;
-const originalGetSelection = stubbedWindow.getSelection;
-stubbedWindow.getSelection = () => ({ isCollapsed: true }) as Selection;
-// The shared Happy DOM window outlives this file: give its real selection back.
-afterAll(() => { stubbedWindow.getSelection = originalGetSelection; });
+// Cause of the CI-only failure: bun imports every test file before running
+// any, so `window` at import time is whichever Happy DOM window the files
+// imported before this one installed; resetBoardTestDOM() later binds the
+// shared `happy` window instead, so a stub set at import never reached the
+// window these tests run on. A tap then met the real, non-collapsed selection
+// an earlier file left behind and was dropped as "the reader is selecting".
+// The stub goes on the shared window before each test and comes off after it.
+const originalGetSelection = happy.getSelection;
+beforeEach(() => { happy.getSelection = () => ({ isCollapsed: true }) as Selection; });
+afterEach(() => { happy.getSelection = originalGetSelection; });
 
 // boot()/afterEach call the persisting preference setters (setTermWrap), so
 // capture canonical+raw pre-images before any of them runs and restore after
