@@ -3,12 +3,15 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act } from "react";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { CommandLine } from "./command-line";
+import { captureExecCommand } from "../../../../test-support/exec-command-restore";
 
 const labels = { copy: "Copy", copied: "Copied", failed: "Failed" };
 const navDesc = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+const restoreExecCommand = captureExecCommand();
 
 beforeEach(async () => { await resetBoardTestDOM(); });
 afterEach(() => {
+  restoreExecCommand();
   unmountReact();
   if (navDesc) Object.defineProperty(globalThis, "navigator", navDesc);
 });

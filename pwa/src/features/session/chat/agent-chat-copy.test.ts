@@ -2,9 +2,11 @@ import { happy, resetChatDOM } from "../../../../test-support/chat-dom";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { clearNotice, visibleNotice } from "../../../app/notices-store";
 import { setLang, t } from "../../../lib/i18n";
+import { captureExecCommand } from "../../../../test-support/exec-command-restore";
 import { copyAgentReply } from "./agent-chat-controller";
 
 const navDesc = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+const restoreExecCommand = captureExecCommand();
 
 beforeEach(async () => {
   await resetChatDOM();
@@ -13,6 +15,7 @@ beforeEach(async () => {
   Object.defineProperty(globalThis, "navigator", { value: {}, configurable: true, writable: true });
 });
 afterEach(() => {
+  restoreExecCommand();
   clearNotice();
   if (navDesc) Object.defineProperty(globalThis, "navigator", navDesc);
 });
