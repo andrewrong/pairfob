@@ -1,17 +1,12 @@
 import { happy, resetChatDOM } from "../../test-support/chat-dom";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { copyText } from "./clipboard-copy";
+import { captureExecCommand } from "../../test-support/exec-command-restore";
 
 type Doc = { execCommand?: unknown };
 const doc = () => happy.document as unknown as Doc;
 const navDesc = Object.getOwnPropertyDescriptor(globalThis, "navigator");
-// Cause of the whole-suite failure: this file replaces document.execCommand on the shared Happy DOM
-// document and never gave it back, so a later file's failed clipboard write fell through to a selection copy that "succeeded".
-const execDesc = Object.getOwnPropertyDescriptor(happy.document, "execCommand");
-function restoreExecCommand(): void {
-  if (execDesc) Object.defineProperty(happy.document, "execCommand", execDesc);
-  else delete (happy.document as unknown as { execCommand?: unknown }).execCommand;
-}
+const restoreExecCommand = captureExecCommand();
 
 type Seen = {
   tag: string;

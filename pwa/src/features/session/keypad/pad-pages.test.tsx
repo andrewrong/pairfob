@@ -1,4 +1,3 @@
-import { setLang } from "../../../lib/i18n";
 import { applySnapshot } from "../../dashboard/catalog-store";
 import { selectPane } from "../session-store";
 import { act, createElement } from "react";
@@ -16,8 +15,6 @@ import { setComposeDraft, composeDraft, setComposeLive } from "../compose-store"
 
 beforeEach(async () => {
   await resetBoardTestDOM();
-  // Cause of the whole-suite failure: the assertions read Chinese labels, but an earlier file leaves the shared language on "en".
-  setLang("zh");
   applySnapshot({ panes: [{ pane_id: "shortcut-test", agent: "claude" }] });
   selectPane("shortcut-test");
   setKeysExpanded(true); setPadKind("keys"); setComposeLive(false);
