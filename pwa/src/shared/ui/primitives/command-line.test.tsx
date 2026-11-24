@@ -6,9 +6,17 @@ import { CommandLine } from "./command-line";
 
 const labels = { copy: "Copy", copied: "Copied", failed: "Failed" };
 const navDesc = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+// Cause of the whole-suite failure: this file replaces document.execCommand on the shared Happy DOM
+// document and never gave it back, so a later file's failed clipboard write fell through to a selection copy that "succeeded".
+const execDesc = Object.getOwnPropertyDescriptor(happy.document, "execCommand");
+function restoreExecCommand(): void {
+  if (execDesc) Object.defineProperty(happy.document, "execCommand", execDesc);
+  else delete (happy.document as unknown as { execCommand?: unknown }).execCommand;
+}
 
 beforeEach(async () => { await resetBoardTestDOM(); });
 afterEach(() => {
+  restoreExecCommand();
   unmountReact();
   if (navDesc) Object.defineProperty(globalThis, "navigator", navDesc);
 });
