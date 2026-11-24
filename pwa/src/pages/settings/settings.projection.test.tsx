@@ -40,6 +40,11 @@ beforeEach(async () => {
   globalThis.fetch = (async () => new Response("2.0.0")) as typeof fetch;
   registerSessionOwnerPreparer(registerSessionView);
   resetTransitionState();
+  // Cause of the CI-only failure: the file runs after board-subscriptions in
+  // the CI file order, which leaves the shared connection store offline; the
+  // status row then reads "offline" instead of the demo value. Start every
+  // test from an online store instead of inheriting the previous file's.
+  setNetworkOnline(true);
   setLang("en");
 });
 
